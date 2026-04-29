@@ -239,13 +239,202 @@ Todas as respostas seguem o formato:
 
 ---
 
-## Próximos Endpoints (Fase 1)
+---
 
-- `POST /api/pedidos` - Criar novo pedido
-- `GET /api/pedidos/:id` - Buscar pedido por ID
-- `POST /webhook/asaas` - Webhook de pagamento Asaas
+## Pedidos
+
+### Criar Pedido
+
+Cria um novo pedido com validação de bairro, cálculo automático de taxas e criação/atualização do cliente.
+
+**Endpoint:** `POST /api/pedidos`
+
+**Body:**
+```json
+{
+  "cliente": {
+    "telefone": "5562999887766",
+    "nome": "João Silva",
+    "endereco": "Rua das Flores, 123",
+    "bairro": "Setor Bueno"
+  },
+  "itens": [
+    {
+      "produtoId": "cmojjn1cq0005hldnrsyvnhpd",
+      "quantidade": 2,
+      "observacao": "Sem cebola"
+    }
+  ],
+  "observacao": "Entregar no portão principal"
+}
+```
+
+**Resposta de Sucesso (201):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "cmojkvik50002ip5e1c3dackp",
+    "clienteTelefone": "5562999887766",
+    "subtotal": "49.8",
+    "taxaEntrega": "6",
+    "total": "55.8",
+    "status": "PENDENTE",
+    "observacao": "Entregar no portão principal",
+    "criadoEm": "2026-04-29T04:51:46.227Z",
+    "itens": [
+      {
+        "id": "cmojkvik50004ip5e0iq8ksqs",
+        "produtoId": "cmojjn1cq0005hldnrsyvnhpd",
+        "quantidade": 2,
+        "precoUnit": "24.9",
+        "subtotal": "49.8",
+        "observacao": "Sem cebola",
+        "produto": {
+          "nome": "Marmita Executiva - Frango Grelhado",
+          "categoria": "Executiva"
+        }
+      }
+    ],
+    "cliente": {
+      "nome": "João Silva",
+      "telefone": "5562999887766",
+      "endereco": "Rua das Flores, 123",
+      "bairro": "Setor Bueno"
+    }
+  }
+}
+```
+
+**Resposta de Erro (400):**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "Bairro não atendido",
+    "code": "BAIRRO_NAO_ATENDIDO"
+  }
+}
+```
+
+**Lógica de Negócio:**
+1. Valida bairro e obtém taxa de entrega
+2. Valida disponibilidade de todos os produtos
+3. Calcula subtotal (soma dos itens)
+4. Calcula total (subtotal + taxa de entrega)
+5. Cria ou atualiza cliente automaticamente
+6. Cria pedido com status PENDENTE
+7. Retorna pedido completo com itens e cliente
+
+**Exemplo:**
+```bash
+curl -X POST http://localhost:3001/api/pedidos \
+  -H "Content-Type: application/json" \
+  -d '{
+    "cliente": {
+      "telefone": "5562999887766",
+      "nome": "João Silva",
+      "endereco": "Rua das Flores, 123",
+      "bairro": "Setor Bueno"
+    },
+    "itens": [
+      {
+        "produtoId": "cmojjn1cq0005hldnrsyvnhpd",
+        "quantidade": 2
+      }
+    ]
+  }'
+```
 
 ---
 
-**Versão da API:** 0.1.1  
+### Buscar Pedido por ID
+
+Busca um pedido específico com todos os detalhes.
+
+**Endpoint:** `GET /api/pedidos/:id`
+
+**Parâmetros:**
+- `id` (obrigatório) - ID do pedido
+
+**Resposta de Sucesso (200):**
+```json
+{
+  "success": true,
+  "data": {
+    "id": "cmojkvik50002ip5e1c3dackp",
+    "clienteTelefone": "5562999887766",
+    "subtotal": "49.8",
+    "taxaEntrega": "6",
+    "total": "55.8",
+    "status": "PENDENTE",
+    "itens": [...],
+    "cliente": {...}
+  }
+}
+```
+
+**Exemplo:**
+```bash
+curl http://localhost:3001/api/pedidos/cmojkvik50002ip5e1c3dackp
+```
+
+---
+
+### Listar Pedidos por Cliente
+
+Lista todos os pedidos de um cliente específico.
+
+**Endpoint:** `GET /api/pedidos/cliente/:telefone`
+
+**Parâmetros:**
+- `telefone` (obrigatório) - Telefone do cliente
+
+**Resposta de Sucesso (200):**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "cmojkvik50002ip5e1c3dackp",
+      "subtotal": "49.8",
+      "total": "55.8",
+      "status": "PENDENTE",
+      "criadoEm": "2026-04-29T04:51:46.227Z",
+      "itens": [...]
+    }
+  ]
+}
+```
+
+**Exemplo:**
+```bash
+curl http://localhost:3001/api/pedidos/cliente/5562999887766
+```
+
+---
+
+## Próximos Endpoints (Fase 1)
+
+- `POST /webhook/asaas` - Webhook de pagamento Asaas
+- `POST /api/whatsapp/notificar` - Enviar notificação via WhatsApp
+
+---
+
+## Códigos de Erro Atualizados
+
+| Code | Descrição |
+|------|-----------|
+| `PRODUTO_NAO_ENCONTRADO` | Produto não existe no banco |
+| `PRODUTO_INDISPONIVEL` | Produto existe mas está indisponível |
+| `BAIRRO_NAO_ATENDIDO` | Bairro não está na lista de atendimento |
+| `BAIRRO_OBRIGATORIO` | Nome do bairro não foi informado |
+| `PEDIDO_NAO_ENCONTRADO` | Pedido não existe no banco |
+| `VALIDACAO_ERRO` | Dados enviados são inválidos |
+| `NOT_FOUND` | Rota não existe |
+| `INTERNAL_SERVER_ERROR` | Erro não tratado no servidor |
+
+---
+
+**Versão da API:** 0.3.0  
 **Última atualização:** 29/04/2026

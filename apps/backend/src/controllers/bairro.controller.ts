@@ -7,7 +7,7 @@ export class BairroController {
    * GET /api/bairros
    * Lista todos os bairros ativos
    */
-  async listar(req: Request, res: Response) {
+  async listar(_req: Request, res: Response) {
     try {
       const bairros = await bairroService.listarBairrosAtivos();
 
