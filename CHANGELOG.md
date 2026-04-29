@@ -9,10 +9,33 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ### Em Desenvolvimento
 - Fase 1 - F01: Site de Pedidos
+  - API de Produtos (próximo)
   - Cardápio com feed vertical
   - Sistema de carrinho
   - Checkout e integração com Asaas
   - Notificação via WhatsApp
+
+---
+
+## [0.1.1] - 2026-04-29
+
+### Adicionado
+- Ambiente de desenvolvimento completo configurado
+- Container Docker PostgreSQL (sabor-express-db)
+- Migrações do Prisma executadas (schema inicial)
+- Seed do banco de dados (5 bairros e 5 produtos)
+- Documentação do ambiente (AMBIENTE_CONFIGURADO.md)
+- Arquivos .env configurados (backend e frontend)
+
+### Validado
+- Backend rodando em http://localhost:3001
+- Frontend rodando em http://localhost:3000
+- Health check da API funcionando
+- Banco de dados populado e acessível
+
+### Dependências
+- 552 pacotes instalados via pnpm
+- pnpm-lock.yaml adicionado ao repositório
 
 ---
 
