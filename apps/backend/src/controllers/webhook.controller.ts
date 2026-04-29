@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import asaasService from '../services/asaas.service';
 import pedidoService from '../services/pedido.service';
+import evolutionService from '../services/evolution.service';
 import { logger } from '../config/logger';
 
 export class WebhookController {
@@ -44,8 +45,13 @@ export class WebhookController {
 
           logger.info(`Pedido ${dadosPagamento.pedidoId} confirmado via webhook Asaas`);
 
-          // TODO: Enviar notificação WhatsApp para o dono
-          // await whatsappService.notificarNovoPedido(dadosPagamento.pedidoId);
+          // Buscar pedido completo para notificação
+          const pedidoCompleto = await pedidoService.buscarPedidoPorId(dadosPagamento.pedidoId);
+
+          if (pedidoCompleto) {
+            // Enviar notificação WhatsApp para o dono
+            await evolutionService.notificarNovoPedido(pedidoCompleto);
+          }
         }
       }
 
