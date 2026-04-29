@@ -9,10 +9,52 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ### Em Desenvolvimento
 - Fase 1 - F01: Site de Pedidos
-  - Cardápio com feed vertical (próximo)
-  - Sistema de carrinho
-  - Checkout e integração com Asaas
-  - Notificação via WhatsApp
+  - Webhook Asaas (próximo)
+  - Integração WhatsApp (notificação)
+  - Cardápio com feed vertical (frontend)
+  - Sistema de carrinho (frontend)
+
+---
+
+## [0.3.0] - 2026-04-29
+
+### Adicionado
+- **API de Pedidos** (funcionalidade crítica da Fase 1)
+  - POST /api/pedidos - Criar pedido completo
+  - GET /api/pedidos/:id - Buscar pedido por ID
+  - GET /api/pedidos/cliente/:telefone - Listar pedidos do cliente
+- **ClienteService** - Gestão automática de clientes
+  - Criar cliente automaticamente no primeiro pedido
+  - Atualizar dados do cliente em pedidos subsequentes
+  - Rastreamento de origem (SITE, WHATSAPP, etc)
+- **PedidoService** - Lógica completa de pedidos
+  - Validação de bairro e cálculo de taxa
+  - Validação de disponibilidade de produtos
+  - Cálculo automático de subtotal e total
+  - Transação garantindo consistência (pedido + itens)
+
+### Lógica de Negócio
+- Cliente identificado por telefone (chave única)
+- Pedido inicia com status PENDENTE
+- Cálculo: subtotal (soma itens) + taxa entrega = total
+- Validações antes de criar pedido:
+  - Bairro deve estar ativo
+  - Produtos devem estar disponíveis
+  - Quantidades devem ser positivas
+
+### Testado
+- Pedido criado com sucesso (HTTP 201)
+- Exemplo: 2x Frango Grelhado (R$ 24,90) = R$ 49,80
+- Taxa Setor Bueno: R$ 6,00
+- Total: R$ 55,80
+- Cliente criado automaticamente
+- Busca de pedido funcionando
+
+### Arquivos Criados
+- `cliente.service.ts` - Gestão de clientes
+- `pedido.service.ts` - Lógica de pedidos
+- `pedido.controller.ts` - Handlers HTTP
+- `pedido.routes.ts` - Rotas de pedidos
 
 ---
 
