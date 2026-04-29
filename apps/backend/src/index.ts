@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import { logger } from './config/logger';
 import apiRoutes from './routes';
+import webhookRoutes from './routes/webhook.routes';
 import { errorHandler, notFoundHandler, requestLogger } from './middlewares/error.middleware';
 
 // Carregar variáveis de ambiente
@@ -51,6 +52,9 @@ app.get('/', (_req: Request, res: Response) => {
 
 // Rotas da API
 app.use('/api', apiRoutes);
+
+// Rotas de webhook (sem autenticação)
+app.use('/webhook', webhookRoutes);
 
 // Middleware de rota não encontrada
 app.use(notFoundHandler);

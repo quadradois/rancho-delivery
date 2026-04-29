@@ -3,6 +3,7 @@ import { logger } from '../config/logger';
 import clienteService from './cliente.service';
 import bairroService from './bairro.service';
 import produtoService from './produto.service';
+import asaasService from './asaas.service';
 import { Origem } from '@prisma/client';
 
 interface ItemPedidoInput {
@@ -123,9 +124,50 @@ export class PedidoService {
         return novoPedido;
       });
 
-      logger.info(`Pedido criado: ${pedido.id} - Cliente: ${cliente.telefone} - Total: R$ ${total}`);
-      
-      return pedido;
+      // 6. Criar cobrança no Asaas
+      try {
+        // Criar/buscar cliente no Asaas
+        const clienteAsaasId = await asaasService.criarOuBuscarCliente({
+          name: cliente.nome,
+          mobilePhone: cliente.telefone,
+        });
+
+        // Criar cobrança
+        const dataVencimento = new Date();
+        dataVencimento.setDate(dataVencimento.getDate() + 1); // Vence em 1 dia
+
+        const cobranca = await asaasService.criarCobranca({
+          customer: clienteAsaasId,
+          billingType: 'PIX',
+          value: Number(total),
+          dueDate: dataVencimento.toISOString().split('T')[0],
+          description: `Pedido #${pedido.id.slice(-8)} - Sabor Express`,
+          externalReference: pedido.id,
+        });
+
+        // Atualizar pedido com dados do pagamento
+        await prisma.pedido.update({
+          where: { id: pedido.id },
+          data: {
+            pagamentoId: cobranca.id,
+          },
+        });
+
+        logger.info(`Cobrança Asaas criada para pedido ${pedido.id}: ${cobranca.id}`);
+
+        // Adicionar link de pagamento ao retorno
+        return {
+          ...pedido,
+          pagamentoId: cobranca.id,
+          linkPagamento: cobranca.invoiceUrl,
+          pixQrCode: cobranca.pixQrCode,
+        };
+      } catch (error) {
+        logger.error('Erro ao criar cobrança no Asaas:', error);
+        // Pedido já foi criado, apenas não tem cobrança
+        // Retornar pedido sem link de pagamento
+        return pedido;
+      }
     } catch (error) {
       logger.error('Erro ao criar pedido:', error);
       throw error;
