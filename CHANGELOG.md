@@ -9,11 +9,53 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ### Em Desenvolvimento
 - Fase 1 - F01: Site de Pedidos
-  - API de Produtos (próximo)
-  - Cardápio com feed vertical
+  - Cardápio com feed vertical (próximo)
   - Sistema de carrinho
   - Checkout e integração com Asaas
   - Notificação via WhatsApp
+
+---
+
+## [0.2.0] - 2026-04-29
+
+### Adicionado
+- **API de Produtos** (primeira funcionalidade da Fase 1)
+  - GET /api/produtos - Lista produtos disponíveis
+  - GET /api/produtos/:id - Busca produto por ID
+  - GET /api/produtos?categoria=X - Filtra por categoria
+- **API de Bairros**
+  - GET /api/bairros - Lista bairros atendidos
+  - POST /api/bairros/validar - Valida bairro e retorna taxa
+- Estrutura MVC completa (controllers, services, routes)
+- Middleware de tratamento de erros global
+- Middleware de log de requisições
+- Prisma Client singleton configurado
+- Documentação completa dos endpoints (API_ENDPOINTS.md)
+
+### Testado
+- Todos os endpoints validados manualmente
+- Retornando dados do seed corretamente
+- Tratamento de erros funcionando
+
+### Arquitetura
+```
+apps/backend/src/
+├── config/
+│   ├── database.ts      # Prisma Client
+│   └── logger.ts
+├── controllers/         # Handlers HTTP
+│   ├── produto.controller.ts
+│   └── bairro.controller.ts
+├── services/           # Lógica de negócio
+│   ├── produto.service.ts
+│   └── bairro.service.ts
+├── routes/             # Definição de rotas
+│   ├── index.ts
+│   ├── produto.routes.ts
+│   └── bairro.routes.ts
+└── middlewares/        # Middlewares customizados
+    └── error.middleware.ts
+```
 
 ---
 
