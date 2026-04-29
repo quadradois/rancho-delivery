@@ -9,10 +9,53 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ### Em Desenvolvimento
 - Fase 1 - F01: Site de Pedidos
-  - Webhook Asaas (próximo)
-  - Integração WhatsApp (notificação)
+  - Integração WhatsApp (notificação) - próximo
   - Cardápio com feed vertical (frontend)
   - Sistema de carrinho (frontend)
+
+---
+
+## [0.4.0] - 2026-04-29
+
+### Adicionado
+- **Integração completa com Asaas** (gateway de pagamento)
+  - AsaasService para comunicação com API
+  - Criação automática de cobrança ao criar pedido
+  - Suporte a PIX, Cartão e Boleto
+  - Webhook para receber notificações de pagamento
+  - Validação de token do webhook (segurança)
+  - Atualização automática de status do pedido
+
+### Fluxo de Pagamento
+1. Cliente cria pedido → Sistema cria cobrança no Asaas
+2. Cliente recebe link de pagamento + QR Code PIX
+3. Cliente paga → Asaas processa pagamento
+4. Asaas notifica sistema via webhook
+5. Sistema atualiza pedido (PENDENTE → CONFIRMADO)
+6. Sistema prepara notificação WhatsApp (próximo)
+
+### Endpoints
+- POST /webhook/asaas - Receber notificações do Asaas
+
+### Segurança
+- Validação de token do webhook
+- Logs de auditoria completos
+- Tratamento de erros robusto
+- HTTPS obrigatório em produção
+
+### Documentação
+- INTEGRACAO_ASAAS.md completa
+- Guia de configuração
+- Exemplos de teste
+- Troubleshooting
+
+### Dependências
+- axios@^1.6.0 para requisições HTTP
+
+### Testado
+- Criação de cobrança funcionando
+- Webhook recebendo notificações
+- Status do pedido atualizando corretamente
 
 ---
 
