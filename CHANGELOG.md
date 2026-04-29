@@ -8,10 +8,64 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 ## [Não Lançado]
 
 ### Em Desenvolvimento
-- Fase 1 - F01: Site de Pedidos
-  - Integração WhatsApp (notificação) - próximo
-  - Cardápio com feed vertical (frontend)
-  - Sistema de carrinho (frontend)
+- Fase 1 - F01: Site de Pedidos (Frontend)
+  - Cardápio com feed vertical
+  - Sistema de carrinho
+  - Checkout e integração com backend
+
+---
+
+## [0.5.0] - 2026-04-29
+
+### 🎉 BACKEND FASE 1 (F01) 100% COMPLETO!
+
+### Adicionado
+- **Integração completa com WhatsApp** (Evolution API)
+  - EvolutionService para comunicação com Evolution API
+  - Envio automático de notificações
+  - Formatação profissional da mensagem de pedido
+  - Verificação de status da conexão
+  - Logs completos de notificações
+
+### Notificação Automática
+Quando um pedido é confirmado (webhook Asaas), o dono recebe automaticamente no WhatsApp:
+- Dados completos do cliente
+- Itens do pedido com quantidades e valores
+- Subtotal, taxa de entrega e total
+- Observações do cliente
+- Horário do pedido
+- Status do pagamento
+
+### Fluxo Completo Implementado
+```
+Cliente cria pedido → Sistema cria cobrança Asaas → 
+Cliente paga → Asaas notifica webhook → 
+Sistema confirma pedido → Dono recebe WhatsApp
+```
+
+### Configuração
+- EVOLUTION_API_URL
+- EVOLUTION_API_KEY
+- EVOLUTION_INSTANCE_NAME
+- WHATSAPP_DONO
+
+### Documentação
+- INTEGRACAO_WHATSAPP.md completa
+- Guia de configuração Evolution API
+- Docker Compose para Evolution API
+- Exemplos de teste
+- Troubleshooting
+
+### Resumo da Fase 1 (Backend)
+✅ API de Produtos  
+✅ API de Bairros  
+✅ API de Pedidos  
+✅ ClienteService (gestão automática)  
+✅ Integração Asaas (pagamento)  
+✅ Webhook Asaas (confirmação)  
+✅ Integração WhatsApp (notificação)  
+
+**Backend 100% funcional e pronto para produção!**
 
 ---
 
