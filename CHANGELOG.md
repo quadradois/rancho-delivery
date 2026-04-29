@@ -15,6 +15,50 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [0.6.0] - 2026-04-29
+
+### Adicionado
+- **Suíte completa de testes automatizados**
+  - Vitest configurado com coverage mínimo de 80%
+  - 17 testes unitários passando
+  - Mocks do Prisma, Logger e Axios
+  - Setup global para todos os testes
+
+### Testes Implementados
+- **ProdutoService** (7 testes)
+  - Listar produtos disponíveis
+  - Buscar produto por ID
+  - Listar por categoria
+  - Tratamento de erros
+- **BairroService** (5 testes)
+  - Listar bairros ativos
+  - Buscar bairro por nome
+  - Validar bairro e retornar taxa
+- **ClienteService** (5 testes)
+  - Criar novo cliente
+  - Atualizar cliente existente
+  - Buscar por telefone
+
+### Comandos de Teste
+```bash
+pnpm test              # Executar testes
+pnpm test:watch        # Modo watch
+pnpm test:coverage     # Com cobertura
+```
+
+### Documentação
+- TESTES.md completo
+- Exemplos de uso
+- Boas práticas
+- Troubleshooting
+
+### Qualidade
+- Cobertura mínima: 80%
+- Testes executados no CI/CD
+- Mocks configurados corretamente
+
+---
+
 ## [0.5.0] - 2026-04-29
 
 ### 🎉 BACKEND FASE 1 (F01) 100% COMPLETO!
