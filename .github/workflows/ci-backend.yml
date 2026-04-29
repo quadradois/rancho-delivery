@@ -1,0 +1,129 @@
+name: CI Backend
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/backend/**'
+      - 'packages/shared/**'
+      - 'pnpm-lock.yaml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/backend/**'
+      - 'packages/shared/**'
+
+jobs:
+  test:
+    name: Testes e Build do Backend
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sabor_express_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Obter cache do pnpm
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+      
+      - name: Verificar tipos TypeScript
+        run: pnpm --filter @sabor-express/backend typecheck
+      
+      - name: Executar linter
+        run: pnpm --filter @sabor-express/backend lint
+      
+      - name: Gerar Prisma Client
+        run: pnpm --filter @sabor-express/backend db:generate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sabor_express_test
+      
+      - name: Executar migrações
+        run: pnpm --filter @sabor-express/backend db:migrate:deploy
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sabor_express_test
+      
+      - name: Executar testes
+        run: pnpm --filter @sabor-express/backend test
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sabor_express_test
+          NODE_ENV: test
+      
+      - name: Verificar cobertura de testes
+        run: pnpm --filter @sabor-express/backend test:coverage
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sabor_express_test
+          NODE_ENV: test
+      
+      - name: Build do backend
+        run: pnpm --filter @sabor-express/backend build
+      
+      - name: Upload de artefatos
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-build
+          path: apps/backend/dist
+          retention-days: 7
+
+  deploy-staging:
+    name: Deploy para Staging
+    needs: test
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+      
+      - name: Deploy para Staging
+        run: |
+          echo "🚀 Deploy para ambiente de staging"
+          echo "Implementar script de deploy aqui"
+        # TODO: Implementar deploy real quando ambiente estiver configurado
+        
+  deploy-production:
+    name: Deploy para Produção
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+      
+      - name: Deploy para Produção
+        run: |
+          echo "🚀 Deploy para ambiente de produção"
+          echo "Implementar script de deploy aqui"
+        # TODO: Implementar deploy real quando ambiente estiver configurado

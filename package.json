@@ -1,0 +1,36 @@
+{
+  "name": "sabor-express",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sistema web completo para restaurante delivery-only",
+  "scripts": {
+    "dev": "pnpm --parallel --stream dev",
+    "dev:backend": "pnpm --filter @sabor-express/backend dev",
+    "dev:frontend": "pnpm --filter @sabor-express/frontend dev",
+    "build": "pnpm --recursive build",
+    "build:backend": "pnpm --filter @sabor-express/backend build",
+    "build:frontend": "pnpm --filter @sabor-express/frontend build",
+    "test": "pnpm --recursive test",
+    "test:backend": "pnpm --filter @sabor-express/backend test",
+    "test:frontend": "pnpm --filter @sabor-express/frontend test",
+    "test:coverage": "pnpm --recursive test:coverage",
+    "lint": "pnpm --recursive lint",
+    "lint:fix": "pnpm --recursive lint:fix",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "typecheck": "pnpm --recursive typecheck",
+    "clean": "pnpm --recursive clean && rm -rf node_modules",
+    "db:migrate": "pnpm --filter @sabor-express/backend db:migrate",
+    "db:seed": "pnpm --filter @sabor-express/backend db:seed",
+    "db:studio": "pnpm --filter @sabor-express/backend db:studio"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "prettier": "^3.2.4",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}

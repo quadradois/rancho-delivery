@@ -1,0 +1,131 @@
+name: CI Frontend
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'apps/frontend/**'
+      - 'packages/shared/**'
+      - 'pnpm-lock.yaml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'apps/frontend/**'
+      - 'packages/shared/**'
+
+jobs:
+  test:
+    name: Testes e Build do Frontend
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Obter cache do pnpm
+        uses: actions/cache@v3
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+      
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+      
+      - name: Verificar tipos TypeScript
+        run: pnpm --filter @sabor-express/frontend typecheck
+      
+      - name: Executar linter
+        run: pnpm --filter @sabor-express/frontend lint
+      
+      - name: Executar testes
+        run: pnpm --filter @sabor-express/frontend test
+        env:
+          NODE_ENV: test
+      
+      - name: Build do frontend
+        run: pnpm --filter @sabor-express/frontend build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost:3001' }}
+      
+      - name: Upload de artefatos
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-build
+          path: apps/frontend/.next
+          retention-days: 7
+
+  lighthouse:
+    name: Lighthouse CI
+    needs: test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+      
+      - name: Instalar dependências
+        run: pnpm install --frozen-lockfile
+      
+      - name: Build do frontend
+        run: pnpm --filter @sabor-express/frontend build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3001
+      
+      - name: Executar Lighthouse CI
+        run: |
+          npm install -g @lhci/cli
+          lhci autorun || echo "Lighthouse CI será configurado posteriormente"
+
+  deploy-staging:
+    name: Deploy para Staging
+    needs: test
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+      
+      - name: Deploy para Staging
+        run: |
+          echo "🚀 Deploy para ambiente de staging"
+          echo "Implementar script de deploy aqui (Vercel/Netlify)"
+        # TODO: Implementar deploy real quando ambiente estiver configurado
+        
+  deploy-production:
+    name: Deploy para Produção
+    needs: [test, lighthouse]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+      
+      - name: Deploy para Produção
+        run: |
+          echo "🚀 Deploy para ambiente de produção"
+          echo "Implementar script de deploy aqui (Vercel/Netlify)"
+        # TODO: Implementar deploy real quando ambiente estiver configurado

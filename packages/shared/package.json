@@ -1,0 +1,20 @@
+{
+  "name": "@sabor-express/shared",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Tipos e utilitários compartilhados entre frontend e backend",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "clean": "rm -rf dist",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "zod": "^3.22.4"
+  }
+}

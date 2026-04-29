@@ -1,0 +1,207 @@
+// Schema do Prisma para Sabor Express
+// Gerado seguindo o planejamento em docs/PLANEJAMENTO_SABOR_EXPRESS.md
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Entidade central: Cliente
+// Identificador único: telefone (WhatsApp)
+model Cliente {
+  telefone   String   @id @db.VarChar(20)
+  nome       String   @db.VarChar(255)
+  endereco   String   @db.Text
+  bairro     String   @db.VarChar(100)
+  origem     Origem   @default(SITE)
+  criadoEm   DateTime @default(now()) @map("criado_em")
+  
+  // Relações
+  pedidos    Pedido[]
+  indicacoes Indicacao[] @relation("Indicador")
+  indicadoPor Indicacao? @relation("Indicado")
+  
+  @@map("clientes")
+  @@index([bairro])
+  @@index([origem])
+}
+
+// Enum para origem do cliente
+enum Origem {
+  SITE
+  WHATSAPP
+  MINERACAO
+  INDICACAO
+  CAMPANHA
+}
+
+// Produtos do cardápio
+model Produto {
+  id          String   @id @default(cuid())
+  nome        String   @db.VarChar(255)
+  preco       Decimal  @db.Decimal(10, 2)
+  midia       String   @db.Text // URL da foto ou vídeo
+  descricao   String   @db.Text
+  categoria   String   @db.VarChar(100)
+  disponivel  Boolean  @default(true)
+  ordem       Int      @default(0) // Ordem no feed
+  criadoEm    DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+  
+  // Relações
+  itensPedido ItemPedido[]
+  fichaTecnica FichaTecnica?
+  
+  @@map("produtos")
+  @@index([categoria])
+  @@index([disponivel])
+  @@index([ordem])
+}
+
+// Bairros atendidos e taxas de entrega
+model Bairro {
+  id       String  @id @default(cuid())
+  nome     String  @unique @db.VarChar(100)
+  taxa     Decimal @db.Decimal(10, 2)
+  ativo    Boolean @default(true)
+  
+  @@map("bairros")
+  @@index([ativo])
+}
+
+// Pedidos
+model Pedido {
+  id              String        @id @default(cuid())
+  clienteTelefone String        @map("cliente_telefone") @db.VarChar(20)
+  subtotal        Decimal       @db.Decimal(10, 2)
+  taxaEntrega     Decimal       @map("taxa_entrega") @db.Decimal(10, 2)
+  total           Decimal       @db.Decimal(10, 2)
+  status          StatusPedido  @default(PENDENTE)
+  pagamentoId     String?       @map("pagamento_id") @db.VarChar(255) // ID do Asaas
+  observacao      String?       @db.Text
+  criadoEm        DateTime      @default(now()) @map("criado_em")
+  atualizadoEm    DateTime      @updatedAt @map("atualizado_em")
+  
+  // Relações
+  cliente Cliente      @relation(fields: [clienteTelefone], references: [telefone])
+  itens   ItemPedido[]
+  
+  @@map("pedidos")
+  @@index([clienteTelefone])
+  @@index([status])
+  @@index([criadoEm])
+}
+
+// Enum para status do pedido
+enum StatusPedido {
+  PENDENTE
+  CONFIRMADO
+  PREPARANDO
+  SAIU_ENTREGA
+  ENTREGUE
+  CANCELADO
+}
+
+// Itens do pedido
+model ItemPedido {
+  id         String  @id @default(cuid())
+  pedidoId   String  @map("pedido_id")
+  produtoId  String  @map("produto_id")
+  quantidade Int
+  precoUnit  Decimal @map("preco_unit") @db.Decimal(10, 2)
+  subtotal   Decimal @db.Decimal(10, 2)
+  observacao String? @db.Text
+  
+  // Relações
+  pedido  Pedido  @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  produto Produto @relation(fields: [produtoId], references: [id])
+  
+  @@map("itens_pedido")
+  @@index([pedidoId])
+  @@index([produtoId])
+}
+
+// Ficha técnica (Fase 3 - F04)
+model FichaTecnica {
+  id              String               @id @default(cuid())
+  produtoId       String               @unique @map("produto_id")
+  custoProducao   Decimal              @map("custo_producao") @db.Decimal(10, 2)
+  margemAlvo      Decimal              @map("margem_alvo") @db.Decimal(5, 2) // Percentual
+  criadoEm        DateTime             @default(now()) @map("criado_em")
+  atualizadoEm    DateTime             @updatedAt @map("atualizado_em")
+  
+  // Relações
+  produto      Produto               @relation(fields: [produtoId], references: [id], onDelete: Cascade)
+  ingredientes IngredienteFicha[]
+  
+  @@map("fichas_tecnicas")
+}
+
+// Ingredientes da ficha técnica
+model IngredienteFicha {
+  id              String       @id @default(cuid())
+  fichaTecnicaId  String       @map("ficha_tecnica_id")
+  ingrediente     String       @db.VarChar(255)
+  quantidadeUsada Decimal      @map("quantidade_usada") @db.Decimal(10, 3)
+  unidade         String       @db.VarChar(20)
+  custoUnitario   Decimal      @map("custo_unitario") @db.Decimal(10, 2)
+  
+  // Relações
+  fichaTecnica FichaTecnica @relation(fields: [fichaTecnicaId], references: [id], onDelete: Cascade)
+  
+  @@map("ingredientes_ficha")
+  @@index([fichaTecnicaId])
+}
+
+// Programa de indicação (Fase 4 - F06)
+model Indicacao {
+  id              String   @id @default(cuid())
+  indicadorTelefone String @map("indicador_telefone") @db.VarChar(20)
+  indicadoTelefone  String @unique @map("indicado_telefone") @db.VarChar(20)
+  codigoIndicacao   String @unique @map("codigo_indicacao") @db.VarChar(50)
+  bonificado        Boolean @default(false)
+  criadoEm          DateTime @default(now()) @map("criado_em")
+  
+  // Relações
+  indicador Cliente @relation("Indicador", fields: [indicadorTelefone], references: [telefone])
+  indicado  Cliente @relation("Indicado", fields: [indicadoTelefone], references: [telefone])
+  
+  @@map("indicacoes")
+  @@index([indicadorTelefone])
+  @@index([codigoIndicacao])
+}
+
+// Roleta de promoções (Fase 4 - F05)
+model RoletaGiro {
+  id              String   @id @default(cuid())
+  clienteTelefone String   @map("cliente_telefone") @db.VarChar(20)
+  premio          String   @db.VarChar(255)
+  utilizado       Boolean  @default(false)
+  dataExpiracao   DateTime @map("data_expiracao")
+  criadoEm        DateTime @default(now()) @map("criado_em")
+  
+  @@map("roleta_giros")
+  @@index([clienteTelefone])
+  @@index([utilizado])
+}
+
+// Contatos minerados (Fase 2 - F02)
+model ContatoMinerado {
+  id          String   @id @default(cuid())
+  telefone    String   @unique @db.VarChar(20)
+  nome        String?  @db.VarChar(255)
+  endereco    String?  @db.Text
+  bairro      String?  @db.VarChar(100)
+  fonte       String   @db.VarChar(100) // Ex: "Assertiva", "Google Maps"
+  abordado    Boolean  @default(false)
+  convertido  Boolean  @default(false)
+  criadoEm    DateTime @default(now()) @map("criado_em")
+  
+  @@map("contatos_minerados")
+  @@index([abordado])
+  @@index([convertido])
+}
