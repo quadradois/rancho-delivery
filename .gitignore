@@ -115,9 +115,9 @@ build-*.txt
 *.temp
 
 # ============================================================
-# KIRO / CLAUDE — Pasta interna do editor
+# NEXT.JS — Arquivos gerados automaticamente
 # ============================================================
-.claude/
+apps/frontend/next-env.d.ts
 ecosystem.config.js.bak
 .pm2/
 
