@@ -61,7 +61,8 @@ export default function AdminBairrosPage() {
       setLoading(true);
       const res = await fetch(`${baseUrl}/api/bairros/todos`);
       const json = await res.json();
-      setBairros(json.data ?? []);
+      const todos = json.data ?? [];
+      setBairros(todos.filter((bairro: Bairro) => bairro.ativo));
     } catch {
       showError('Erro ao carregar bairros', 'Tente novamente');
     } finally {
