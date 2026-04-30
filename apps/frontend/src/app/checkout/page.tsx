@@ -9,10 +9,13 @@ import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/contexts/ToastContext';
 import { formatCurrency } from '@/lib/utils';
 import api, { CriarPedidoDTO } from '@/lib/api';
-import ModalVerificacaoCep, { getCepValidado } from '@/components/ui/ModalVerificacaoCep';
+import { getCepValidado } from '@/components/ui/ModalVerificacaoCep';
 import { z } from 'zod';
 
-type CheckoutStep = 'address' | 'payment' | 'review';
+const CHECKOUT_RECOVERY_KEY = 'rancho:checkout_recovery';
+const RECOVERY_TTL_MS = 30 * 60 * 1000; // 30 minutos
+
+type CheckoutStep = 'address' | 'payment' | 'review' | 'return';
 
 interface AddressForm {
   nome: string;
@@ -46,6 +49,45 @@ const addressSchema = z.object({
   numero: z.string().min(1, 'Número é obrigatório'),
 });
 
+function salvarRecovery(data: {
+  addressForm: AddressForm;
+  paymentForm: PaymentForm;
+  pedidoId: string;
+  linkPagamento: string;
+}) {
+  try {
+    sessionStorage.setItem(CHECKOUT_RECOVERY_KEY, JSON.stringify({
+      ...data,
+      timestamp: Date.now(),
+    }));
+  } catch { /* ignora erros de storage */ }
+}
+
+function lerRecovery() {
+  try {
+    const raw = sessionStorage.getItem(CHECKOUT_RECOVERY_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (Date.now() - parsed.timestamp > RECOVERY_TTL_MS) {
+      sessionStorage.removeItem(CHECKOUT_RECOVERY_KEY);
+      return null;
+    }
+    return parsed as {
+      addressForm: AddressForm;
+      paymentForm: PaymentForm;
+      pedidoId: string;
+      linkPagamento: string;
+      timestamp: number;
+    };
+  } catch {
+    return null;
+  }
+}
+
+function limparRecovery() {
+  try { sessionStorage.removeItem(CHECKOUT_RECOVERY_KEY); } catch { /* noop */ }
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, totalPrice, clearCart } = useCart();
@@ -57,21 +99,11 @@ export default function CheckoutPage() {
   const [deliveryFee, setDeliveryFee] = useState(0);
   const [cepAtendido, setCepAtendido] = useState(false);
   const [errors, setErrors] = useState<AddressErrors>({});
+  const [recoveryData, setRecoveryData] = useState<ReturnType<typeof lerRecovery>>(null);
 
   const [addressForm, setAddressForm] = useState<AddressForm>({
-    nome: '',
-    telefone: '',
-    email: '',
-    cep: '',
-    rua: '',
-    bairro: '',
-    localidade: '',
-    uf: '',
-    numero: '',
-    quadra: '',
-    lote: '',
-    complemento: '',
-    pontoReferencia: '',
+    nome: '', telefone: '', email: '', cep: '', rua: '', bairro: '',
+    localidade: '', uf: '', numero: '', quadra: '', lote: '', complemento: '', pontoReferencia: '',
   });
 
   const [paymentForm, setPaymentForm] = useState<PaymentForm>({
@@ -79,13 +111,26 @@ export default function CheckoutPage() {
     trocoParaValor: undefined,
   });
 
-  // Redirecionar se carrinho vazio
+  // Correção 1 — verificar recovery antes de redirecionar para /
   useEffect(() => {
+    const recovery = lerRecovery();
+    if (recovery) {
+      // Cliente voltou do gateway de pagamento — mostrar tela de retorno
+      setRecoveryData(recovery);
+      setAddressForm(recovery.addressForm);
+      setPaymentForm(recovery.paymentForm);
+      setCepAtendido(true);
+      setCurrentStep('return');
+      return;
+    }
+    // Sem recovery: redirecionar se carrinho vazio
     if (items.length === 0) router.push('/');
-  }, [items, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Pré-preencher com CEP validado na sessão
   useEffect(() => {
+    if (currentStep === 'return') return; // já restaurado pelo recovery
     const cepSalvo = getCepValidado();
     if (cepSalvo) {
       setAddressForm(prev => ({
@@ -99,6 +144,7 @@ export default function CheckoutPage() {
       setDeliveryFee(cepSalvo.taxa);
       setCepAtendido(true);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const formatarCep = (valor: string) => {
@@ -114,7 +160,6 @@ export default function CheckoutPage() {
     return `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7)}`;
   };
 
-  // Buscar CEP via API (valida cobertura)
   const handleCepBlur = async () => {
     const cepLimpo = addressForm.cep.replace(/\D/g, '');
     if (cepLimpo.length !== 8) return;
@@ -131,13 +176,11 @@ export default function CheckoutPage() {
         showError('CEP não encontrado', 'Verifique o CEP digitado');
         return;
       }
-
       if (!data.atendido) {
         showError('Fora da área de entrega', `Ainda não entregamos em ${data.endereco?.bairro || 'sua região'}`);
         setAddressForm(prev => ({ ...prev, rua: '', bairro: '', localidade: '', uf: '' }));
         return;
       }
-
       setAddressForm(prev => ({
         ...prev,
         rua: data.endereco.logradouro || '',
@@ -215,11 +258,21 @@ export default function CheckoutPage() {
 
       const pedido = await api.pedidos.criar(pedidoData);
       showSuccess('Pedido realizado!', `Pedido #${pedido.id.slice(-8)}`);
-      clearCart();
+
       if (pedido.linkPagamento) {
+        // Correção 2 — salvar dados ANTES de limpar carrinho e redirecionar
+        salvarRecovery({
+          addressForm,
+          paymentForm,
+          pedidoId: pedido.id,
+          linkPagamento: pedido.linkPagamento,
+        });
+        clearCart();
         window.location.href = pedido.linkPagamento;
         return;
       }
+
+      clearCart();
       router.push(`/pedido/${pedido.id}`);
     } catch (error) {
       showError('Erro ao finalizar pedido', error instanceof Error ? error.message : 'Tente novamente');
@@ -229,6 +282,83 @@ export default function CheckoutPage() {
   };
 
   const totalWithDelivery = totalPrice + deliveryFee;
+
+  // ── TELA DE RETORNO DO GATEWAY ──────────────────────────────────────────────
+  if (currentStep === 'return' && recoveryData) {
+    return (
+      <div className="min-h-screen flex flex-col" style={{ background: '#1A0D06' }}>
+        <AppBar title="Retorno do Pagamento" />
+        <main className="flex-1 flex items-center justify-center p-6">
+          <div className="w-full max-w-md space-y-6">
+            {/* Ícone de aviso */}
+            <div className="text-center">
+              <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4"
+                style={{ background: '#3E2214' }}>
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#E8A040" strokeWidth="2">
+                  <circle cx="12" cy="12" r="10" />
+                  <line x1="12" y1="8" x2="12" y2="12" />
+                  <line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+              </div>
+              <h2 className="font-display text-2xl text-[#F4E8CC] mb-2">Você voltou do pagamento</h2>
+              <p className="text-[#9A7B5C] text-sm">
+                Seu pedido foi criado. O que deseja fazer?
+              </p>
+            </div>
+
+            {/* Resumo do pedido */}
+            <div className="rounded-xl p-4 space-y-1" style={{ background: '#251208', border: '1px solid #3E2214' }}>
+              <p className="text-xs font-bold uppercase tracking-wider text-[#9A7B5C] mb-2">Pedido criado</p>
+              <p className="text-sm text-[#F4E8CC] font-semibold">#{recoveryData.pedidoId.slice(-8).toUpperCase()}</p>
+              <p className="text-sm text-[#9A7B5C]">{recoveryData.addressForm.nome}</p>
+              <p className="text-sm text-[#9A7B5C]">
+                {recoveryData.addressForm.rua}, {recoveryData.addressForm.numero} — {recoveryData.addressForm.bairro}
+              </p>
+            </div>
+
+            {/* Ações */}
+            <div className="space-y-3">
+              {/* Tentar pagar novamente */}
+              <Button
+                size="lg"
+                className="w-full"
+                onClick={() => {
+                  limparRecovery();
+                  window.location.href = recoveryData.linkPagamento;
+                }}
+              >
+                Tentar pagar novamente
+              </Button>
+
+              {/* Ver status do pedido */}
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full"
+                onClick={() => {
+                  limparRecovery();
+                  router.push(`/pedido/${recoveryData.pedidoId}`);
+                }}
+              >
+                Ver status do pedido
+              </Button>
+
+              {/* Cancelar e refazer */}
+              <button
+                onClick={() => {
+                  limparRecovery();
+                  router.push('/');
+                }}
+                className="w-full text-sm text-[#9A7B5C] hover:text-[#F4E8CC] transition-colors py-2"
+              >
+                Cancelar e voltar ao cardápio
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col" style={{ background: '#1A0D06' }}>

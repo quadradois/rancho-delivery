@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import AppBar from '@/components/layout/AppBar';
 import TabBar from '@/components/layout/TabBar';
 import ProductCard from '@/components/product/ProductCard';
-import ProductCardSkeleton from '@/components/ui/ProductCardSkeleton';
+import ProductCardSkeleton from '@/components/product/ProductCardSkeleton';
 import PromoBanner from '@/components/ui/PromoBanner';
 import Chip from '@/components/ui/Chip';
 import FlameIcon from '@/components/ui/FlameIcon';
