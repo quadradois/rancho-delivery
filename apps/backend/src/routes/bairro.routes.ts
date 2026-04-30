@@ -20,7 +20,6 @@ router.post('/', bairroController.criar.bind(bairroController));
 
 // POST /api/bairros/validar — valida bairro por nome (compatibilidade)
 router.post('/validar', bairroController.validar.bind(bairroController));
-
 // PUT /api/bairros/:id — atualiza bairro (admin)
 router.put('/:id', bairroController.atualizar.bind(bairroController));
 

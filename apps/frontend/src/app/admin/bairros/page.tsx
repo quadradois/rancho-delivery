@@ -146,18 +146,26 @@ export default function AdminBairrosPage() {
 
     try {
       if (editando) {
-        await fetch(`${baseUrl}/api/bairros/${editando.id}`, {
+        const response = await fetch(`${baseUrl}/api/bairros/${editando.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
+        if (!response.ok) {
+          const error = await response.json().catch(() => null);
+          throw new Error(error?.error?.message || 'Erro ao atualizar bairro');
+        }
         showSuccess('Bairro atualizado com sucesso!');
       } else {
-        await fetch(`${baseUrl}/api/bairros`, {
+        const response = await fetch(`${baseUrl}/api/bairros`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
+        if (!response.ok) {
+          const error = await response.json().catch(() => null);
+          throw new Error(error?.error?.message || 'Erro ao cadastrar bairro');
+        }
         showSuccess('Bairro cadastrado com sucesso!');
       }
       setModalAberto(false);
@@ -171,7 +179,11 @@ export default function AdminBairrosPage() {
 
   const handleExcluir = async (id: string) => {
     try {
-      await fetch(`${baseUrl}/api/bairros/${id}`, { method: 'DELETE' });
+      const response = await fetch(`${baseUrl}/api/bairros/${id}`, { method: 'DELETE' });
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.error?.message || 'Erro ao excluir bairro');
+      }
       showSuccess('Bairro excluído com sucesso!');
       setConfirmandoExclusao(null);
       carregarBairros();

@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { logger } from '../config/logger';
 import axios from 'axios';
+import { Prisma } from '@prisma/client';
 
 export interface ViaCepResponse {
   cep: string;
@@ -106,7 +107,6 @@ export class BairroService {
 
   /**
    * Valida CEP via ViaCEP e verifica se o bairro é atendido
-   * Retorna dados do endereço + taxa + links de marketplace se não atendido
    */
   async validarCep(cep: string): Promise<{
     atendido: boolean;
@@ -116,18 +116,15 @@ export class BairroService {
     marketplaces?: { ifood?: string; food99?: string; outro?: string; nomeOutro?: string };
     erro?: string;
   }> {
-    // 1. Consultar ViaCEP
     const endereco = await this.consultarViaCep(cep);
 
     if (!endereco) {
       return { atendido: false, erro: 'CEP não encontrado' };
     }
 
-    // 2. Verificar se o bairro retornado é atendido
     const bairro = await this.buscarBairroPorNome(endereco.bairro);
 
     if (!bairro) {
-      // Não atendido — retorna endereço + links de marketplace
       const marketplaceLinks = await this.buscarLinksMarketplace();
       return {
         atendido: false,
@@ -146,17 +143,12 @@ export class BairroService {
 
   /**
    * Busca links de marketplace globais (do primeiro bairro que tiver links)
-   * Em produção, pode ser uma config global separada
    */
   async buscarLinksMarketplace() {
     try {
       const bairroComLinks = await prisma.bairro.findFirst({
         where: {
-          OR: [
-            { linkIfood: { not: null } },
-            { link99food: { not: null } },
-            { linkOutro: { not: null } },
-          ],
+          OR: [{ linkIfood: { not: null } }, { link99food: { not: null } }, { linkOutro: { not: null } }],
         },
         select: {
           linkIfood: true,
@@ -210,16 +202,19 @@ export class BairroService {
   /**
    * Atualiza bairro
    */
-  async atualizar(id: string, dados: {
-    nome?: string;
-    cep?: string;
-    taxa?: number;
-    ativo?: boolean;
-    linkIfood?: string | null;
-    link99food?: string | null;
-    linkOutro?: string | null;
-    nomeOutro?: string | null;
-  }) {
+  async atualizar(
+    id: string,
+    dados: {
+      nome?: string;
+      cep?: string;
+      taxa?: number;
+      ativo?: boolean;
+      linkIfood?: string | null;
+      link99food?: string | null;
+      linkOutro?: string | null;
+      nomeOutro?: string | null;
+    }
+  ) {
     try {
       return await prisma.bairro.update({ where: { id }, data: dados });
     } catch (error) {
@@ -229,12 +224,29 @@ export class BairroService {
   }
 
   /**
-   * Exclui bairro
+   * Exclui bairro (soft delete)
    */
   async excluir(id: string) {
     try {
-      return await prisma.bairro.delete({ where: { id } });
+      const bairro = await prisma.bairro.update({
+        where: { id },
+        data: { ativo: false },
+        select: {
+          id: true,
+          nome: true,
+          taxa: true,
+          ativo: true,
+        },
+      });
+
+      logger.info(`Bairro inativado: ${bairro.nome} (${bairro.id})`);
+      return bairro;
     } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        logger.warn(`Bairro não encontrado para exclusão: ${id}`);
+        return null;
+      }
+
       logger.error(`Erro ao excluir bairro ${id}:`, error);
       throw new Error('Erro ao excluir bairro');
     }

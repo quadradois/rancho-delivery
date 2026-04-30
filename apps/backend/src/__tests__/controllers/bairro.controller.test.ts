@@ -416,4 +416,37 @@ describe('BairroController - Testes de Regressão', () => {
       expect(bairroService.validarBairro).toHaveBeenCalledWith('Setor São José');
     });
   });
+
+  describe('excluir', () => {
+    it('deve excluir bairro com sucesso', async () => {
+      mockRequest.params = { id: 'bairro-1' };
+      const bairroExcluido = { id: 'bairro-1', nome: 'Centro', taxa: 5, ativo: false };
+
+      vi.mocked(bairroService.excluir).mockResolvedValue(bairroExcluido as any);
+
+      await bairroController.excluir(mockRequest as Request, mockResponse as Response);
+
+      expect(bairroService.excluir).toHaveBeenCalledWith('bairro-1');
+      expect(jsonMock).toHaveBeenCalledWith({
+        success: true,
+        data: bairroExcluido,
+      });
+    });
+
+    it('deve retornar 404 quando bairro não existe', async () => {
+      mockRequest.params = { id: 'bairro-inexistente' };
+      vi.mocked(bairroService.excluir).mockResolvedValue(null);
+
+      await bairroController.excluir(mockRequest as Request, mockResponse as Response);
+
+      expect(statusMock).toHaveBeenCalledWith(404);
+      expect(jsonMock).toHaveBeenCalledWith({
+        success: false,
+        error: {
+          message: 'Bairro não encontrado',
+          code: 'BAIRRO_NAO_ENCONTRADO',
+        },
+      });
+    });
+  });
 });

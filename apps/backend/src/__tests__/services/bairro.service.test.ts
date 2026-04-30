@@ -25,7 +25,12 @@ describe('BairroService', () => {
         select: {
           id: true,
           nome: true,
+          cep: true,
           taxa: true,
+          linkIfood: true,
+          link99food: true,
+          linkOutro: true,
+          nomeOutro: true,
         },
       });
     });
@@ -80,6 +85,33 @@ describe('BairroService', () => {
 
       expect(resultado).toEqual({
         valido: false,
+      });
+    });
+  });
+
+  describe('excluir', () => {
+    it('deve inativar bairro quando encontrado', async () => {
+      const mockBairro = {
+        id: '1',
+        nome: 'Setor Bueno',
+        taxa: 6.0,
+        ativo: false,
+      };
+
+      vi.mocked(prisma.bairro.update).mockResolvedValue(mockBairro as any);
+
+      const resultado = await bairroService.excluir('1');
+
+      expect(resultado).toEqual(mockBairro);
+      expect(prisma.bairro.update).toHaveBeenCalledWith({
+        where: { id: '1' },
+        data: { ativo: false },
+        select: {
+          id: true,
+          nome: true,
+          taxa: true,
+          ativo: true,
+        },
       });
     });
   });

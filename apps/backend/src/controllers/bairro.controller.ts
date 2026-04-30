@@ -146,21 +146,6 @@ export class BairroController {
   }
 
   /**
-   * DELETE /api/bairros/:id
-   * Exclui bairro
-   */
-  async excluir(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-      await bairroService.excluir(id);
-      return res.json({ success: true, message: 'Bairro excluído com sucesso' });
-    } catch (error) {
-      logger.error('Erro ao excluir bairro:', error);
-      return res.status(500).json({ success: false, error: { message: 'Erro ao excluir bairro' } });
-    }
-  }
-
-  /**
    * POST /api/bairros/validar (compatibilidade)
    */
   async validar(req: Request, res: Response) {
@@ -186,6 +171,40 @@ export class BairroController {
     } catch (error) {
       logger.error('Erro ao validar bairro:', error);
       return res.status(500).json({ success: false, error: { message: 'Erro ao validar bairro' } });
+    }
+  }
+
+  /**
+   * DELETE /api/bairros/:id
+   * Exclui bairro (soft delete)
+   */
+  async excluir(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const bairro = await bairroService.excluir(id);
+
+      if (!bairro) {
+        return res.status(404).json({
+          success: false,
+          error: {
+            message: 'Bairro não encontrado',
+            code: 'BAIRRO_NAO_ENCONTRADO',
+          },
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: bairro,
+      });
+    } catch (error) {
+      logger.error('Erro ao excluir bairro:', error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: 'Erro ao excluir bairro',
+        },
+      });
     }
   }
 }
