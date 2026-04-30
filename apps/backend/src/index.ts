@@ -6,6 +6,7 @@ import { logger } from './config/logger';
 import apiRoutes from './routes';
 import webhookRoutes from './routes/webhook.routes';
 import { errorHandler, notFoundHandler, requestLogger } from './middlewares/error.middleware';
+import pedidoService from './services/pedido.service';
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -112,11 +113,34 @@ app.use(notFoundHandler);
 // Middleware de tratamento de erros
 app.use(errorHandler);
 
+function iniciarRotinaAbandonoCheckout() {
+  const intervaloMinutos = Number(process.env.ABANDONO_JOB_INTERVAL_MINUTES || 5);
+  const intervaloValido = Number.isFinite(intervaloMinutos) && intervaloMinutos > 0 ? intervaloMinutos : 5;
+  const intervaloMs = intervaloValido * 60 * 1000;
+
+  const executar = async () => {
+    try {
+      await pedidoService.processarExpiracoesEAbandonos();
+    } catch (error) {
+      logger.error('Falha na rotina de abandono de checkout:', error);
+    }
+  };
+
+  void executar();
+  const timer = setInterval(() => {
+    void executar();
+  }, intervaloMs);
+  timer.unref();
+
+  logger.info(`Rotina de abandono de checkout iniciada (intervalo: ${intervaloValido} min)`);
+}
+
 // Iniciar servidor
 app.listen(Number(PORT), HOST, () => {
   logger.info(`🚀 Servidor rodando em ${HOST}:${PORT}`);
   logger.info(`📍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`📡 API disponível em http://${HOST}:${PORT}/api`);
+  iniciarRotinaAbandonoCheckout();
 });
 
 export default app;

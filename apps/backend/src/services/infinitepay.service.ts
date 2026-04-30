@@ -107,7 +107,7 @@ export class InfinitePayService {
    * Valida assinatura do webhook InfinitePay
    * A InfinitePay envia um header de autenticação configurável
    */
-  validarWebhook(token: string): boolean {
+  validarWebhook(token: string | string[] | undefined): boolean {
     const webhookSecret = process.env.INFINITEPAY_WEBHOOK_SECRET;
 
     if (!webhookSecret) {
@@ -115,7 +115,13 @@ export class InfinitePayService {
       return true;
     }
 
-    return token === webhookSecret;
+    if (!token) return false;
+
+    const bruto = Array.isArray(token) ? token[0] : token;
+    const semBearer = bruto.replace(/^Bearer\s+/i, '').trim();
+    const segredoEsperado = webhookSecret.trim();
+
+    return semBearer === segredoEsperado;
   }
 
   /**

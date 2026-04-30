@@ -90,6 +90,10 @@ model Pedido {
   total           Decimal       @db.Decimal(10, 2)
   status          StatusPedido  @default(PENDENTE)
   pagamentoId     String?       @map("pagamento_id") @db.VarChar(255) // ID do Asaas
+  pagamentoExpiraEm DateTime?   @map("pagamento_expira_em")
+  abandonadoEm    DateTime?     @map("abandonado_em")
+  recuperadoEm    DateTime?     @map("recuperado_em")
+  tentativasRecuperacao Int     @default(0) @map("tentativas_recuperacao")
   observacao      String?       @db.Text
   criadoEm        DateTime      @default(now()) @map("criado_em")
   atualizadoEm    DateTime      @updatedAt @map("atualizado_em")
@@ -107,10 +111,13 @@ model Pedido {
 // Enum para status do pedido
 enum StatusPedido {
   PENDENTE
+  AGUARDANDO_PAGAMENTO
   CONFIRMADO
   PREPARANDO
   SAIU_ENTREGA
   ENTREGUE
+  EXPIRADO
+  ABANDONADO
   CANCELADO
 }
 

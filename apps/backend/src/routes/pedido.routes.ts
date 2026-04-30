@@ -8,6 +8,8 @@ const router: ExpressRouter = Router();
  * Lista pedidos para admin
  */
 router.get('/', pedidoController.listar.bind(pedidoController));
+router.get('/metricas/abandono', pedidoController.metricasAbandono.bind(pedidoController));
+router.get('/cliente/:telefone', pedidoController.listarPorCliente.bind(pedidoController));
 
 /**
  * POST /api/pedidos
@@ -20,11 +22,5 @@ router.post('/', pedidoController.criar.bind(pedidoController));
  * Busca pedido por ID
  */
 router.get('/:id', pedidoController.buscarPorId.bind(pedidoController));
-
-/**
- * GET /api/pedidos/cliente/:telefone
- * Lista pedidos de um cliente
- */
-router.get('/cliente/:telefone', pedidoController.listarPorCliente.bind(pedidoController));
 
 export default router;

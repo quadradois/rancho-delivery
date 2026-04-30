@@ -51,6 +51,32 @@ export class PedidoController {
   }
 
   /**
+   * GET /api/pedidos/metricas/abandono
+   * Retorna métricas de abandono de checkout
+   */
+  async metricasAbandono(req: Request, res: Response) {
+    try {
+      const { dias } = req.query;
+      const resultado = await pedidoService.obterMetricasAbandono(
+        typeof dias === 'string' ? Number(dias) : 7
+      );
+
+      return res.json({
+        success: true,
+        data: resultado,
+      });
+    } catch (error) {
+      logger.error('Erro ao buscar métricas de abandono:', error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: 'Erro ao buscar métricas de abandono',
+        },
+      });
+    }
+  }
+
+  /**
    * POST /api/pedidos
    * Cria novo pedido
    */

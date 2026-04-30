@@ -55,7 +55,7 @@ describe('PedidoService', () => {
       subtotal: 54.8,
       taxaEntrega: 6,
       total: 60.8,
-      status: 'PENDENTE',
+      status: 'AGUARDANDO_PAGAMENTO',
       itens: [
         { produtoId: 'prod-1', quantidade: 2, precoUnit: 24.9, subtotal: 49.8, produto: { nome: 'Marmita' } },
         { produtoId: 'prod-2', quantidade: 1, precoUnit: 5, subtotal: 5, produto: { nome: 'Refrigerante' } },
@@ -63,9 +63,7 @@ describe('PedidoService', () => {
       cliente: mockCliente,
     };
 
-    vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) =>
-      cb({ pedido: { create: vi.fn().mockResolvedValue(mockPedidoCriado) } })
-    );
+    vi.mocked(prisma.pedido.create).mockResolvedValue(mockPedidoCriado as any);
 
     vi.mocked(infinitePayService.reaisParaCentavos).mockImplementation((v: number) => Math.round(v * 100));
     vi.mocked(infinitePayService.criarLinkPagamento).mockResolvedValue({
@@ -115,14 +113,12 @@ describe('PedidoService', () => {
       subtotal: 54.8,
       taxaEntrega: 6,
       total: 60.8,
-      status: 'PENDENTE',
+      status: 'AGUARDANDO_PAGAMENTO',
       itens: [],
       cliente: mockCliente,
     };
 
-    vi.mocked(prisma.$transaction).mockImplementation(async (cb: any) =>
-      cb({ pedido: { create: vi.fn().mockResolvedValue(mockPedidoCriado) } })
-    );
+    vi.mocked(prisma.pedido.create).mockResolvedValue(mockPedidoCriado as any);
 
     vi.mocked(infinitePayService.criarLinkPagamento).mockRejectedValue(new Error('gateway indisponível'));
 

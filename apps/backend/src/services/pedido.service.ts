@@ -4,7 +4,7 @@ import clienteService from './cliente.service';
 import bairroService from './bairro.service';
 import produtoService from './produto.service';
 import infinitePayService from './infinitepay.service';
-import { Origem } from '@prisma/client';
+import { Origem, StatusPedido } from '@prisma/client';
 
 interface ItemPedidoInput {
   produtoId: string;
@@ -25,6 +25,16 @@ interface CriarPedidoInput {
 }
 
 export class PedidoService {
+  private getCheckoutTtlMinutes() {
+    const ttl = Number(process.env.CHECKOUT_TTL_MINUTES || 20);
+    return Number.isFinite(ttl) && ttl > 0 ? ttl : 20;
+  }
+
+  private getAbandonoMinutes() {
+    const abandono = Number(process.env.ABANDONO_MINUTES || 30);
+    return Number.isFinite(abandono) && abandono > 0 ? abandono : 30;
+  }
+
   /**
    * Lista pedidos para o painel admin
    */
@@ -95,6 +105,10 @@ export class PedidoService {
         observacao: pedido.observacao || undefined,
         observacoes: pedido.observacao || undefined,
         pagamentoId: pedido.pagamentoId || undefined,
+        pagamentoExpiraEm: pedido.pagamentoExpiraEm?.toISOString() || undefined,
+        abandonadoEm: pedido.abandonadoEm?.toISOString() || undefined,
+        recuperadoEm: pedido.recuperadoEm?.toISOString() || undefined,
+        tentativasRecuperacao: pedido.tentativasRecuperacao,
         linkPagamento: undefined,
         endereco: {
           rua: pedido.cliente?.endereco || '',
@@ -177,43 +191,40 @@ export class PedidoService {
       });
 
       // 5. Criar pedido com itens (transação)
-      const pedido = await prisma.$transaction(async (tx) => {
-        // Criar pedido
-        const novoPedido = await tx.pedido.create({
-          data: {
-            clienteTelefone: cliente.telefone,
-            subtotal,
-            taxaEntrega,
-            total,
-            status: 'PENDENTE',
-            observacao,
-            itens: {
-              create: itensValidados,
-            },
+      const pagamentoExpiraEm = new Date(Date.now() + this.getCheckoutTtlMinutes() * 60 * 1000);
+      const pedido = await prisma.pedido.create({
+        data: {
+          clienteTelefone: cliente.telefone,
+          subtotal,
+          taxaEntrega,
+          total,
+          status: StatusPedido.AGUARDANDO_PAGAMENTO,
+          pagamentoExpiraEm,
+          observacao,
+          itens: {
+            create: itensValidados,
           },
-          include: {
-            itens: {
-              include: {
-                produto: {
-                  select: {
-                    nome: true,
-                    categoria: true,
-                  },
+        },
+        include: {
+          itens: {
+            include: {
+              produto: {
+                select: {
+                  nome: true,
+                  categoria: true,
                 },
               },
             },
-            cliente: {
-              select: {
-                nome: true,
-                telefone: true,
-                endereco: true,
-                bairro: true,
-              },
+          },
+          cliente: {
+            select: {
+              nome: true,
+              telefone: true,
+              endereco: true,
+              bairro: true,
             },
           },
-        });
-
-        return novoPedido;
+        },
       });
 
       // 6. Criar link de pagamento no InfinitePay
@@ -329,11 +340,21 @@ export class PedidoService {
    */
   async atualizarStatus(id: string, status: string, pagamentoId?: string) {
     try {
+      const pedidoAtual = await prisma.pedido.findUnique({
+        where: { id },
+        select: { status: true },
+      });
+
+      const eraAbandonadoOuExpirado =
+        pedidoAtual?.status === StatusPedido.ABANDONADO || pedidoAtual?.status === StatusPedido.EXPIRADO;
+      const virouConfirmado = status === StatusPedido.CONFIRMADO;
+
       const pedido = await prisma.pedido.update({
         where: { id },
         data: {
-          status: status as any,
+          status: status as StatusPedido,
           pagamentoId,
+          ...(virouConfirmado && { recuperadoEm: eraAbandonadoOuExpirado ? new Date() : null }),
         },
       });
 
@@ -375,6 +396,95 @@ export class PedidoService {
       logger.error(`Erro ao listar pedidos do cliente ${telefone}:`, error);
       throw new Error('Erro ao buscar pedidos');
     }
+  }
+
+  async processarExpiracoesEAbandonos() {
+    try {
+      const agora = new Date();
+      const abandonoMinutes = this.getAbandonoMinutes();
+      const limiteAbandono = new Date(agora.getTime() - abandonoMinutes * 60 * 1000);
+
+      const expirados = await prisma.pedido.updateMany({
+        where: {
+          status: StatusPedido.AGUARDANDO_PAGAMENTO,
+          pagamentoExpiraEm: { not: null, lte: agora },
+        },
+        data: { status: StatusPedido.EXPIRADO },
+      });
+
+      const abandonados = await prisma.pedido.updateMany({
+        where: {
+          status: StatusPedido.EXPIRADO,
+          pagamentoExpiraEm: { not: null, lte: limiteAbandono },
+          abandonadoEm: null,
+        },
+        data: {
+          status: StatusPedido.ABANDONADO,
+          abandonadoEm: agora,
+        },
+      });
+
+      if (expirados.count > 0 || abandonados.count > 0) {
+        logger.info('Rotina de abandono executada', {
+          expirados: expirados.count,
+          abandonados: abandonados.count,
+        });
+      }
+
+      return { expirados: expirados.count, abandonados: abandonados.count };
+    } catch (error) {
+      logger.error('Erro na rotina de abandono:', error);
+      throw error;
+    }
+  }
+
+  async obterMetricasAbandono(dias = 7) {
+    const diasValidos = Math.max(1, Math.min(90, Number(dias) || 7));
+    const inicio = new Date(Date.now() - diasValidos * 24 * 60 * 60 * 1000);
+
+    const [
+      checkoutsIniciados,
+      pagamentosConfirmados,
+      checkoutsExpirados,
+      abandonados,
+      recuperados,
+      valorAbandonado,
+    ] = await Promise.all([
+      prisma.pedido.count({ where: { criadoEm: { gte: inicio } } }),
+      prisma.pedido.count({ where: { criadoEm: { gte: inicio }, status: StatusPedido.CONFIRMADO } }),
+      prisma.pedido.count({ where: { criadoEm: { gte: inicio }, status: StatusPedido.EXPIRADO } }),
+      prisma.pedido.count({ where: { abandonadoEm: { gte: inicio } } }),
+      prisma.pedido.count({ where: { recuperadoEm: { gte: inicio } } }),
+      prisma.pedido.aggregate({
+        _sum: { total: true },
+        where: { abandonadoEm: { gte: inicio } },
+      }),
+    ]);
+
+    const taxaAbandono = checkoutsIniciados > 0
+      ? Number(((abandonados / checkoutsIniciados) * 100).toFixed(2))
+      : 0;
+    const taxaRecuperacao = abandonados > 0
+      ? Number(((recuperados / abandonados) * 100).toFixed(2))
+      : 0;
+
+    return {
+      periodoDias: diasValidos,
+      checkoutsIniciados,
+      pagamentosConfirmados,
+      checkoutsExpirados,
+      abandonados,
+      recuperados,
+      taxaAbandono,
+      taxaRecuperacao,
+      valorPerdidoEstimado: Number(valorAbandonado._sum?.total || 0),
+      parametros: {
+        checkoutTtlMinutes: this.getCheckoutTtlMinutes(),
+        abandonoMinutes: this.getAbandonoMinutes(),
+        retryLinkLimit: Number(process.env.RETRY_LINK_LIMIT || 2),
+        recoveryEnabled: (process.env.RECOVERY_ENABLED || 'false').toLowerCase() === 'true',
+      },
+    };
   }
 }
 
