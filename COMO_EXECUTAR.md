@@ -10,11 +10,11 @@
 
 ```bash
 # Criar o banco de dados
-createdb sabor_express
+createdb rancho_delivery
 
 # Ou via psql
 psql -U postgres
-CREATE DATABASE sabor_express;
+CREATE DATABASE rancho_delivery;
 \q
 ```
 
@@ -22,7 +22,7 @@ CREATE DATABASE sabor_express;
 
 ### Backend (`apps/backend/.env`)
 ```env
-DATABASE_URL="postgresql://postgres:senha@localhost:5432/sabor_express"
+DATABASE_URL="postgresql://postgres:senha@localhost:5432/rancho_delivery"
 PORT=3001
 NODE_ENV=development
 ```
@@ -129,7 +129,7 @@ pnpm run build
 ### Erro de conexão com o banco de dados
 - Verifique se o PostgreSQL está rodando
 - Confirme as credenciais no arquivo `.env`
-- Teste a conexão: `psql -U postgres -d sabor_express`
+- Teste a conexão: `psql -U postgres -d rancho_delivery`
 
 ### Erro "Cannot find module"
 ```bash
@@ -153,7 +153,7 @@ npx kill-port 3001
 ## 📚 Estrutura do Projeto
 
 ```
-sabor-express/
+rancho-delivery/
 ├── apps/
 │   ├── backend/          # API REST (Node.js + Express)
 │   │   ├── src/

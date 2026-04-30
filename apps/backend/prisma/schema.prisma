@@ -1,4 +1,4 @@
-// Schema do Prisma para Sabor Express
+// Schema do Prisma para Rancho
 // Gerado seguindo o planejamento em docs/planejamento/PLANEJAMENTO_SABOR_EXPRESS.md
 
 generator client {

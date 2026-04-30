@@ -1,4 +1,4 @@
-# 🛡️ Guardião do Sabor Express
+# 🛡️ Guardião do Rancho
 ### Mandato de Viabilidade Comercial
 
 > Este documento é lei.

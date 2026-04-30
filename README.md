@@ -1,10 +1,10 @@
-# Sabor Express
+# Rancho
 
 Sistema web completo para restaurante delivery-only com foco em conversão, retenção e operação eficiente.
 
 ## Visão Geral
 
-**Sabor Express** é uma plataforma de delivery que integra site de pedidos, agente WhatsApp inteligente, mineração de contatos, sistema de retenção e programa de indicação. O projeto é construído em fases incrementais, priorizando validação comercial antes de complexidade técnica.
+**Rancho** é uma plataforma de delivery que integra site de pedidos, agente WhatsApp inteligente, mineração de contatos, sistema de retenção e programa de indicação. O projeto é construído em fases incrementais, priorizando validação comercial antes de complexidade técnica.
 
 ## Arquitetura do Sistema
 
@@ -324,7 +324,7 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: sabor_express_test
+          POSTGRES_DB: rancho_delivery_test
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -349,7 +349,7 @@ jobs:
       - name: Executar testes
         run: npm run test:backend
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sabor_express_test
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rancho_delivery_test
       
       - name: Build
         run: npm run build:backend
@@ -392,8 +392,8 @@ Similar ao backend, adaptado para testes de frontend.
 
 ```bash
 # Clonar repositório
-git clone https://github.com/seu-usuario/sabor-express.git
-cd sabor-express
+git clone https://github.com/seu-usuario/rancho-delivery.git
+cd rancho-delivery
 
 # Instalar dependências
 npm install
@@ -413,7 +413,7 @@ npm run dev
 
 ```env
 # Database
-DATABASE_URL=postgresql://user:password@localhost:5432/sabor_express
+DATABASE_URL=postgresql://user:password@localhost:5432/rancho_delivery
 
 # Asaas
 ASAAS_API_KEY=seu_api_key
@@ -587,7 +587,7 @@ Endpoints utilizados:
 
 ## Contribuindo
 
-1. Leia o [Guardião do Sabor Express](./docs/governanca/GUARDIAO_SABOR_EXPRESS.md)
+1. Leia o [Guardião do Rancho](./docs/governanca/GUARDIAO_SABOR_EXPRESS.md)
 2. Verifique se a funcionalidade passa no filtro de viabilidade
 3. Crie uma branch: `git checkout -b feature/nome-da-funcionalidade`
 4. Siga o protocolo de implementação descrito acima
@@ -601,7 +601,7 @@ Proprietary — Todos os direitos reservados
 
 ## Contato
 
-- Projeto: Sabor Express
+- Projeto: Rancho
 - Documentação: `./docs/`
 - Issues: GitHub Issues
 

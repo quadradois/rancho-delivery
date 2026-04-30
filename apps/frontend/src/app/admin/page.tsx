@@ -46,7 +46,7 @@ export default function AdminPage() {
     <div className="p-8">
       <div className="mb-8">
         <h1 className="font-brand text-3xl font-black uppercase text-neutral-900">Dashboard</h1>
-          <p className="text-neutral-500 mt-1">Bem-vindo ao painel administrativo do Sabor Express</p>
+          <p className="text-neutral-500 mt-1">Bem-vindo ao painel administrativo do Rancho</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

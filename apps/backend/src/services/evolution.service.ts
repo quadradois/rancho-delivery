@@ -11,7 +11,7 @@ export class EvolutionService {
   private instanceName: string;
 
   constructor() {
-    this.instanceName = process.env.EVOLUTION_INSTANCE_NAME || 'sabor-express';
+    this.instanceName = process.env.EVOLUTION_INSTANCE_NAME || 'rancho-delivery';
     
     this.api = axios.create({
       baseURL: process.env.EVOLUTION_API_URL || 'http://localhost:8080',
@@ -82,7 +82,7 @@ export class EvolutionService {
   formatarMensagemPedido(pedido: any): string {
     const { id, cliente, itens, subtotal, taxaEntrega, total, observacao } = pedido;
 
-    let mensagem = `🟢 *NOVO PEDIDO - Sabor Express*\n\n`;
+    let mensagem = `🟢 *NOVO PEDIDO - Rancho*\n\n`;
     mensagem += `📋 *Pedido:* #${id.slice(-8)}\n\n`;
     
     mensagem += `👤 *Cliente:* ${cliente.nome}\n`;

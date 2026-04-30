@@ -8,7 +8,7 @@
 
 ## Resumo
 
-Implementação completa do cliente HTTP para comunicação com o backend do Sabor Express. O cliente utiliza Axios com interceptors, tratamento robusto de erros, retry automático e tipagem TypeScript completa.
+Implementação completa do cliente HTTP para comunicação com o backend do Rancho. O cliente utiliza Axios com interceptors, tratamento robusto de erros, retry automático e tipagem TypeScript completa.
 
 ---
 

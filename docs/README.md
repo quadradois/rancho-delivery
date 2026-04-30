@@ -1,4 +1,4 @@
-# Documentação do Projeto Sabor Express
+# Documentação do Projeto Rancho
 
 Este arquivo e a porta de entrada da pasta `docs/`.
 

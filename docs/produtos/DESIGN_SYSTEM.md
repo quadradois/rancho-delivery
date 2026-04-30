@@ -1,6 +1,6 @@
-# Design System - Sabor Express
+# Design System - Rancho
 
-Sistema de design completo para o aplicativo de delivery Sabor Express.
+Sistema de design completo para o aplicativo de delivery Rancho.
 
 ---
 

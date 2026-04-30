@@ -44,7 +44,7 @@ type CarrinhoContextType = CarrinhoState & CarrinhoActions;
 /**
  * Chave do localStorage
  */
-const STORAGE_KEY = 'sabor-express:carrinho';
+const STORAGE_KEY = 'rancho-delivery:carrinho';
 
 /**
  * Estado inicial do carrinho

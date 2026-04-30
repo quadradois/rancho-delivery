@@ -1,4 +1,4 @@
-# Integracao WhatsApp (Evolution API) - Sabor Express
+# Integracao WhatsApp (Evolution API) - Rancho
 
 Documentacao da integracao com Evolution API para notificacoes via WhatsApp.
 
@@ -17,7 +17,7 @@ Pedido confirmado (webhook InfinitePay) -> sistema busca pedido completo -> form
 ```env
 EVOLUTION_API_URL=http://localhost:8080
 EVOLUTION_API_KEY=<sua_api_key>
-EVOLUTION_INSTANCE_NAME=sabor-express
+EVOLUTION_INSTANCE_NAME=rancho-delivery
 WHATSAPP_DONO=5562999999999
 ```
 
@@ -34,19 +34,19 @@ WHATSAPP_DONO=5562999999999
 ### Verificar conexao da instancia
 
 ```bash
-curl http://localhost:8080/instance/connectionState/sabor-express \
+curl http://localhost:8080/instance/connectionState/rancho-delivery \
   -H "apikey: SUA_API_KEY"
 ```
 
 ### Testar envio simples
 
 ```bash
-curl -X POST http://localhost:8080/message/sendText/sabor-express \
+curl -X POST http://localhost:8080/message/sendText/rancho-delivery \
   -H "Content-Type: application/json" \
   -H "apikey: SUA_API_KEY" \
   -d '{
     "number": "5562999999999",
-    "text": "Teste de mensagem do Sabor Express"
+    "text": "Teste de mensagem do Rancho"
   }'
 ```
 

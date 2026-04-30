@@ -1,4 +1,4 @@
-# Sabor Express — Planejamento do Sistema Web (MVP)
+# Rancho — Planejamento do Sistema Web (MVP)
 
 > Documento gerado por sessão de planejamento socrático.
 > Objetivo: orientar o dev sem ambiguidade sobre o que construir, em que ordem, e por quê.
@@ -8,7 +8,7 @@
 
 ## 1. Visão Geral
 
-**Sabor Express** é um sistema web para restaurante delivery-only com 6 funcionalidades. Este documento define a sequência de construção, as especificações do MVP e o que fica para fases posteriores.
+**Rancho** é um sistema web para restaurante delivery-only com 6 funcionalidades. Este documento define a sequência de construção, as especificações do MVP e o que fica para fases posteriores.
 
 ---
 
@@ -51,7 +51,7 @@ Cliente paga no Asaas
 Asaas confirma o pagamento internamente
         |
         v
-Asaas faz POST para: saborexpress.com.br/webhook/asaas
+Asaas faz POST para: rancho-delivery.com.br/webhook/asaas
         |
         v
 Sistema recebe o aviso e lê o status
@@ -199,7 +199,7 @@ ativo        boolean
 Mensagem enviada via WhatsApp após confirmação do pagamento:
 
 ```
-🟢 NOVO PEDIDO — Sabor Express
+🟢 NOVO PEDIDO — Rancho
 
 Cliente: [nome]
 WhatsApp: [telefone]

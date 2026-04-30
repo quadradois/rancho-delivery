@@ -6,13 +6,13 @@ Definir nomenclatura oficial para reduzir divergencia entre dominio, codigo e op
 
 ## Marca oficial do produto
 
-- Nome principal: **Sabor Express**
+- Nome principal: **Rancho**
 - Uso operacional legado: **Rancho Comida Caseira** (somente onde houver dependencia externa)
 
 ## Regras
 
-1. Novos textos de UI devem usar `Sabor Express`.
-2. Novas chaves locais devem usar prefixo `sabor-express:`.
+1. Novos textos de UI devem usar `Rancho`.
+2. Novas chaves locais devem usar prefixo `rancho-delivery:`.
 3. Variaveis de ambiente devem refletir integracao real (InfinitePay, Evolution).
 4. Referencias a Asaas devem ser marcadas como `legado`.
 

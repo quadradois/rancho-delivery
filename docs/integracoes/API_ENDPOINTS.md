@@ -1,6 +1,6 @@
-# API Endpoints - Sabor Express
+# API Endpoints - Rancho
 
-Documentação dos endpoints da API REST do Sabor Express.
+Documentação dos endpoints da API REST do Rancho.
 
 **Base URL:** `http://localhost:3001/api`
 
@@ -181,7 +181,7 @@ Verifica se a API está online e funcionando.
 {
   "status": "ok",
   "timestamp": "2026-04-29T04:17:43.228Z",
-  "service": "sabor-express-api"
+  "service": "rancho-delivery-api"
 }
 ```
 

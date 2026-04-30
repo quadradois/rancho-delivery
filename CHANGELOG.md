@@ -246,7 +246,7 @@ apps/backend/src/
 
 ### Adicionado
 - Ambiente de desenvolvimento completo configurado
-- Container Docker PostgreSQL (sabor-express-db)
+- Container Docker PostgreSQL (rancho-delivery-db)
 - Migrações do Prisma executadas (schema inicial)
 - Seed do banco de dados (5 bairros e 5 produtos)
 - Documentação do ambiente (AMBIENTE_CONFIGURADO.md)

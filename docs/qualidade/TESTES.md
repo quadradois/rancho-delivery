@@ -1,4 +1,4 @@
-# Testes Automatizados - Sabor Express Backend
+# Testes Automatizados - Rancho Backend
 
 Documentação completa da suíte de testes do backend.
 
@@ -33,7 +33,7 @@ pnpm test:watch
 pnpm test:coverage
 
 # Executar apenas testes do backend
-pnpm --filter @sabor-express/backend test
+pnpm --filter @rancho-delivery/backend test
 ```
 
 ### Executar Testes Específicos
@@ -254,10 +254,10 @@ Os testes são executados automaticamente em:
 ```yaml
 # .github/workflows/ci-backend.yml
 - name: Executar testes
-  run: pnpm --filter @sabor-express/backend test
+  run: pnpm --filter @rancho-delivery/backend test
 
 - name: Verificar cobertura
-  run: pnpm --filter @sabor-express/backend test:coverage
+  run: pnpm --filter @rancho-delivery/backend test:coverage
 ```
 
 ---

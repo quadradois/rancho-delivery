@@ -1,4 +1,4 @@
-# Planejamento Frontend — Próximos Passos Sabor Express
+# Planejamento Frontend — Próximos Passos Rancho
 
 **Data:** 2026-04-29  
 **Fase:** 1 (MVP)  
@@ -46,7 +46,7 @@ TOTAL:                     █████████████████�
 
 ## Contexto
 
-Este documento estabelece o roadmap completo de desenvolvimento do frontend do Sabor Express, organizando 20 tarefas em 3 prioridades distintas. O objetivo é criar um MVP funcional em 2 semanas, seguido de melhorias de qualidade e painel administrativo.
+Este documento estabelece o roadmap completo de desenvolvimento do frontend do Rancho, organizando 20 tarefas em 3 prioridades distintas. O objetivo é criar um MVP funcional em 2 semanas, seguido de melhorias de qualidade e painel administrativo.
 
 ---
 
@@ -190,7 +190,7 @@ Planejamento de 20 tarefas distribuídas em 4 semanas de desenvolvimento:
 - ✅ Ação `atualizarObservacao()` - atualiza observação do item
 - ✅ Ação `limparCarrinho()` - limpa todos os itens
 - ✅ Ação `definirTaxaEntrega()` - define taxa de entrega
-- ✅ Persistência automática no localStorage (chave: 'sabor-express:carrinho')
+- ✅ Persistência automática no localStorage (chave: 'rancho-delivery:carrinho')
 - ✅ Carregamento automático do localStorage na inicialização
 - ✅ Cálculo automático de quantidadeTotal usando useMemo
 - ✅ Cálculo automático de subtotal usando useMemo
@@ -365,7 +365,7 @@ Planejamento de 20 tarefas distribuídas em 4 semanas de desenvolvimento:
 
 **Critérios de pronto:**
 - ✅ Header fixo no topo
-- ✅ Logo do Sabor Express
+- ✅ Logo do Rancho
 - ✅ Ícone de carrinho com badge de quantidade
 - ✅ Clique no ícone abre o bottom sheet
 - ✅ Responsivo
@@ -376,7 +376,7 @@ Planejamento de 20 tarefas distribuídas em 4 semanas de desenvolvimento:
 
 **Funcionalidades implementadas:**
 - ✅ Header fixo no topo (position: fixed, z-index: var(--z-sticky))
-- ✅ Logo do Sabor Express com tipografia do design system:
+- ✅ Logo do Rancho com tipografia do design system:
   - "Sabor" em vermelho (--color-primary)
   - "Express" em dourado (--color-accent)
   - Fonte Barlow Condensed (--font-brand)
@@ -898,7 +898,7 @@ Planejamento de 20 tarefas distribuídas em 4 semanas de desenvolvimento:
 - **Testes:** Jest + React Testing Library + Cypress (E2E)
 
 ### Integrações
-- API Backend Sabor Express (NestJS)
+- API Backend Rancho (NestJS)
 - Gateway de Pagamento Asaas
 - Upload de imagens (Cloudinary ou S3)
 

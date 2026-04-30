@@ -1,4 +1,4 @@
-# Sabor Express — Brainstorm de Ideias Futuras
+# Rancho — Brainstorm de Ideias Futuras
 
 > Este documento **não é planejamento técnico** — é um espaço livre para capturar ideias antes que sumam.
 > Nenhum item aqui vira tarefa de dev sem passar por análise de complexidade vs resultado real.

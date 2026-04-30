@@ -1,4 +1,4 @@
-# Backlog do Projeto Sabor Express
+# Backlog do Projeto Rancho
 
 Este diretório centraliza **tarefas pendentes**, ideias de melhoria e mudanças planejadas para versões futuras.
 

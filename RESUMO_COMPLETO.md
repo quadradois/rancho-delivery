@@ -198,7 +198,7 @@ pnpm install
 ### **Passo 2: Configurar Banco de Dados**
 ```bash
 # Criar banco
-createdb sabor_express
+createdb rancho_delivery
 
 # Rodar migrations
 cd apps/backend

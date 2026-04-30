@@ -87,7 +87,7 @@ importers:
 
   apps/frontend:
     dependencies:
-      '@sabor-express/shared':
+      '@rancho-delivery/shared':
         specifier: workspace:*
         version: link:../../packages/shared
       axios:

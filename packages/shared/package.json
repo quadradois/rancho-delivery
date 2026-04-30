@@ -1,5 +1,5 @@
 {
-  "name": "@sabor-express/shared",
+  "name": "@rancho-delivery/shared",
   "version": "0.1.0",
   "private": true,
   "description": "Tipos e utilitários compartilhados entre frontend e backend",

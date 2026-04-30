@@ -148,7 +148,7 @@ describe('CartContext', () => {
       result.current.addItem({ id: '1', name: 'X-Burguer', price: 25.9 });
     });
 
-    const stored = JSON.parse(localStorageMock.getItem('sabor-express:carrinho') || '{}');
+    const stored = JSON.parse(localStorageMock.getItem('rancho-delivery:carrinho') || '{}');
     expect(stored.items).toHaveLength(1);
     expect(stored.items[0].name).toBe('X-Burguer');
   });

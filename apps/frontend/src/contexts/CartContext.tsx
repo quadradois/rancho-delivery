@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo, ReactNode } from 'react';
 
-const STORAGE_KEY = 'sabor-express:carrinho';
+const STORAGE_KEY = 'rancho-delivery:carrinho';
 
 export interface CartItem {
   id: string;

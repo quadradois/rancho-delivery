@@ -1,4 +1,4 @@
-# Integracao InfinitePay - Sabor Express
+# Integracao InfinitePay - Rancho
 
 ## Status
 

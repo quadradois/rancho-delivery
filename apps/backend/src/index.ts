@@ -58,14 +58,14 @@ app.get('/health', (_req: Request, res: Response) => {
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
-    service: 'sabor-express-api'
+    service: 'rancho-delivery-api'
   });
 });
 
 // Rota raiz
 app.get('/', (_req: Request, res: Response) => {
   res.json({
-    message: 'Sabor Express API',
+    message: 'Rancho API',
     version: '0.1.1',
     docs: '/api/docs',
     endpoints: {

@@ -1,4 +1,4 @@
-# Planejamento Frontend — Próximos Passos Sabor Express
+# Planejamento Frontend — Próximos Passos Rancho
 
 **Data:** 2026-04-29
 **Fase:** 1 (MVP)

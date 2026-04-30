@@ -86,7 +86,7 @@ describe('useCarrinho - Testes de Regressão', () => {
         taxaEntrega: 6.00,
       };
 
-      localStorageMock.setItem('sabor-express:carrinho', JSON.stringify(dadosSalvos));
+      localStorageMock.setItem('rancho-delivery:carrinho', JSON.stringify(dadosSalvos));
 
       const { result } = renderHook(() => useCarrinho(), {
         wrapper: CarrinhoProvider,
@@ -428,7 +428,7 @@ describe('useCarrinho - Testes de Regressão', () => {
         result.current.adicionarItem(mockProduto1, 2);
       });
 
-      const saved = JSON.parse(localStorageMock.getItem('sabor-express:carrinho') || '{}');
+      const saved = JSON.parse(localStorageMock.getItem('rancho-delivery:carrinho') || '{}');
       expect(saved.itens).toHaveLength(1);
       expect(saved.itens[0].produto.id).toBe('prod-1');
       expect(saved.itens[0].quantidade).toBe(2);
@@ -443,7 +443,7 @@ describe('useCarrinho - Testes de Regressão', () => {
         result.current.definirTaxaEntrega(6.00);
       });
 
-      const saved = JSON.parse(localStorageMock.getItem('sabor-express:carrinho') || '{}');
+      const saved = JSON.parse(localStorageMock.getItem('rancho-delivery:carrinho') || '{}');
       expect(saved.taxaEntrega).toBe(6.00);
     });
 
@@ -461,7 +461,7 @@ describe('useCarrinho - Testes de Regressão', () => {
         result.current.removerItem('prod-1');
       });
 
-      const saved = JSON.parse(localStorageMock.getItem('sabor-express:carrinho') || '{}');
+      const saved = JSON.parse(localStorageMock.getItem('rancho-delivery:carrinho') || '{}');
       expect(saved.itens).toHaveLength(1);
       expect(saved.itens[0].produto.id).toBe('prod-2');
     });
@@ -479,7 +479,7 @@ describe('useCarrinho - Testes de Regressão', () => {
         result.current.limparCarrinho();
       });
 
-      const saved = JSON.parse(localStorageMock.getItem('sabor-express:carrinho') || '{}');
+      const saved = JSON.parse(localStorageMock.getItem('rancho-delivery:carrinho') || '{}');
       expect(saved.itens).toEqual([]);
       expect(saved.taxaEntrega).toBe(0);
     });
@@ -544,7 +544,7 @@ describe('useCarrinho - Testes de Regressão', () => {
     });
 
     it('deve lidar com localStorage corrompido', () => {
-      localStorageMock.setItem('sabor-express:carrinho', 'invalid json');
+      localStorageMock.setItem('rancho-delivery:carrinho', 'invalid json');
 
       const { result } = renderHook(() => useCarrinho(), {
         wrapper: CarrinhoProvider,

@@ -1,7 +1,7 @@
 # PLAYBOOK_DEPLOY_PENDENCIAS
 
 **Data:** 2026-04-30  
-**Projeto:** Sabor Express / Rancho Comida Caseira  
+**Projeto:** Rancho / Rancho Comida Caseira  
 **Status:** Pre-Deploy (Go para staging, No-Go para producao)  
 **Objetivo:** Organizar e executar todas as pendencias criticas para elevar maturidade de deploy.
 
@@ -85,7 +85,7 @@ Liberar deploy de producao somente quando todos os itens abaixo estiverem conclu
     - [x] `docs/integracoes/INTEGRACAO_WHATSAPP.md` atualizado para fluxo InfinitePay
 
 - [x] **P1.2 - Higienizar identidade de dominio/marca no codigo**
-  - Sintoma: coexistencia de termos Sabor Express e Rancho em varios pontos.
+  - Sintoma: coexistencia de termos Rancho e Rancho em varios pontos.
   - Impacto: inconsistencias de UX, configuracao e operacao.
   - Evidencias:
     - `apps/frontend/src/contexts/CartContext.tsx` (`rancho:carrinho`)
@@ -96,8 +96,8 @@ Liberar deploy de producao somente quando todos os itens abaixo estiverem conclu
     - texto, storage keys e envs harmonizados
   - Status de execucao:
     - [x] Criado dicionario em `docs/governanca/NAMING_OFICIAL.md`
-    - [x] Storage key atualizada para `sabor-express:carrinho`
-    - [x] Texto do painel admin harmonizado para Sabor Express
+    - [x] Storage key atualizada para `rancho-delivery:carrinho`
+    - [x] Texto do painel admin harmonizado para Rancho
 
 ### P2 - Maturidade operacional
 
@@ -191,7 +191,7 @@ Implementacoes concluidas nesta rodada:
 - [x] Runbook E2E criado (`docs/operacao/RUNBOOK_E2E_INFINITEPAY.md`)
 - [x] Runbook de incidentes criado (`docs/operacao/RUNBOOK_INCIDENTES_DEPLOY.md`)
 - [x] Dicionario de naming oficial criado (`docs/governanca/NAMING_OFICIAL.md`)
-- [x] Harmonizacao de storage key para `sabor-express:carrinho`
+- [x] Harmonizacao de storage key para `rancho-delivery:carrinho`
 
 Pendencias bloqueadas nesta rodada:
 

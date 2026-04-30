@@ -20,9 +20,9 @@
 
 ### Banco de Dados
 - **Tipo:** PostgreSQL 15 (Docker)
-- **Container:** sabor-express-db
+- **Container:** rancho-delivery-db
 - **Host:** localhost:5432
-- **Database:** sabor_express
+- **Database:** rancho_delivery
 - **Status:** ✅ Online
 
 ---
@@ -50,7 +50,7 @@
 ### Iniciar Ambiente
 ```bash
 # Iniciar PostgreSQL (se parado)
-docker start sabor-express-db
+docker start rancho-delivery-db
 
 # Iniciar backend e frontend juntos
 pnpm dev
@@ -69,7 +69,7 @@ pnpm db:studio
 pnpm db:migrate
 
 # Resetar banco e executar seed novamente
-pnpm --filter @sabor-express/backend prisma migrate reset
+pnpm --filter @rancho-delivery/backend prisma migrate reset
 ```
 
 ### Qualidade de Código
@@ -90,13 +90,13 @@ pnpm test
 ### Docker
 ```bash
 # Ver logs do PostgreSQL
-docker logs sabor-express-db
+docker logs rancho-delivery-db
 
 # Parar PostgreSQL
-docker stop sabor-express-db
+docker stop rancho-delivery-db
 
 # Remover container (dados serão perdidos)
-docker rm sabor-express-db
+docker rm rancho-delivery-db
 ```
 
 ---
@@ -126,7 +126,7 @@ Ambiente configurado com sucesso! Agora você pode:
 
 ### Erro de conexão com banco
 - Verificar se container está rodando: `docker ps`
-- Testar conexão: `docker exec -it sabor-express-db psql -U postgres -d sabor_express`
+- Testar conexão: `docker exec -it rancho-delivery-db psql -U postgres -d rancho_delivery`
 - Verificar DATABASE_URL no .env
 
 ---
