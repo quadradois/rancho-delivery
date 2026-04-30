@@ -13,11 +13,19 @@ Sistema web completo para restaurante delivery-only com:
 - Site de pedidos para clientes (`rancho.delivery`)
 - Painel administrativo (`app.rancho.delivery`)
 - API REST (`api.rancho.delivery`)
-- Webhooks de pagamento (`webhook.rancho.delivery` ou via `api.rancho.delivery/webhook/infinitepay`)
+- Webhook de pagamento (`POST /webhook/infinitepay` via `api.rancho.delivery`)
 
 ---
 
-## 2. Stack Técnico
+## 2. Repositório GitHub
+
+- URL: `https://github.com/quadradois/rancho-delivery`
+- SSH: `git@github.com:quadradois/rancho-delivery.git`
+- Branch principal: `master`
+
+---
+
+## 3. Stack Técnico
 
 ### Frontend
 - **Next.js 14** (App Router) + React 18 + TypeScript 5.3
@@ -35,94 +43,92 @@ Sistema web completo para restaurante delivery-only com:
 
 ### Banco de Dados
 - **PostgreSQL 14+**
-- Credenciais no servidor:
-  - Usuário: `<definir_no_servidor>`
-  - Senha: `<secret_manager_ou_env_var>`
-  - Banco: `<nome_banco_producao>`
+- Usuário: `rancho`
+- Banco: `rancho_delivery`
+- Credenciais reais: ver `.env` no servidor (nunca commitar)
 
 ### Infraestrutura
 - **Servidor VPS:** Ubuntu 22.04 — IP `194.5.152.177`
 - **Monorepo** pnpm workspaces (`apps/frontend` + `apps/backend` + `packages/shared`)
 - **Sem Docker** — PostgreSQL instalado diretamente no servidor
+- **PM2** — gerenciador de processos
+- **Nginx** — proxy reverso
+- **Certbot** — SSL Let's Encrypt
 
 ### Integrações
 - **InfinitePay** — gateway de pagamento (substituiu Asaas)
   - Handle: `orancho-comida`
   - Endpoint webhook: `POST /webhook/infinitepay`
-- **Evolution API** — notificações WhatsApp
+  - Configurar webhook no painel InfinitePay apontando para `https://api.rancho.delivery/webhook/infinitepay`
+- **Evolution API** — notificações WhatsApp ao dono
 
 ---
 
-## 3. Domínios e DNS (Cloudflare)
+## 4. Domínios e DNS (Cloudflare)
 
-| Subdomínio | Tipo | IP | Uso |
+| Nome | Tipo | IP | Uso |
 |---|---|---|---|
 | `@` (rancho.delivery) | A | 194.5.152.177 | Site de pedidos |
 | `app` | A | 194.5.152.177 | Painel admin |
 | `api` | A | 194.5.152.177 | Backend API |
-| `webhook` | A | 194.5.152.177 | Webhooks (alternativo) |
+| `webhook` | A | 194.5.152.177 | Alternativo para webhooks |
+| `www` | CNAME | rancho.delivery | Redirect www |
 
-Todos com proxy Cloudflare ativo (nuvem laranja).
+Todos com proxy Cloudflare ativo (nuvem laranja). SSL modo Full (strict).
 
 ---
 
-## 4. Estrutura do Projeto
+## 5. Estrutura do Projeto
 
 ```
-C:\sabosexprex\                         (raiz do monorepo)
+/
 ├── apps/
 │   ├── frontend/                       (Next.js)
-│   │   ├── src/
-│   │   │   ├── app/                    (App Router)
-│   │   │   │   ├── page.tsx            (cardápio principal)
-│   │   │   │   ├── layout.tsx          (layout global)
-│   │   │   │   ├── cart/page.tsx       (carrinho)
-│   │   │   │   ├── checkout/page.tsx   (checkout)
-│   │   │   │   ├── pedido/[id]/page.tsx (confirmação)
-│   │   │   │   └── admin/              (painel admin)
-│   │   │   │       ├── layout.tsx      (sidebar admin)
-│   │   │   │       ├── page.tsx        (dashboard)
-│   │   │   │       ├── produtos/       (CRUD produtos)
-│   │   │   │       ├── bairros/        (CRUD bairros)
-│   │   │   │       └── pedidos/        (visualização pedidos)
-│   │   │   ├── components/             (componentes React)
-│   │   │   ├── contexts/               (CartContext, ToastContext)
-│   │   │   ├── lib/                    (api-client, utils)
-│   │   │   ├── schemas/                (checkoutSchema Zod)
-│   │   │   └── styles/                 (design-system.css)
-│   │   ├── tailwind.config.js
-│   │   └── package.json
+│   │   ├── src/app/                    (App Router)
+│   │   │   ├── page.tsx                (cardápio principal)
+│   │   │   ├── layout.tsx              (layout global)
+│   │   │   ├── cart/page.tsx           (carrinho)
+│   │   │   ├── checkout/page.tsx       (checkout com Zod)
+│   │   │   ├── pedido/[id]/page.tsx    (confirmação de pedido)
+│   │   │   └── admin/                  (painel admin — sem auth ainda)
+│   │   │       ├── layout.tsx          (sidebar)
+│   │   │       ├── page.tsx            (dashboard)
+│   │   │       ├── produtos/           (CRUD produtos)
+│   │   │       ├── bairros/            (CRUD bairros)
+│   │   │       └── pedidos/            (visualização pedidos)
+│   │   ├── src/styles/design-system.css
+│   │   └── tailwind.config.js
 │   └── backend/
-│       ├── src/
-│       │   ├── controllers/            (produto, bairro, pedido, webhook)
-│       │   ├── services/
-│       │   │   ├── infinitepay.service.ts  (NOVO — substituiu asaas)
-│       │   │   ├── pedido.service.ts
-│       │   │   ├── produto.service.ts
-│       │   │   ├── bairro.service.ts
-│       │   │   ├── cliente.service.ts
-│       │   │   └── evolution.service.ts
-│       │   ├── routes/
-│       │   │   └── webhook.routes.ts   (POST /webhook/infinitepay)
-│       │   ├── middlewares/
-│       │   └── config/
-│       ├── prisma/
-│       │   ├── schema.prisma
-│       │   ├── migrations/
-│       │   └── seed.ts
-│       └── package.json
-├── packages/shared/                    (tipos compartilhados)
-├── docs/
-│   └── relatorios/
-│       └── 2026-04-29_planejamento_frontend.md  (planejamento completo)
-├── .env.example                        (template de variáveis)
-├── .gitignore
-└── package.json
+│       ├── src/services/
+│       │   ├── infinitepay.service.ts  (gateway de pagamento)
+│       │   ├── pedido.service.ts
+│       │   ├── produto.service.ts
+│       │   ├── bairro.service.ts
+│       │   ├── cliente.service.ts
+│       │   └── evolution.service.ts    (WhatsApp)
+│       ├── src/routes/
+│       │   └── webhook.routes.ts       (POST /webhook/infinitepay)
+│       └── prisma/
+│           ├── schema.prisma
+│           ├── migrations/
+│           └── seed.ts
+├── deploy/
+│   ├── deploy.sh                       (script de deploy padrão)
+│   ├── ecosystem.config.cjs            (PM2 config)
+│   ├── nginx.rancho-delivery.conf      (config Nginx)
+│   ├── healthcheck.sh                  (smoke test)
+│   ├── env.backend.production.example  (template .env backend)
+│   └── env.frontend.production.example (template .env frontend)
+├── docs/operacao/
+│   ├── FIRST_DEPLOY_RUNBOOK.md         (passo a passo primeiro deploy)
+│   ├── DEPLOY_PADRAO.md                (deploy de rotina)
+│   └── HANDOFF.md                      (este arquivo)
+└── AGENTS.md                           (instruções para agentes de IA)
 ```
 
 ---
 
-## 5. Design System — Fontes
+## 6. Design System — Fontes
 
 | Variável CSS | Classe Tailwind | Fonte | Uso |
 |---|---|---|---|
@@ -130,37 +136,28 @@ C:\sabosexprex\                         (raiz do monorepo)
 | `--font-produto` | `font-produto` | Alfa Slab One | Títulos e preços de produtos |
 | `--font-body` | `font-body` | Nunito | Textos corridos, labels, inputs |
 
-Fontes carregadas em `src/styles/design-system.css` via `@font-face` e Google Fonts.
+Cores principais: `#1A0D06` (fundo), `#D4601C` (brasa/primária), `#E8A040` (mel/acento), `#F4E8CC` (bege claro/texto).
 
 ---
 
-## 6. Variáveis de Ambiente Necessárias
+## 7. Variáveis de Ambiente
 
 ### Backend (`apps/backend/.env`)
-```env
-NODE_ENV=production
-PORT=3001
-DATABASE_URL=postgresql://<usuario>:<senha>@localhost:5432/<banco>
-FRONTEND_URL=https://rancho.delivery
-INFINITEPAY_HANDLE=orancho-comida
-INFINITEPAY_WEBHOOK_SECRET=<definir um secret forte>
-EVOLUTION_API_URL=http://localhost:8080
-EVOLUTION_API_KEY=<api key da Evolution>
-EVOLUTION_INSTANCE_NAME=rancho-comida
-WHATSAPP_DONO=<número com DDI+DDD, ex: 5562999999999>
-LOG_LEVEL=info
-JWT_SECRET=<secret forte para JWT>
-JWT_EXPIRES_IN=7d
-```
+Ver template em `deploy/env.backend.production.example`.
+Valores críticos:
+- `DATABASE_URL` — string de conexão PostgreSQL
+- `INFINITEPAY_HANDLE=orancho-comida`
+- `INFINITEPAY_WEBHOOK_SECRET` — definir secret forte
+- `FRONTEND_URL=https://rancho.delivery`
+- `WHATSAPP_DONO` — número com DDI+DDD
 
-### Frontend (`apps/frontend/.env.local`)
-```env
-NEXT_PUBLIC_API_URL=https://api.rancho.delivery
-```
+### Frontend (`apps/frontend/.env.production`)
+Ver template em `deploy/env.frontend.production.example`.
+- `NEXT_PUBLIC_API_URL=https://api.rancho.delivery`
 
 ---
 
-## 7. O Que Já Foi Feito no Servidor
+## 8. O Que Já Foi Feito no Servidor
 
 - [x] Ubuntu 22.04 atualizado
 - [x] Node.js 18 instalado
@@ -169,209 +166,65 @@ NEXT_PUBLIC_API_URL=https://api.rancho.delivery
 - [x] Nginx instalado
 - [x] Certbot instalado
 - [x] PostgreSQL instalado e rodando
-- [x] Banco de produção criado
-- [x] Usuário de produção criado
-- [ ] Repositório git clonado no servidor
+- [x] Banco `rancho_delivery` criado
+- [x] Usuário `rancho` criado
+- [ ] Usuário `deploy` criado no servidor
+- [ ] Repositório clonado em `/var/www/rancho-delivery`
 - [ ] Variáveis de ambiente configuradas
-- [ ] Migrations do Prisma executadas
-- [ ] Seed do banco executado
-- [ ] Build do backend
-- [ ] Build do frontend
-- [ ] PM2 configurado
-- [ ] Nginx configurado com os 4 domínios
-- [ ] SSL via Certbot configurado
+- [ ] Migrations do Prisma executadas (`db:migrate:deploy`)
+- [ ] Seed do banco executado (`db:seed`)
+- [ ] Build do backend e frontend
+- [ ] PM2 configurado com `ecosystem.config.cjs`
+- [ ] Nginx configurado com `nginx.rancho-delivery.conf`
+- [ ] SSL via Certbot ativado
 - [ ] Firewall UFW configurado
 - [ ] Webhook InfinitePay configurado no painel
 
 ---
 
-## 8. Próximos Passos — Deploy Completo
+## 9. Próximos Passos — Completar Deploy
 
-### Passo 1 — Commit e Push para GitHub
-No terminal local (`C:\sabosexprex`):
-```powershell
-git rm -r --cached .claude
-git add .
-git commit -m "feat: projeto inicial Rancho Comida Caseira"
-git branch -M main
-git remote add origin https://github.com/<usuario>/rancho-delivery.git
-git push -u origin main
-```
+Seguir o `docs/operacao/FIRST_DEPLOY_RUNBOOK.md` a partir do passo 2.
 
-### Passo 2 — Clonar no servidor
-No servidor via SSH (`ssh root@194.5.152.177`):
+Resumo rápido:
 ```bash
-mkdir -p /var/www
+# No servidor
+sudo useradd -m -s /bin/bash deploy
+sudo mkdir -p /var/www
+sudo chown deploy:www-data /var/www
+sudo -iu deploy
 cd /var/www
-git clone https://github.com/<usuario>/rancho-delivery.git rancho
-cd rancho
-```
-
-### Passo 3 — Variáveis de ambiente no servidor
-```bash
-# Backend
-cp .env.example apps/backend/.env
-nano apps/backend/.env
-# Preencher todas as variáveis conforme seção 6
-
-# Frontend
-nano apps/frontend/.env.local
-# NEXT_PUBLIC_API_URL=https://api.rancho.delivery
-```
-
-### Passo 4 — Instalar dependências e migrations
-```bash
-cd /var/www/rancho
-pnpm install
-pnpm db:migrate
-pnpm db:seed
-```
-
-### Passo 5 — Build
-```bash
-pnpm build:backend
-pnpm build:frontend
-```
-
-### Passo 6 — PM2
-```bash
-# Backend
-pm2 start apps/backend/dist/index.js --name rancho-api
-
-# Frontend
-pm2 start "pnpm start" --name rancho-frontend --cwd apps/frontend
-
+git clone git@github.com:quadradois/rancho-delivery.git
+cd rancho-delivery
+cp deploy/env.backend.production.example apps/backend/.env
+cp deploy/env.frontend.production.example apps/frontend/.env.production
+# Editar os dois .env com valores reais
+pnpm install --frozen-lockfile
+pnpm --filter @rancho-delivery/backend db:generate
+pnpm --filter @rancho-delivery/backend db:migrate:deploy
+pnpm build
+pm2 start deploy/ecosystem.config.cjs
 pm2 save
 pm2 startup
-```
-
-### Passo 7 — Nginx
-Criar arquivo `/etc/nginx/sites-available/rancho`:
-```nginx
-# Site de pedidos — rancho.delivery
-server {
-    listen 80;
-    server_name rancho.delivery www.rancho.delivery;
-
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-
-# Painel admin — app.rancho.delivery
-server {
-    listen 80;
-    server_name app.rancho.delivery;
-
-    location / {
-        proxy_pass http://localhost:3000/admin;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-
-# API — api.rancho.delivery
-server {
-    listen 80;
-    server_name api.rancho.delivery;
-
-    location / {
-        proxy_pass http://localhost:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-```
-
-```bash
-ln -s /etc/nginx/sites-available/rancho /etc/nginx/sites-enabled/
-nginx -t
-systemctl reload nginx
-```
-
-### Passo 8 — SSL
-```bash
-certbot --nginx -d rancho.delivery -d www.rancho.delivery -d app.rancho.delivery -d api.rancho.delivery
-```
-
-### Passo 9 — Firewall
-```bash
-ufw allow OpenSSH
-ufw allow 'Nginx Full'
-ufw enable
-```
-
-### Passo 10 — Webhook InfinitePay
-No painel InfinitePay, configurar webhook apontando para:
-```
-https://api.rancho.delivery/webhook/infinitepay
+# Nginx e SSL — ver FIRST_DEPLOY_RUNBOOK.md passos 6 e 7
 ```
 
 ---
 
-## 9. Comandos Úteis no Servidor
+## 10. Pendências e Observações
 
-```bash
-# Ver logs do backend
-pm2 logs rancho-api
+1. **Autenticação do admin** — o painel `/admin` não tem autenticação. Qualquer pessoa com a URL acessa. Implementar antes de ir para produção.
 
-# Ver logs do frontend
-pm2 logs rancho-frontend
+2. **Usuário `deploy`** — o `AGENTS.md` define que PM2 deve rodar como usuário `deploy`, não `root`. Criar o usuário antes do deploy.
 
-# Reiniciar serviços
-pm2 restart all
+3. **Webhook InfinitePay** — após deploy, configurar no painel InfinitePay:
+   `https://api.rancho.delivery/webhook/infinitepay`
 
-# Status dos processos
-pm2 status
-
-# Testar API
-curl https://api.rancho.delivery/health
-
-# Testar banco
-sudo -u postgres psql -d rancho_delivery -c "\dt"
-```
-
----
-
-## 10. Observações Importantes
-
-1. **Senha do servidor exposta no chat** — trocar a senha root imediatamente após o deploy:
+4. **Senha do servidor** — a senha root foi exposta no chat. Trocar imediatamente:
    ```bash
    passwd root
    ```
 
-2. **Autenticação do admin** — o painel `/admin` não tem autenticação ainda. Qualquer pessoa com a URL acessa. Implementar autenticação antes de ir para produção.
+5. **Prisma schema** — o comentário no campo `pagamentoId` ainda diz "ID do Asaas". Cosmético, não afeta funcionamento.
 
-3. **InfinitePay webhook secret** — definir um secret forte e configurar tanto no `.env` do backend quanto no painel InfinitePay.
-
-4. **Prisma schema** — o campo `pagamentoId` no modelo `Pedido` ainda tem comentário "ID do Asaas". Pode atualizar para "ID do InfinitePay" em uma migration futura.
-
-5. **CORS** — o backend já está configurado para aceitar `https://rancho.delivery` via variável `FRONTEND_URL`.
-
-6. **Testes** — 82/82 testes unitários passando. Rodar `pnpm test:frontend` para confirmar antes do deploy.
-
----
-
-## 11. Repositório GitHub
-
-- URL: `https://github.com/<usuario>/rancho-delivery` (preencher após push)
-- Branch principal: `main`
-- Primeiro commit ainda não foi feito — ver Passo 1 acima
-
----
-
-*Documento criado em 2026-04-30 para continuidade do desenvolvimento.*
+6. **Testes** — 82/82 testes unitários passando. Rodar `pnpm test:frontend` antes de cada deploy.

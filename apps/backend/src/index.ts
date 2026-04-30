@@ -42,20 +42,18 @@ function getFrontendOrigins() {
 // Middlewares de segurança
 app.use(helmet());
 
-// Configuração de CORS mais permissiva para desenvolvimento
+// Configuração de CORS
 const corsOptions = {
   origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
-    // Permitir requisições sem origin (como Postman, curl, etc)
     if (!origin) return callback(null, true);
-    
-    // Lista de origens permitidas
+
     const allowedOrigins = [
       'http://localhost:3000',
       'http://localhost:3001',
       'http://localhost:3002',
       ...getFrontendOrigins()
     ].filter(Boolean);
-    
+
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
@@ -67,7 +65,7 @@ const corsOptions = {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'asaas-access-token'],
   exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  maxAge: 86400 // 24 horas
+  maxAge: 86400
 };
 
 app.use(cors(corsOptions));
