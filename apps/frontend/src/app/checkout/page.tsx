@@ -9,8 +9,8 @@ import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/contexts/ToastContext';
 import { formatCurrency } from '@/lib/utils';
 import api, { CriarPedidoDTO } from '@/lib/api';
-import { checkoutAddressSchema } from '@/schemas/checkoutSchema';
-import { ZodError } from 'zod';
+import ModalVerificacaoCep, { getCepValidado } from '@/components/ui/ModalVerificacaoCep';
+import { z } from 'zod';
 
 type CheckoutStep = 'address' | 'payment' | 'review';
 
@@ -20,9 +20,13 @@ interface AddressForm {
   email: string;
   cep: string;
   rua: string;
-  numero: string;
-  complemento: string;
   bairro: string;
+  localidade: string;
+  uf: string;
+  numero: string;
+  quadra: string;
+  lote: string;
+  complemento: string;
   pontoReferencia: string;
 }
 
@@ -31,6 +35,17 @@ interface PaymentForm {
   trocoParaValor?: number;
 }
 
+type AddressErrors = Partial<Record<keyof AddressForm, string>>;
+
+const addressSchema = z.object({
+  nome: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
+  telefone: z.string().min(10, 'Telefone inválido'),
+  cep: z.string().min(8, 'CEP inválido'),
+  rua: z.string().min(1, 'Rua é obrigatória'),
+  bairro: z.string().min(1, 'Bairro é obrigatório'),
+  numero: z.string().min(1, 'Número é obrigatório'),
+});
+
 export default function CheckoutPage() {
   const router = useRouter();
   const { items, totalPrice, clearCart } = useCart();
@@ -38,8 +53,10 @@ export default function CheckoutPage() {
 
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('address');
   const [loading, setLoading] = useState(false);
-  const [deliveryFee, setDeliveryFee] = useState(0);
   const [loadingCep, setLoadingCep] = useState(false);
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [cepAtendido, setCepAtendido] = useState(false);
+  const [errors, setErrors] = useState<AddressErrors>({});
 
   const [addressForm, setAddressForm] = useState<AddressForm>({
     nome: '',
@@ -47,9 +64,13 @@ export default function CheckoutPage() {
     email: '',
     cep: '',
     rua: '',
-    numero: '',
-    complemento: '',
     bairro: '',
+    localidade: '',
+    uf: '',
+    numero: '',
+    quadra: '',
+    lote: '',
+    complemento: '',
     pontoReferencia: '',
   });
 
@@ -58,121 +79,130 @@ export default function CheckoutPage() {
     trocoParaValor: undefined,
   });
 
-  const [errors, setErrors] = useState<Partial<Record<keyof AddressForm, string>>>({});
-
   // Redirecionar se carrinho vazio
   useEffect(() => {
-    if (items.length === 0) {
-      router.push('/');
-    }
+    if (items.length === 0) router.push('/');
   }, [items, router]);
 
-  // Buscar endereço por CEP
+  // Pré-preencher com CEP validado na sessão
+  useEffect(() => {
+    const cepSalvo = getCepValidado();
+    if (cepSalvo) {
+      setAddressForm(prev => ({
+        ...prev,
+        cep: cepSalvo.cep,
+        rua: cepSalvo.logradouro,
+        bairro: cepSalvo.bairro,
+        localidade: cepSalvo.localidade,
+        uf: cepSalvo.uf,
+      }));
+      setDeliveryFee(cepSalvo.taxa);
+      setCepAtendido(true);
+    }
+  }, []);
+
+  const formatarCep = (valor: string) => {
+    const n = valor.replace(/\D/g, '').slice(0, 8);
+    return n.length > 5 ? `${n.slice(0, 5)}-${n.slice(5)}` : n;
+  };
+
+  const formatarTelefone = (valor: string) => {
+    const n = valor.replace(/\D/g, '').slice(0, 11);
+    if (n.length <= 2) return n;
+    if (n.length <= 6) return `(${n.slice(0, 2)}) ${n.slice(2)}`;
+    if (n.length <= 10) return `(${n.slice(0, 2)}) ${n.slice(2, 6)}-${n.slice(6)}`;
+    return `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7)}`;
+  };
+
+  // Buscar CEP via API (valida cobertura)
   const handleCepBlur = async () => {
-    const cep = addressForm.cep.replace(/\D/g, '');
-    
-    if (cep.length !== 8) return;
+    const cepLimpo = addressForm.cep.replace(/\D/g, '');
+    if (cepLimpo.length !== 8) return;
 
     setLoadingCep(true);
+    setCepAtendido(false);
     try {
-      // Buscar endereço via ViaCEP
-      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
-      const data = await response.json();
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const res = await fetch(`${baseUrl}/api/bairros/cep/${cepLimpo}`);
+      const json = await res.json();
+      const data = json.data ?? json;
 
       if (data.erro) {
         showError('CEP não encontrado', 'Verifique o CEP digitado');
         return;
       }
 
+      if (!data.atendido) {
+        showError('Fora da área de entrega', `Ainda não entregamos em ${data.endereco?.bairro || 'sua região'}`);
+        setAddressForm(prev => ({ ...prev, rua: '', bairro: '', localidade: '', uf: '' }));
+        return;
+      }
+
       setAddressForm(prev => ({
         ...prev,
-        rua: data.logradouro || '',
-        bairro: data.bairro || '',
+        rua: data.endereco.logradouro || '',
+        bairro: data.endereco.bairro || '',
+        localidade: data.endereco.localidade || '',
+        uf: data.endereco.uf || '',
       }));
-
-    } catch (error) {
+      setDeliveryFee(data.taxa);
+      setCepAtendido(true);
+    } catch {
       showError('Erro ao buscar CEP', 'Tente novamente');
     } finally {
       setLoadingCep(false);
     }
   };
 
-  const handleBairroBlur = async (bairroNome: string) => {
-    if (!bairroNome.trim()) return;
-
-    try {
-      const validacao = await api.bairros.validar(bairroNome.trim());
-      if (validacao.valido) {
-        setDeliveryFee(validacao.taxa);
-      }
-    } catch {
-      setDeliveryFee(0);
-      showError('Bairro não atendido', 'Este bairro não está na nossa área de entrega');
-    }
-  };
-
-  // Validar formulário de endereço com Zod
   const validateAddress = (): boolean => {
-    try {
-      checkoutAddressSchema.parse(addressForm);
-      setErrors({});
-      return true;
-    } catch (err) {
-      if (err instanceof ZodError) {
-        const fieldErrors: Partial<Record<keyof AddressForm, string>> = {};
-        err.errors.forEach((e) => {
-          const field = e.path[0] as keyof AddressForm;
-          if (field) fieldErrors[field] = e.message;
-        });
-        setErrors(fieldErrors);
-      }
+    const result = addressSchema.safeParse(addressForm);
+    if (!result.success) {
+      const erros: AddressErrors = {};
+      result.error.errors.forEach((e) => {
+        const field = e.path[0] as keyof AddressForm;
+        if (field) erros[field] = e.message;
+      });
+      setErrors(erros);
       return false;
     }
-  };
-
-  // Validar campo individual em tempo real
-  const validateField = (field: keyof AddressForm, value: string) => {
-    try {
-      checkoutAddressSchema.pick({ [field]: true } as any).parse({ [field]: value });
-      setErrors((prev) => ({ ...prev, [field]: undefined }));
-    } catch (err) {
-      if (err instanceof ZodError) {
-        setErrors((prev) => ({ ...prev, [field]: err.errors[0]?.message }));
-      }
+    if (!cepAtendido) {
+      showError('CEP não validado', 'Verifique se entregamos na sua região');
+      return false;
     }
+    setErrors({});
+    return true;
   };
 
-  // Avançar para próxima etapa
   const handleNextStep = () => {
     if (currentStep === 'address') {
-      if (!validateAddress()) {
-        showError('Preencha todos os campos obrigatórios');
-        return;
-      }
+      if (!validateAddress()) return;
       setCurrentStep('payment');
     } else if (currentStep === 'payment') {
       setCurrentStep('review');
     }
   };
 
-  // Voltar etapa
   const handlePreviousStep = () => {
-    if (currentStep === 'payment') {
-      setCurrentStep('address');
-    } else if (currentStep === 'review') {
-      setCurrentStep('payment');
-    }
+    if (currentStep === 'payment') setCurrentStep('address');
+    else if (currentStep === 'review') setCurrentStep('payment');
   };
 
-  // Finalizar pedido
   const handleFinishOrder = async () => {
     setLoading(true);
     try {
+      const enderecoCompleto = [
+        addressForm.rua,
+        addressForm.numero && `nº ${addressForm.numero}`,
+        addressForm.quadra && `Quadra ${addressForm.quadra}`,
+        addressForm.lote && `Lote ${addressForm.lote}`,
+        addressForm.complemento,
+      ].filter(Boolean).join(', ');
+
       const pedidoData: CriarPedidoDTO = {
         cliente: {
           nome: addressForm.nome,
           telefone: addressForm.telefone.replace(/\D/g, ''),
-          endereco: `${addressForm.rua}, ${addressForm.numero}${addressForm.complemento ? ` - ${addressForm.complemento}` : ''}`,
+          endereco: enderecoCompleto,
           bairro: addressForm.bairro,
         },
         itens: items.map(item => ({
@@ -184,8 +214,7 @@ export default function CheckoutPage() {
       };
 
       const pedido = await api.pedidos.criar(pedidoData);
-      
-      showSuccess('Pedido realizado com sucesso!', `Pedido #${pedido.id.slice(-8)}`);
+      showSuccess('Pedido realizado!', `Pedido #${pedido.id.slice(-8)}`);
       clearCart();
       if (pedido.linkPagamento) {
         window.location.href = pedido.linkPagamento;
@@ -193,8 +222,7 @@ export default function CheckoutPage() {
       }
       router.push(`/pedido/${pedido.id}`);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro ao criar pedido';
-      showError('Erro ao finalizar pedido', errorMessage);
+      showError('Erro ao finalizar pedido', error instanceof Error ? error.message : 'Tente novamente');
     } finally {
       setLoading(false);
     }
@@ -211,267 +239,261 @@ export default function CheckoutPage() {
 
       <main className="flex-1 overflow-y-auto pb-32">
         <div className="container py-6 max-w-2xl">
+
           {/* Progress Steps */}
           <div className="flex items-center justify-between mb-8">
-            <div className="flex-1 flex flex-col items-center">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-                currentStep === 'address' ? 'bg-[#D4601C] text-white' : 'bg-[#3E2214] text-[#9A7B5C]'
-              }`}>1</div>
-              <span className="text-xs mt-2 font-semibold text-[#9A7B5C]">Endereço</span>
-            </div>
-            <div className={`flex-1 h-0.5 ${currentStep !== 'address' ? 'bg-[#D4601C]' : 'bg-[#3E2214]'}`} />
-            <div className="flex-1 flex flex-col items-center">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-                currentStep === 'payment' ? 'bg-[#D4601C] text-white' :
-                currentStep === 'review' ? 'bg-[#4A7840] text-white' : 'bg-[#3E2214] text-[#9A7B5C]'
-              }`}>2</div>
-              <span className="text-xs mt-2 font-semibold text-[#9A7B5C]">Pagamento</span>
-            </div>
-            <div className={`flex-1 h-0.5 ${currentStep === 'review' ? 'bg-[#D4601C]' : 'bg-[#3E2214]'}`} />
-            <div className="flex-1 flex flex-col items-center">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-                currentStep === 'review' ? 'bg-[#D4601C] text-white' : 'bg-[#3E2214] text-[#9A7B5C]'
-              }`}>3</div>
-              <span className="text-xs mt-2 font-semibold text-[#9A7B5C]">Revisão</span>
-            </div>
+            {(['address', 'payment', 'review'] as CheckoutStep[]).map((step, i) => {
+              const labels = ['Endereço', 'Pagamento', 'Revisão'];
+              const isActive = currentStep === step;
+              const isDone = (currentStep === 'payment' && i === 0) || (currentStep === 'review' && i <= 1);
+              return (
+                <div key={step} className="flex items-center flex-1">
+                  <div className="flex flex-col items-center">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
+                      isActive ? 'bg-[#D4601C] text-white' :
+                      isDone ? 'bg-[#4A7840] text-white' :
+                      'bg-[#3E2214] text-[#9A7B5C]'
+                    }`}>
+                      {isDone ? (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      ) : i + 1}
+                    </div>
+                    <span className="text-xs mt-2 font-semibold text-[#9A7B5C]">{labels[i]}</span>
+                  </div>
+                  {i < 2 && (
+                    <div className={`flex-1 h-0.5 mx-2 mb-5 transition-all ${isDone || (isActive && i < 1) ? 'bg-[#D4601C]' : 'bg-[#3E2214]'}`} />
+                  )}
+                </div>
+              );
+            })}
           </div>
 
-          {/* Step Content */}
+          {/* ── STEP 1: ENDEREÇO ── */}
           {currentStep === 'address' && (
             <div className="space-y-4">
-              <h2 className="font-display text-2xl text-[#F4E8CC] mb-4">
-                Dados de Entrega
-              </h2>
+              <h2 className="font-brand text-xl font-black uppercase text-[#F4E8CC]">Seus dados</h2>
 
-              <Input
-                label="Nome completo *"
-                value={addressForm.nome}
-                onChange={(e) => setAddressForm({ ...addressForm, nome: e.target.value })}
-                onBlur={(e) => validateField('nome', e.target.value)}
-                error={errors.nome}
-                placeholder="Seu nome"
-              />
-
-              <Input
-                label="Telefone *"
-                value={addressForm.telefone}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, '');
-                  const formatted = value.replace(/(\d{2})(\d{5})(\d{4})/, '($1) $2-$3');
-                  setAddressForm({ ...addressForm, telefone: formatted });
-                }}
-                onBlur={(e) => validateField('telefone', e.target.value)}
-                error={errors.telefone}
-                placeholder="(11) 99999-9999"
-              />
-
-              <Input
-                label="E-mail"
-                type="email"
-                value={addressForm.email}
-                onChange={(e) => setAddressForm({ ...addressForm, email: e.target.value })}
-                onBlur={(e) => validateField('email', e.target.value)}
-                placeholder="seu@email.com"
-                error={errors.email}
-              />
-
-              <Input
-                label="CEP *"
-                value={addressForm.cep}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/\D/g, '');
-                  const formatted = value.replace(/(\d{5})(\d{3})/, '$1-$2');
-                  setAddressForm({ ...addressForm, cep: formatted });
-                }}
-                onBlur={handleCepBlur}
-                error={errors.cep}
-                placeholder="00000-000"
-                hint={loadingCep ? 'Buscando endereço...' : undefined}
-              />
-
-              <Input
-                label="Rua *"
-                value={addressForm.rua}
-                onChange={(e) => setAddressForm({ ...addressForm, rua: e.target.value })}
-                onBlur={(e) => validateField('rua', e.target.value)}
-                error={errors.rua}
-                placeholder="Nome da rua"
-              />
+              <Input label="Nome completo *" value={addressForm.nome}
+                onChange={e => setAddressForm(p => ({ ...p, nome: e.target.value }))}
+                error={errors.nome} placeholder="Seu nome" />
 
               <div className="grid grid-cols-2 gap-4">
-                <Input
-                  label="Número *"
-                  value={addressForm.numero}
-                  onChange={(e) => setAddressForm({ ...addressForm, numero: e.target.value })}
-                  onBlur={(e) => validateField('numero', e.target.value)}
-                  error={errors.numero}
-                  placeholder="123"
-                />
-
-                <Input
-                  label="Complemento"
-                  value={addressForm.complemento}
-                  onChange={(e) => setAddressForm({ ...addressForm, complemento: e.target.value })}
-                  placeholder="Apto 45"
-                />
+                <Input label="Telefone / WhatsApp *" value={addressForm.telefone}
+                  onChange={e => setAddressForm(p => ({ ...p, telefone: formatarTelefone(e.target.value) }))}
+                  error={errors.telefone} placeholder="(00) 00000-0000" inputMode="tel" />
+                <Input label="E-mail (opcional)" value={addressForm.email}
+                  onChange={e => setAddressForm(p => ({ ...p, email: e.target.value }))}
+                  placeholder="seu@email.com" type="email" />
               </div>
 
-              <Input
-                label="Bairro *"
-                value={addressForm.bairro}
-                onChange={(e) => setAddressForm({ ...addressForm, bairro: e.target.value })}
-                onBlur={async (e) => {
-                  validateField('bairro', e.target.value);
-                  await handleBairroBlur(e.target.value);
-                }}
-                error={errors.bairro}
-                placeholder="Nome do bairro"
-              />
+              <div className="border-t border-[#3E2214] pt-4">
+                <h2 className="font-brand text-xl font-black uppercase text-[#F4E8CC] mb-4">Endereço de entrega</h2>
 
-              <Input
-                label="Ponto de referência"
-                value={addressForm.pontoReferencia}
-                onChange={(e) => setAddressForm({ ...addressForm, pontoReferencia: e.target.value })}
-                placeholder="Próximo ao mercado"
-              />
+                {/* CEP */}
+                <div className="flex gap-2 items-end mb-4">
+                  <div className="flex-1">
+                    <Input
+                      label="CEP *"
+                      value={addressForm.cep}
+                      onChange={e => {
+                        setAddressForm(p => ({ ...p, cep: formatarCep(e.target.value) }));
+                        setCepAtendido(false);
+                      }}
+                      onBlur={handleCepBlur}
+                      error={errors.cep}
+                      placeholder="00000-000"
+                      inputMode="numeric"
+                      maxLength={9}
+                    />
+                  </div>
+                  {loadingCep && (
+                    <div className="mb-1 w-10 h-11 flex items-center justify-center">
+                      <div className="w-5 h-5 border-2 border-[#D4601C] border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                  {cepAtendido && !loadingCep && (
+                    <div className="mb-1 w-10 h-11 flex items-center justify-center">
+                      <div className="w-8 h-8 rounded-full bg-[#4A7840]/20 flex items-center justify-center">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4A7840" strokeWidth="2.5">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Rua e Bairro — travados quando CEP validado */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-semibold text-[#E8D4B0]">Rua</label>
+                    <div className={`h-11 px-4 flex items-center rounded-lg text-sm ${
+                      cepAtendido ? 'text-[#9A7B5C] bg-[#1A0D06] border border-[#3E2214]' : 'text-[#5C3418] bg-[#1A0D06] border border-[#3E2214]'
+                    }`}>
+                      {addressForm.rua || <span className="text-[#5C3418]">Preenchido pelo CEP</span>}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-sm font-semibold text-[#E8D4B0]">Bairro</label>
+                    <div className={`h-11 px-4 flex items-center rounded-lg text-sm ${
+                      cepAtendido ? 'text-[#9A7B5C] bg-[#1A0D06] border border-[#3E2214]' : 'text-[#5C3418] bg-[#1A0D06] border border-[#3E2214]'
+                    }`}>
+                      {addressForm.bairro || <span className="text-[#5C3418]">Preenchido pelo CEP</span>}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Número, Quadra, Lote */}
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <Input label="Número *" value={addressForm.numero}
+                    onChange={e => setAddressForm(p => ({ ...p, numero: e.target.value }))}
+                    error={errors.numero} placeholder="Ex: 123" />
+                  <Input label="Quadra" value={addressForm.quadra}
+                    onChange={e => setAddressForm(p => ({ ...p, quadra: e.target.value }))}
+                    placeholder="Ex: A" />
+                  <Input label="Lote" value={addressForm.lote}
+                    onChange={e => setAddressForm(p => ({ ...p, lote: e.target.value }))}
+                    placeholder="Ex: 5" />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <Input label="Complemento" value={addressForm.complemento}
+                    onChange={e => setAddressForm(p => ({ ...p, complemento: e.target.value }))}
+                    placeholder="Apto, bloco..." />
+                  <Input label="Ponto de referência" value={addressForm.pontoReferencia}
+                    onChange={e => setAddressForm(p => ({ ...p, pontoReferencia: e.target.value }))}
+                    placeholder="Próximo ao..." />
+                </div>
+              </div>
             </div>
           )}
 
+          {/* ── STEP 2: PAGAMENTO ── */}
           {currentStep === 'payment' && (
             <div className="space-y-4">
-              <h2 className="font-display text-2xl text-[#F4E8CC] mb-4">
-                Forma de Pagamento
-              </h2>
+              <h2 className="font-brand text-xl font-black uppercase text-[#F4E8CC]">Forma de pagamento</h2>
 
-              <div className="space-y-3">
-                {[
-                  { value: 'pix', label: 'PIX', icon: '💳' },
-                  { value: 'cartao_credito', label: 'Cartão de Crédito', icon: '💳' },
-                  { value: 'cartao_debito', label: 'Cartão de Débito', icon: '💳' },
-                  { value: 'dinheiro', label: 'Dinheiro', icon: '💵' },
-                ].map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => setPaymentForm({ ...paymentForm, formaPagamento: option.value as any })}
-                    className={`w-full p-4 rounded-xl border-2 flex items-center gap-3 transition-all ${
-                      paymentForm.formaPagamento === option.value
-                        ? 'border-[#D4601C] bg-[#D4601C]/10'
-                        : 'border-[#3E2214] bg-[#251208] hover:border-[#5C3418]'
-                    }`}
-                  >
-                    <span className="text-2xl">{option.icon}</span>
-                    <span className="font-semibold text-[#F4E8CC]">{option.label}</span>
-                    {paymentForm.formaPagamento === option.value && (
-                      <span className="ml-auto text-[#D4601C]">✓</span>
-                    )}
-                  </button>
-                ))}
-              </div>
+              {[
+                { value: 'pix', label: 'Pix', icon: '⚡', desc: 'Pagamento instantâneo' },
+                { value: 'cartao_credito', label: 'Cartão de Crédito', icon: '💳', desc: 'Na entrega' },
+                { value: 'cartao_debito', label: 'Cartão de Débito', icon: '💳', desc: 'Na entrega' },
+                { value: 'dinheiro', label: 'Dinheiro', icon: '💵', desc: 'Na entrega' },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setPaymentForm(p => ({ ...p, formaPagamento: opt.value as any }))}
+                  className={`w-full flex items-center gap-4 p-4 rounded-xl border-[1.5px] transition-all text-left ${
+                    paymentForm.formaPagamento === opt.value
+                      ? 'border-[#D4601C] bg-[#D4601C]/10'
+                      : 'border-[#3E2214] bg-[#251208] hover:border-[#5C3418]'
+                  }`}
+                >
+                  <span className="text-2xl">{opt.icon}</span>
+                  <div className="flex-1">
+                    <p className="font-semibold text-[#F4E8CC] text-sm">{opt.label}</p>
+                    <p className="text-xs text-[#9A7B5C]">{opt.desc}</p>
+                  </div>
+                  {paymentForm.formaPagamento === opt.value && (
+                    <div className="w-5 h-5 rounded-full bg-[#D4601C] flex items-center justify-center flex-shrink-0">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </div>
+                  )}
+                </button>
+              ))}
 
               {paymentForm.formaPagamento === 'dinheiro' && (
                 <Input
                   label="Troco para quanto?"
                   type="number"
-                  value={paymentForm.trocoParaValor || ''}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, trocoParaValor: parseFloat(e.target.value) || undefined })}
-                  placeholder="Ex: 50.00"
+                  min={totalWithDelivery}
+                  step="0.01"
+                  value={paymentForm.trocoParaValor?.toString() || ''}
+                  onChange={e => setPaymentForm(p => ({ ...p, trocoParaValor: parseFloat(e.target.value) || undefined }))}
+                  placeholder={`Mínimo ${formatCurrency(totalWithDelivery)}`}
                   hint="Deixe em branco se não precisar de troco"
                 />
               )}
             </div>
           )}
 
+          {/* ── STEP 3: REVISÃO ── */}
           {currentStep === 'review' && (
-            <div className="space-y-6">
-              <h2 className="font-display text-2xl text-[#F4E8CC] mb-4">
-                Revisar Pedido
-              </h2>
+            <div className="space-y-4">
+              <h2 className="font-brand text-xl font-black uppercase text-[#F4E8CC]">Revisar pedido</h2>
 
               {/* Endereço */}
-              <div className="rounded-xl p-4" style={{ background: '#251208', border: '1px solid #3E2214' }}>
-                <h3 className="font-bold text-sm uppercase text-[#9A7B5C] mb-3">Entregar em:</h3>
-                <p className="font-semibold text-[#F4E8CC]">{addressForm.nome}</p>
+              <div className="rounded-xl p-4 space-y-1" style={{ background: '#251208', border: '1.5px solid #3E2214' }}>
+                <p className="text-xs font-bold uppercase tracking-wider text-[#9A7B5C] mb-2">Entrega</p>
+                <p className="font-semibold text-[#F4E8CC] text-sm">{addressForm.nome}</p>
                 <p className="text-sm text-[#9A7B5C]">{addressForm.telefone}</p>
-                <p className="text-sm text-[#9A7B5C] mt-2">
-                  {addressForm.rua}, {addressForm.numero}
-                  {addressForm.complemento && ` - ${addressForm.complemento}`}
-                </p>
                 <p className="text-sm text-[#9A7B5C]">
-                  {addressForm.bairro} - CEP {addressForm.cep}
+                  {addressForm.rua}, {addressForm.numero}
+                  {addressForm.quadra && ` — Quadra ${addressForm.quadra}`}
+                  {addressForm.lote && `, Lote ${addressForm.lote}`}
+                  {addressForm.complemento && ` — ${addressForm.complemento}`}
                 </p>
-              </div>
-
-              {/* Pagamento */}
-              <div className="rounded-xl p-4" style={{ background: '#251208', border: '1px solid #3E2214' }}>
-                <h3 className="font-bold text-sm uppercase text-[#9A7B5C] mb-3">Pagamento:</h3>
-                <p className="font-semibold text-[#F4E8CC]">
-                  {paymentForm.formaPagamento === 'pix' && 'PIX'}
-                  {paymentForm.formaPagamento === 'cartao_credito' && 'Cartão de Crédito'}
-                  {paymentForm.formaPagamento === 'cartao_debito' && 'Cartão de Débito'}
-                  {paymentForm.formaPagamento === 'dinheiro' && 'Dinheiro'}
-                </p>
-                {paymentForm.trocoParaValor && (
-                  <p className="text-sm text-[#9A7B5C]">
-                    Troco para: {formatCurrency(paymentForm.trocoParaValor)}
-                  </p>
+                <p className="text-sm text-[#9A7B5C]">{addressForm.bairro} — CEP {addressForm.cep}</p>
+                {addressForm.pontoReferencia && (
+                  <p className="text-xs text-[#5C3418]">Ref: {addressForm.pontoReferencia}</p>
                 )}
               </div>
 
               {/* Itens */}
-              <div className="rounded-xl p-4" style={{ background: '#251208', border: '1px solid #3E2214' }}>
-                <h3 className="font-bold text-sm uppercase text-[#9A7B5C] mb-3">Itens do Pedido:</h3>
-                <div className="space-y-2">
-                  {items.map((item) => (
-                    <div key={item.id} className="flex justify-between text-sm">
-                      <span className="text-[#E8D4B0]">{item.quantity}x {item.name}</span>
-                      <span className="font-semibold text-[#F4E8CC]">{formatCurrency(item.price * item.quantity)}</span>
-                    </div>
-                  ))}
+              <div className="rounded-xl p-4 space-y-2" style={{ background: '#251208', border: '1.5px solid #3E2214' }}>
+                <p className="text-xs font-bold uppercase tracking-wider text-[#9A7B5C] mb-2">Itens</p>
+                {items.map(item => (
+                  <div key={item.id} className="flex justify-between text-sm">
+                    <span className="text-[#F4E8CC]">{item.quantity}x {item.name}</span>
+                    <span className="text-[#E87830] font-semibold">{formatCurrency(item.price * item.quantity)}</span>
+                  </div>
+                ))}
+                <div className="border-t border-[#3E2214] pt-2 mt-2 space-y-1">
+                  <div className="flex justify-between text-sm text-[#9A7B5C]">
+                    <span>Subtotal</span><span>{formatCurrency(totalPrice)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm text-[#9A7B5C]">
+                    <span>Entrega</span><span>{formatCurrency(deliveryFee)}</span>
+                  </div>
+                  <div className="flex justify-between font-brand font-black text-base pt-1">
+                    <span className="text-[#F4E8CC]">Total</span>
+                    <span className="text-[#E87830]">{formatCurrency(totalWithDelivery)}</span>
+                  </div>
                 </div>
               </div>
 
-              {/* Total */}
-              <div className="rounded-xl p-4" style={{ background: '#251208', border: '1px solid #3E2214' }}>
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm text-[#9A7B5C]">
-                    <span>Subtotal</span>
-                    <span>{formatCurrency(totalPrice)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-[#9A7B5C]">
-                    <span>Taxa de entrega</span>
-                    <span>{formatCurrency(deliveryFee)}</span>
-                  </div>
-                  <div className="flex justify-between pt-2" style={{ borderTop: '1px solid #3E2214' }}>
-                    <span className="font-body font-extrabold text-md uppercase text-[#F4E8CC]">Total</span>
-                    <span className="font-display text-xl text-[#E87830]">
-                      {formatCurrency(totalWithDelivery)}
-                    </span>
-                  </div>
-                </div>
+              {/* Pagamento */}
+              <div className="rounded-xl p-4" style={{ background: '#251208', border: '1.5px solid #3E2214' }}>
+                <p className="text-xs font-bold uppercase tracking-wider text-[#9A7B5C] mb-1">Pagamento</p>
+                <p className="text-sm text-[#F4E8CC] capitalize">{paymentForm.formaPagamento.replace('_', ' ')}</p>
+                {paymentForm.trocoParaValor && (
+                  <p className="text-xs text-[#9A7B5C]">Troco para {formatCurrency(paymentForm.trocoParaValor)}</p>
+                )}
               </div>
             </div>
           )}
         </div>
       </main>
 
-      {/* Footer with Actions */}
-      <div className="fixed bottom-0 left-0 right-0 p-6 space-y-3" style={{ background: '#251208', borderTop: '1px solid #3E2214' }}>
-        <div className="flex justify-between items-center mb-2">
-          <span className="text-sm text-[#9A7B5C]">Total com entrega</span>
-          <span className="font-display text-xl text-[#E87830]">
-            {formatCurrency(totalWithDelivery)}
-          </span>
+      {/* Footer fixo */}
+      <div className="fixed bottom-0 left-0 right-0 p-4" style={{ background: '#1A0D06', borderTop: '1px solid #3E2214' }}>
+        <div className="container max-w-2xl">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-sm text-[#9A7B5C]">Total</span>
+            <span className="font-brand font-black text-xl text-[#E87830]">{formatCurrency(totalWithDelivery)}</span>
+          </div>
+          {currentStep === 'review' ? (
+            <Button size="lg" className="w-full" onClick={handleFinishOrder} loading={loading}>
+              Confirmar e Pagar
+            </Button>
+          ) : (
+            <Button size="lg" className="w-full" onClick={handleNextStep}>
+              {currentStep === 'address' ? 'Continuar para Pagamento' : 'Revisar Pedido'}
+            </Button>
+          )}
         </div>
-
-        {currentStep === 'review' ? (
-          <Button size="lg" className="w-full" onClick={handleFinishOrder} loading={loading} disabled={loading}>
-            {loading ? 'Finalizando...' : 'Confirmar Pedido'}
-          </Button>
-        ) : (
-          <Button size="lg" className="w-full" onClick={handleNextStep}>
-            Continuar
-          </Button>
-        )}
       </div>
     </div>
   );

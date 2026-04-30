@@ -64,13 +64,19 @@ model Produto {
 
 // Bairros atendidos e taxas de entrega
 model Bairro {
-  id       String  @id @default(cuid())
-  nome     String  @unique @db.VarChar(100)
-  taxa     Decimal @db.Decimal(10, 2)
-  ativo    Boolean @default(true)
-  
+  id              String   @id @default(cuid())
+  nome            String   @unique @db.VarChar(100)
+  cep             String?  @db.VarChar(9)   // CEP de referência do ViaCEP
+  taxa            Decimal  @db.Decimal(10, 2)
+  ativo           Boolean  @default(true)
+  linkIfood       String?  @map("link_ifood") @db.Text
+  link99food      String?  @map("link_99food") @db.Text
+  linkOutro       String?  @map("link_outro") @db.Text
+  nomeOutro       String?  @map("nome_outro") @db.VarChar(100)
+
   @@map("bairros")
   @@index([ativo])
+  @@index([cep])
 }
 
 // Pedidos
