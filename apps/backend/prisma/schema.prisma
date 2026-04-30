@@ -1,5 +1,5 @@
 // Schema do Prisma para Sabor Express
-// Gerado seguindo o planejamento em docs/PLANEJAMENTO_SABOR_EXPRESS.md
+// Gerado seguindo o planejamento em docs/planejamento/PLANEJAMENTO_SABOR_EXPRESS.md
 
 generator client {
   provider = "prisma-client-js"

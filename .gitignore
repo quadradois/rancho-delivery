@@ -1,26 +1,42 @@
-# Dependências
+# ============================================================
+# RANCHO COMIDA CASEIRA — .gitignore
+# ============================================================
+
+# ============================================================
+# CREDENCIAIS E VARIÁVEIS DE AMBIENTE — NUNCA COMMITAR!
+# ============================================================
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+.env.staging
+*.env
+
+# ============================================================
+# DEPENDÊNCIAS
+# ============================================================
 node_modules/
-.pnp
-.pnp.js
+.pnpm-store/
+.pnpm-debug.log
 
-# Testes
-coverage/
-*.lcov
-.nyc_output
-
-# Build
+# ============================================================
+# BUILD / DIST
+# ============================================================
 dist/
 build/
-.next/
 out/
-.turbo/
+.next/
+.nuxt/
+.output/
+*.tsbuildinfo
 
-# Variáveis de ambiente
-.env
-.env*.local
-.env.production
-
-# Logs
+# ============================================================
+# LOGS
+# ============================================================
 logs/
 *.log
 npm-debug.log*
@@ -29,43 +45,87 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Sistema operacional
-.DS_Store
-Thumbs.db
-*.swp
-*.swo
-*~
-
-# IDEs
-.vscode/
-.idea/
-*.sublime-project
-*.sublime-workspace
-.project
-.classpath
-.settings/
-
-# Prisma
-prisma/migrations/
-*.db
-*.db-journal
-
-# Temporários
-tmp/
-temp/
-*.tmp
-
-# Uploads
-uploads/
-public/uploads/
-
-# Cache
+# ============================================================
+# CACHE
+# ============================================================
 .cache/
 .parcel-cache/
 .eslintcache
+.stylelintcache
+.turbo/
 
-# Vercel
-.vercel
+# ============================================================
+# TESTES / COBERTURA
+# ============================================================
+coverage/
+.nyc_output/
+test-results/
+playwright-report/
 
-# TypeScript
-*.tsbuildinfo
+# ============================================================
+# SISTEMA OPERACIONAL
+# ============================================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# ============================================================
+# EDITORES / IDEs
+# ============================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ============================================================
+# PRISMA
+# ============================================================
+# Manter schema.prisma e migrations, ignorar apenas gerados
+prisma/generated/
+
+# ============================================================
+# UPLOADS / MÍDIA LOCAL
+# ============================================================
+uploads/
+public/uploads/
+*.mp4
+*.mov
+
+# ============================================================
+# ARQUIVOS TEMPORÁRIOS DO PROJETO
+# ============================================================
+build-*.txt
+*.tmp
+*.temp
+
+# ============================================================
+# KIRO / CLAUDE — Pasta interna do editor
+# ============================================================
+.claude/
+ecosystem.config.js.bak
+.pm2/
+
+# ============================================================
+# SSL / CERTIFICADOS
+# ============================================================
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx

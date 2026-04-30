@@ -1,6 +1,12 @@
-# Integração Asaas - Sabor Express
+# Integracao Asaas - Sabor Express
 
-Documentação completa da integração com o gateway de pagamento Asaas.
+## Status
+
+- **Status atual:** legado (nao utilizado em runtime)
+- **Motivo:** substituido por InfinitePay
+- **Doc oficial ativo:** `docs/integracoes/INTEGRACAO_INFINITEPAY.md`
+
+> Este arquivo foi mantido apenas para historico de decisao e referencia.
 
 ---
 

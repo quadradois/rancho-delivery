@@ -239,6 +239,22 @@ Todas as respostas seguem o formato:
 
 ---
 
+## Webhooks
+
+### InfinitePay
+
+**Endpoint:** `POST /webhook/infinitepay`
+
+**Headers aceitos para assinatura:**
+- `x-infinitepay-signature`
+- `authorization`
+- `x-webhook-secret`
+
+**Comportamento:**
+- Confirma pedido em eventos aprovados
+- Processamento idempotente para pedidos ja confirmados
+- Retorna `200` em erros internos para evitar loop de reenvio
+
 ---
 
 ## Pedidos
@@ -416,7 +432,7 @@ curl http://localhost:3001/api/pedidos/cliente/5562999887766
 
 ## Próximos Endpoints (Fase 1)
 
-- `POST /webhook/asaas` - Webhook de pagamento Asaas
+- `POST /webhook/infinitepay` - Webhook oficial de pagamento (InfinitePay)
 - `POST /api/whatsapp/notificar` - Enviar notificação via WhatsApp
 
 ---

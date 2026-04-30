@@ -1,7 +1,7 @@
-import { Router } from 'express';
+import { Router, type Router as ExpressRouter } from 'express';
 import bairroController from '../controllers/bairro.controller';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 /**
  * GET /api/bairros

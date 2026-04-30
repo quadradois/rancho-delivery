@@ -481,10 +481,10 @@ npm run seed             # Popula banco com dados de teste
 
 ## Documentação Adicional
 
-- [Planejamento Completo](./docs/PLANEJAMENTO_SABOR_EXPRESS.md) — especificação detalhada de todas as funcionalidades
-- [Guardião do Projeto](./docs/GUARDIAO_SABOR_EXPRESS.md) — filtro de viabilidade comercial
-- [SOP Mineração](./docs/SOP_MINERACAO_CONTATOS.md) — processo de captação de leads
-- [Brainstorm](./docs/BRAINSTORM_SABOR_EXPRESS.md) — ideias em análise
+- [Planejamento Completo](./docs/planejamento/PLANEJAMENTO_SABOR_EXPRESS.md) — especificação detalhada de todas as funcionalidades
+- [Guardião do Projeto](./docs/governanca/GUARDIAO_SABOR_EXPRESS.md) — filtro de viabilidade comercial
+- [SOP Mineração](./docs/operacao/SOP_MINERACAO_CONTATOS.md) — processo de captação de leads
+- [Brainstorm](./docs/planejamento/BRAINSTORM_SABOR_EXPRESS.md) — ideias em análise
 
 ## Modelo de Dados Principal
 
@@ -587,7 +587,7 @@ Endpoints utilizados:
 
 ## Contribuindo
 
-1. Leia o [Guardião do Sabor Express](./docs/GUARDIAO_SABOR_EXPRESS.md)
+1. Leia o [Guardião do Sabor Express](./docs/governanca/GUARDIAO_SABOR_EXPRESS.md)
 2. Verifique se a funcionalidade passa no filtro de viabilidade
 3. Crie uma branch: `git checkout -b feature/nome-da-funcionalidade`
 4. Siga o protocolo de implementação descrito acima

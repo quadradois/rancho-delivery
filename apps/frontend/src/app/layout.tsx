@@ -1,14 +1,20 @@
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
-
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+import '@/styles/design-system.css'
+import { CartProvider } from '@/contexts/CartContext'
+import { ToastProvider } from '@/contexts/ToastContext'
+import ClientErrorBoundary from '@/components/ClientErrorBoundary'
 
 export const metadata: Metadata = {
-  title: 'Sabor Express - Delivery de Marmitas',
-  description: 'Marmitas deliciosas entregues na sua casa. Peça agora!',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
-  themeColor: '#ef4444',
+  title: 'Rancho Comida Caseira - Tão gostoso quanto parece',
+  description: 'Delivery de comida caseira. Peça agora!',
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  themeColor: '#e8231a',
 }
 
 export default function RootLayout({
@@ -18,7 +24,21 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
-      <body className={inter.variable}>{children}</body>
+      <head>
+        <link
+          href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body>
+        <ClientErrorBoundary>
+          <CartProvider>
+            <ToastProvider>
+              {children}
+            </ToastProvider>
+          </CartProvider>
+        </ClientErrorBoundary>
+      </body>
     </html>
   )
 }

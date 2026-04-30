@@ -1,0 +1,215 @@
+/**
+ * BottomSheet Styles
+ * 
+ * Estilos do componente de painel deslizante inferior
+ * Com animações suaves e acessibilidade
+ */
+
+/* ============================================================
+   BACKDROP (OVERLAY)
+   ============================================================ */
+.bottom-sheet-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(20, 13, 11, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: var(--z-modal-backdrop);
+  display: flex;
+  align-items: flex-end;
+  animation: fadeIn var(--duration-normal) var(--ease-out);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ============================================================
+   BOTTOM SHEET
+   ============================================================ */
+.bottom-sheet {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  background: var(--color-surface);
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  box-shadow: var(--shadow-xl);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: slideUp var(--duration-slow) var(--ease-out);
+  z-index: var(--z-modal);
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+/* Focus outline */
+.bottom-sheet:focus {
+  outline: none;
+}
+
+/* ============================================================
+   HANDLE (BARRA DE ARRASTE)
+   ============================================================ */
+.bottom-sheet__handle {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-3) 0;
+  cursor: grab;
+}
+
+.bottom-sheet__handle:active {
+  cursor: grabbing;
+}
+
+.bottom-sheet__handle-bar {
+  width: 40px;
+  height: 4px;
+  background: var(--neutral-300);
+  border-radius: var(--radius-full);
+}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+.bottom-sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.bottom-sheet__title {
+  font-family: var(--font-brand);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.bottom-sheet__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: none;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.bottom-sheet__close:hover {
+  background: var(--neutral-100);
+  color: var(--color-text-primary);
+}
+
+.bottom-sheet__close:active {
+  background: var(--neutral-200);
+}
+
+.bottom-sheet__close:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   CONTENT
+   ============================================================ */
+.bottom-sheet__content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: var(--space-6);
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Scrollbar customizada */
+.bottom-sheet__content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.bottom-sheet__content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.bottom-sheet__content::-webkit-scrollbar-thumb {
+  background: var(--neutral-300);
+  border-radius: var(--radius-full);
+}
+
+.bottom-sheet__content::-webkit-scrollbar-thumb:hover {
+  background: var(--neutral-400);
+}
+
+/* ============================================================
+   RESPONSIVE - TABLET
+   ============================================================ */
+@media (min-width: 768px) {
+  .bottom-sheet {
+    max-width: 600px;
+    margin: 0 auto;
+    border-radius: var(--radius-2xl);
+    margin-bottom: var(--space-6);
+  }
+
+  .bottom-sheet__header {
+    padding: var(--space-5) var(--space-8);
+  }
+
+  .bottom-sheet__content {
+    padding: var(--space-8);
+  }
+}
+
+/* ============================================================
+   RESPONSIVE - DESKTOP
+   ============================================================ */
+@media (min-width: 1024px) {
+  .bottom-sheet {
+    max-width: 700px;
+  }
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .bottom-sheet-backdrop {
+    animation: none;
+  }
+
+  .bottom-sheet {
+    animation: none;
+  }
+}
+
+/* ============================================================
+   HIGH CONTRAST MODE
+   ============================================================ */
+@media (prefers-contrast: high) {
+  .bottom-sheet {
+    border: 2px solid var(--color-border-strong);
+  }
+
+  .bottom-sheet__header {
+    border-bottom-width: 2px;
+  }
+}

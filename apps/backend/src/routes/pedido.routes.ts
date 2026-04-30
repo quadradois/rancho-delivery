@@ -1,7 +1,7 @@
-import { Router } from 'express';
+import { Router, type Router as ExpressRouter } from 'express';
 import pedidoController from '../controllers/pedido.controller';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 /**
  * POST /api/pedidos

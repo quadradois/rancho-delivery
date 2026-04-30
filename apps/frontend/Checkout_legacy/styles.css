@@ -1,0 +1,433 @@
+/**
+ * Checkout Styles
+ * 
+ * Estilos da página de checkout
+ * Com formulário, validação e resumo do pedido
+ */
+
+/* ============================================================
+   CONTAINER PRINCIPAL
+   ============================================================ */
+.checkout {
+  min-height: 100vh;
+  background: var(--color-surface-alt);
+  padding: var(--space-6) var(--space-4);
+}
+
+.checkout__container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+/* ============================================================
+   TÍTULO
+   ============================================================ */
+.checkout__title {
+  font-family: var(--font-brand);
+  font-size: var(--text-3xl);
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-6) 0;
+  text-align: center;
+}
+
+/* ============================================================
+   FORMULÁRIO
+   ============================================================ */
+.checkout__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* ============================================================
+   SEÇÃO
+   ============================================================ */
+.checkout__section {
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-sm);
+}
+
+.checkout__section-title {
+  font-family: var(--font-brand);
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-4) 0;
+}
+
+/* ============================================================
+   CAMPO DO FORMULÁRIO
+   ============================================================ */
+.checkout__field {
+  margin-bottom: var(--space-4);
+}
+
+.checkout__field:last-child {
+  margin-bottom: 0;
+}
+
+.checkout__label {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-2);
+}
+
+/* ============================================================
+   INPUT
+   ============================================================ */
+.checkout__input-wrapper {
+  position: relative;
+}
+
+.checkout__input,
+.checkout__textarea {
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+  background: var(--color-surface);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  transition: all var(--duration-normal) var(--ease-out);
+}
+
+.checkout__input:focus,
+.checkout__textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-glow-red);
+}
+
+.checkout__input::placeholder,
+.checkout__textarea::placeholder {
+  color: var(--color-text-disabled);
+}
+
+/* Estado de erro */
+.checkout__input--error {
+  border-color: var(--color-error);
+}
+
+.checkout__input--error:focus {
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.22);
+}
+
+/* Estado de sucesso */
+.checkout__input--success {
+  border-color: var(--color-success);
+  padding-right: 48px;
+}
+
+.checkout__input--success:focus {
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.22);
+}
+
+/* Textarea */
+.checkout__textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* ============================================================
+   ÍCONES DO INPUT
+   ============================================================ */
+.checkout__input-icon {
+  position: absolute;
+  right: var(--space-3);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.checkout__input-icon--loading {
+  color: var(--color-text-secondary);
+}
+
+.checkout__input-icon--success {
+  color: var(--color-success);
+}
+
+/* ============================================================
+   MENSAGENS DE ERRO E SUCESSO
+   ============================================================ */
+.checkout__error {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--color-error);
+  margin-top: var(--space-2);
+}
+
+.checkout__success {
+  display: block;
+  font-size: var(--text-sm);
+  color: var(--color-success);
+  font-weight: var(--font-semibold);
+  margin-top: var(--space-2);
+}
+
+/* ============================================================
+   RESUMO DO PEDIDO
+   ============================================================ */
+.checkout__summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* ============================================================
+   ITENS DO PEDIDO
+   ============================================================ */
+.checkout__items {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.checkout__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-md);
+}
+
+.checkout__item-info {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+}
+
+.checkout__item-qty {
+  font-size: var(--text-sm);
+  font-weight: var(--font-bold);
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.checkout__item-name {
+  font-size: var(--text-base);
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.checkout__item-price {
+  font-size: var(--text-base);
+  font-weight: var(--font-semibold);
+  color: var(--color-text-primary);
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   TOTAIS
+   ============================================================ */
+.checkout__totals {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--color-surface-alt);
+  border-radius: var(--radius-md);
+}
+
+.checkout__total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: var(--text-base);
+  color: var(--color-text-secondary);
+}
+
+.checkout__total-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: var(--space-2) 0;
+}
+
+.checkout__total-row--final {
+  font-family: var(--font-brand);
+  font-size: var(--text-xl);
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
+  margin-top: var(--space-2);
+}
+
+.checkout__total-row--final span:last-child {
+  color: var(--color-primary);
+}
+
+/* ============================================================
+   BOTÃO DE FINALIZAR
+   ============================================================ */
+.checkout__submit {
+  width: 100%;
+  padding: var(--space-4) var(--space-6);
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  font-family: var(--font-brand);
+  font-size: var(--text-lg);
+  font-weight: var(--font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border: none;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all var(--duration-normal) var(--ease-out);
+  box-shadow: var(--shadow-md);
+}
+
+.checkout__submit:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+.checkout__submit:active:not(:disabled) {
+  background: var(--color-primary-press);
+  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
+}
+
+.checkout__submit:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-glow-red);
+}
+
+.checkout__submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   ESTADO VAZIO
+   ============================================================ */
+.checkout__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: var(--space-6);
+  text-align: center;
+}
+
+.checkout__empty-icon {
+  width: 96px;
+  height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--neutral-100);
+  color: var(--color-text-disabled);
+  border-radius: 50%;
+  margin-bottom: var(--space-4);
+}
+
+.checkout__empty-title {
+  font-family: var(--font-brand);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-bold);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-2) 0;
+}
+
+.checkout__empty-message {
+  font-size: var(--text-base);
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+/* ============================================================
+   RESPONSIVE - TABLET
+   ============================================================ */
+@media (min-width: 768px) {
+  .checkout {
+    padding: var(--space-8) var(--space-6);
+  }
+
+  .checkout__section {
+    padding: var(--space-8);
+  }
+
+  .checkout__title {
+    font-size: var(--text-4xl);
+  }
+
+  .checkout__section-title {
+    font-size: var(--text-2xl);
+  }
+
+  .checkout__submit {
+    padding: var(--space-5) var(--space-8);
+    font-size: var(--text-xl);
+  }
+}
+
+/* ============================================================
+   RESPONSIVE - DESKTOP
+   ============================================================ */
+@media (min-width: 1024px) {
+  .checkout {
+    padding: var(--space-12) var(--space-8);
+  }
+}
+
+/* ============================================================
+   REDUCED MOTION
+   ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  .checkout__input,
+  .checkout__textarea,
+  .checkout__submit {
+    transition: none;
+  }
+
+  .checkout__submit:hover:not(:disabled) {
+    transform: none;
+  }
+
+  .checkout__submit:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* ============================================================
+   HIGH CONTRAST MODE
+   ============================================================ */
+@media (prefers-contrast: high) {
+  .checkout__section {
+    border: 2px solid var(--color-border-strong);
+  }
+
+  .checkout__input,
+  .checkout__textarea {
+    border-width: 2px;
+  }
+
+  .checkout__submit {
+    border: 2px solid var(--color-primary-press);
+  }
+}
+
+/* ============================================================
+   PRINT
+   ============================================================ */
+@media print {
+  .checkout__submit {
+    display: none;
+  }
+}

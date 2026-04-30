@@ -1,7 +1,7 @@
-import { Router } from 'express';
+import { Router, type Router as ExpressRouter } from 'express';
 import produtoController from '../controllers/produto.controller';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 /**
  * GET /api/produtos

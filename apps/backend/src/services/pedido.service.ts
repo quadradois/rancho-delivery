@@ -3,7 +3,7 @@ import { logger } from '../config/logger';
 import clienteService from './cliente.service';
 import bairroService from './bairro.service';
 import produtoService from './produto.service';
-import asaasService from './asaas.service';
+import infinitePayService from './infinitepay.service';
 import { Origem } from '@prisma/client';
 
 interface ItemPedidoInput {
@@ -124,48 +124,49 @@ export class PedidoService {
         return novoPedido;
       });
 
-      // 6. Criar cobrança no Asaas
+      // 6. Criar link de pagamento no InfinitePay
       try {
-        // Criar/buscar cliente no Asaas
-        const clienteAsaasId = await asaasService.criarOuBuscarCliente({
-          name: cliente.nome,
-          mobilePhone: cliente.telefone,
+        const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+        const redirectUrl = `${baseUrl}/pedido/${pedido.id}`;
+
+        // Montar itens para InfinitePay (preço em centavos)
+        const itensInfinitePay = pedido.itens.map((item) => ({
+          quantity: item.quantidade,
+          price: infinitePayService.reaisParaCentavos(Number(item.precoUnit)),
+          description: item.produto?.nome || `Produto ${item.produtoId}`,
+        }));
+
+        // Adicionar taxa de entrega como item se > 0
+        if (taxaEntrega > 0) {
+          itensInfinitePay.push({
+            quantity: 1,
+            price: infinitePayService.reaisParaCentavos(taxaEntrega),
+            description: 'Taxa de entrega',
+          });
+        }
+
+        const linkPagamento = await infinitePayService.criarLinkPagamento({
+          itens: itensInfinitePay,
+          order_nsu: pedido.id,
+          redirect_url: redirectUrl,
         });
 
-        // Criar cobrança
-        const dataVencimento = new Date();
-        dataVencimento.setDate(dataVencimento.getDate() + 1); // Vence em 1 dia
-
-        const cobranca = await asaasService.criarCobranca({
-          customer: clienteAsaasId,
-          billingType: 'PIX',
-          value: Number(total),
-          dueDate: dataVencimento.toISOString().split('T')[0],
-          description: `Pedido #${pedido.id.slice(-8)} - Sabor Express`,
-          externalReference: pedido.id,
-        });
-
-        // Atualizar pedido com dados do pagamento
+        // Atualizar pedido com ID do pagamento
         await prisma.pedido.update({
           where: { id: pedido.id },
-          data: {
-            pagamentoId: cobranca.id,
-          },
+          data: { pagamentoId: linkPagamento.id || pedido.id },
         });
 
-        logger.info(`Cobrança Asaas criada para pedido ${pedido.id}: ${cobranca.id}`);
+        logger.info(`Link InfinitePay criado para pedido ${pedido.id}: ${linkPagamento.url}`);
 
-        // Adicionar link de pagamento ao retorno
         return {
           ...pedido,
-          pagamentoId: cobranca.id,
-          linkPagamento: cobranca.invoiceUrl,
-          pixQrCode: cobranca.pixQrCode,
+          pagamentoId: linkPagamento.id,
+          linkPagamento: linkPagamento.url,
         };
       } catch (error) {
-        logger.error('Erro ao criar cobrança no Asaas:', error);
-        // Pedido já foi criado, apenas não tem cobrança
-        // Retornar pedido sem link de pagamento
+        logger.error('Erro ao criar link InfinitePay:', error);
+        // Pedido já foi criado — retorna sem link de pagamento
         return pedido;
       }
     } catch (error) {

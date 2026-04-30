@@ -1,74 +1,87 @@
 import { Request, Response } from 'express';
-import asaasService from '../services/asaas.service';
+import infinitePayService from '../services/infinitepay.service';
 import pedidoService from '../services/pedido.service';
 import evolutionService from '../services/evolution.service';
 import { logger } from '../config/logger';
 
 export class WebhookController {
   /**
-   * POST /webhook/asaas
-   * Recebe notificações de pagamento do Asaas
+   * POST /webhook/infinitepay
+   * Recebe notificações de pagamento do InfinitePay
    */
-  async asaas(req: Request, res: Response) {
+  async infinitepay(req: Request, res: Response) {
     try {
-      const evento = req.body;
+      const body = req.body;
 
-      logger.info('Webhook Asaas recebido:', {
-        event: evento.event,
-        paymentId: evento.payment?.id,
+      logger.info('Webhook InfinitePay recebido:', {
+        event: body?.event || body?.type,
+        order_nsu: body?.order_nsu || body?.data?.order_nsu,
       });
 
-      // Validar token do webhook (segurança)
-      const token = req.headers['asaas-access-token'] as string;
-      if (!asaasService.validarWebhook(token)) {
-        logger.warn('Webhook Asaas rejeitado: token inválido');
+      // Validar assinatura do webhook
+      const token = (
+        req.headers['x-infinitepay-signature'] ||
+        req.headers['authorization'] ||
+        req.headers['x-webhook-secret']
+      ) as string;
+
+      if (!infinitePayService.validarWebhook(token)) {
+        logger.warn('Webhook InfinitePay rejeitado: token inválido');
         return res.status(401).json({
           success: false,
-          error: {
-            message: 'Token inválido',
-            code: 'UNAUTHORIZED',
-          },
+          error: { message: 'Token inválido', code: 'UNAUTHORIZED' },
         });
       }
 
       // Processar evento
-      const dadosPagamento = await asaasService.processarEventoPagamento(evento);
+      const { aprovado, order_nsu, evento } = infinitePayService.processarEvento(body);
 
-      // Atualizar pedido se pagamento foi confirmado
-      if (evento.event === 'PAYMENT_CONFIRMED' || evento.event === 'PAYMENT_RECEIVED') {
-        if (dadosPagamento.pedidoId) {
-          await pedidoService.atualizarStatus(
-            dadosPagamento.pedidoId,
-            'CONFIRMADO',
-            dadosPagamento.pagamentoId
-          );
+      if (aprovado && order_nsu) {
+        const pedidoAtual = await pedidoService.buscarPedidoPorId(order_nsu);
 
-          logger.info(`Pedido ${dadosPagamento.pedidoId} confirmado via webhook Asaas`);
+        // Idempotência: não reprocesse pedidos já confirmados
+        if (pedidoAtual?.status === 'CONFIRMADO') {
+          logger.info('Webhook InfinitePay ignorado por idempotência', {
+            pedidoId: order_nsu,
+            evento,
+          });
 
-          // Buscar pedido completo para notificação
-          const pedidoCompleto = await pedidoService.buscarPedidoPorId(dadosPagamento.pedidoId);
-
-          if (pedidoCompleto) {
-            // Enviar notificação WhatsApp para o dono
-            await evolutionService.notificarNovoPedido(pedidoCompleto);
-          }
+          return res.status(200).json({
+            success: true,
+            message: 'Webhook já processado anteriormente',
+          });
         }
+
+        // order_nsu é o ID do pedido no nosso sistema
+        await pedidoService.atualizarStatus(order_nsu, 'CONFIRMADO', order_nsu);
+
+        logger.info('Pedido confirmado via webhook InfinitePay', {
+          pedidoId: order_nsu,
+          evento,
+        });
+
+        // Buscar pedido completo para notificação WhatsApp
+        const pedidoCompleto = await pedidoService.buscarPedidoPorId(order_nsu);
+
+        if (pedidoCompleto) {
+          await evolutionService.notificarNovoPedido(pedidoCompleto);
+        }
+      } else {
+        logger.info(`Evento InfinitePay ignorado: ${evento} — não é aprovação`);
       }
 
-      // Responder ao Asaas (importante para não reenviar webhook)
+      // Sempre responder 200 para evitar reenvio
       return res.status(200).json({
         success: true,
         message: 'Webhook processado com sucesso',
       });
     } catch (error: any) {
-      logger.error('Erro ao processar webhook Asaas:', error);
+      logger.error('Erro ao processar webhook InfinitePay:', error);
 
       // Mesmo com erro, retornar 200 para não reenviar webhook
       return res.status(200).json({
         success: false,
-        error: {
-          message: 'Erro ao processar webhook',
-        },
+        error: { message: 'Erro ao processar webhook' },
       });
     }
   }

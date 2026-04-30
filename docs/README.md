@@ -1,263 +1,75 @@
-# 📚 Documentação do Projeto Sabor Express
+# Documentação do Projeto Sabor Express
 
-> Centro de documentação técnica e estratégica do sistema web de delivery Sabor Express.
-> Toda documentação relacionada ao projeto deve ser armazenada nesta pasta seguindo as convenções estabelecidas.
+Este arquivo e a porta de entrada da pasta `docs/`.
 
----
+## Estrutura Atual
 
-## 📋 Índice
-
-1. [Visão Geral](#visão-geral)
-2. [Estrutura de Documentação](#estrutura-de-documentação)
-3. [Convenções de Nomenclatura](#convenções-de-nomenclatura)
-4. [Tipos de Documentos](#tipos-de-documentos)
-5. [Fluxo de Desenvolvimento](#fluxo-de-desenvolvimento)
-6. [Boas Práticas](#boas-práticas)
-7. [Documentos Principais](#documentos-principais)
-
----
-
-## 🎯 Visão Geral
-
-Este diretório contém toda a documentação necessária para o desenvolvimento, manutenção e evolução do sistema Sabor Express. A organização segue princípios de clareza, rastreabilidade e facilidade de manutenção.
-
-**Princípios fundamentais:**
-- Documentação viva: atualizada conforme o projeto evolui
-- Rastreabilidade: toda decisão técnica ou de produto deve estar documentada
-- Clareza: linguagem objetiva, sem ambiguidade
-- Versionamento: documentos críticos devem ter histórico de mudanças
-
----
-
-## 📁 Estrutura de Documentação
-
-```
+```text
 docs/
-├── README.md                           # Este arquivo (índice geral)
-├── PLANEJAMENTO_SABOR_EXPRESS.md      # Planejamento técnico oficial (MVP)
-├── GUARDIAO_SABOR_EXPRESS.md          # Filtro de viabilidade comercial
-├── BRAINSTORM_SABOR_EXPRESS.md        # Ideias futuras (não aprovadas)
-├── SOP_MINERACAO_CONTATOS.md          # Procedimento operacional padrão
-│
-├── relatorios/                         # Relatórios de progresso e análises
-│   ├── YYYY-MM-DD_sprint_N.md
-│   ├── YYYY-MM-DD_analise_performance.md
-│   └── YYYY-MM-DD_retrospectiva_fase_N.md
-│
-├── raio-x/                             # Análises técnicas profundas
-│   ├── YYYY-MM-DD_raio_x_arquitetura.md
-│   ├── YYYY-MM-DD_raio_x_integracao_asaas.md
-│   └── YYYY-MM-DD_raio_x_performance_feed.md
-│
-├── modulos/                            # Documentação por módulo/funcionalidade
-│   ├── F01_site_pedidos/
-│   │   ├── README.md
-│   │   ├── especificacao_tecnica.md
-│   │   ├── fluxos.md
-│   │   └── testes.md
-│   ├── F02_mineracao_contatos/
-│   ├── F03_agente_whatsapp/
-│   ├── F04_ficha_tecnica/
-│   ├── F05_roleta_promocoes/
-│   └── F06_indicacao_bonificacao/
-│
-├── produtos/                           # Especificações de produto
-│   ├── cardapio_feed_vertical.md
-│   ├── checkout_fluxo.md
-│   └── notificacao_whatsapp.md
-│
-├── decisoes/                           # ADRs (Architecture Decision Records)
-│   ├── 001_escolha_stack.md
-│   ├── 002_gateway_pagamento.md
-│   └── 003_feed_vertical_vs_grade.md
-│
-└── referencias/                        # Documentação externa e referências
-    ├── asaas_api.md
-    ├── evolution_api.md
-    └── assertiva_api.md
+├── README.md
+├── ambiente/
+│   └── AMBIENTE_CONFIGURADO.md
+├── governanca/
+│   └── GUARDIAO_SABOR_EXPRESS.md
+│   └── NAMING_OFICIAL.md
+├── integracoes/
+│   ├── API_ENDPOINTS.md
+│   ├── INTEGRACAO_ASAAS.md
+│   ├── INTEGRACAO_INFINITEPAY.md
+│   └── INTEGRACAO_WHATSAPP.md
+├── operacao/
+│   ├── HANDOFF.md
+│   ├── PLAYBOOK_DEPLOY_PENDENCIAS.md
+│   ├── RUNBOOK_E2E_INFINITEPAY.md
+│   ├── RUNBOOK_INCIDENTES_DEPLOY.md
+│   └── SOP_MINERACAO_CONTATOS.md
+├── planejamento/
+│   ├── BRAINSTORM_SABOR_EXPRESS.md
+│   ├── PLANEJAMENTO_FRONTEND.md
+│   └── PLANEJAMENTO_SABOR_EXPRESS.md
+├── produtos/
+│   └── DESIGN_SYSTEM.md
+├── qualidade/
+│   └── TESTES.md
+├── relatorios/
+│   ├── 2026-04-29_implementacao_api_client.md
+│   └── 2026-04-29_planejamento_frontend.md
+├── arquivo/
+│   └── Rancho_DesignSystem.html
+├── decisoes/
+├── modulos/
+├── raio-x/
+└── referencias/
 ```
 
----
+## Guia Rapido de Onde Colocar Cada Documento
 
-## 🏷️ Convenções de Nomenclatura
+- `planejamento/`: roadmap, direcao de produto e visao de fases.
+- `governanca/`: regras de decisao e filtros de viabilidade.
+- `operacao/`: handoff, SOPs e rotinas operacionais.
+- `integracoes/`: APIs externas, contratos e endpoints.
+- `ambiente/`: setup de ambiente e infraestrutura local.
+- `qualidade/`: testes, criterios e cobertura.
+- `produtos/`: UX/UI, design system e especificacoes funcionais.
+- `relatorios/`: analises datadas e registro de execucao.
+- `arquivo/`: arquivos legados ou de apoio.
+- `decisoes/`: ADRs.
+- `modulos/`: docs por funcionalidade (F01, F02, ...).
+- `raio-x/`: analises tecnicas profundas.
+- `referencias/`: material externo e links de apoio.
 
-### Formato Geral
-```
-[PREFIXO]_[NOME_DESCRITIVO].[extensao]
-```
+## Convencoes
 
-### Prefixos por Tipo
+- Documentos principais: `UPPERCASE_COM_UNDERSCORE.md`
+- Documentos datados: `YYYY-MM-DD_descricao.md`
+- Documentos tecnicos por tema: `snake_case.md`
 
-| Prefixo | Tipo | Exemplo |
-|---------|------|---------|
-| `PLANEJAMENTO_` | Planejamento estratégico | `PLANEJAMENTO_SABOR_EXPRESS.md` |
-| `SOP_` | Standard Operating Procedure | `SOP_MINERACAO_CONTATOS.md` |
-| `GUARDIAO_` | Documento de governança | `GUARDIAO_SABOR_EXPRESS.md` |
-| `BRAINSTORM_` | Ideias não aprovadas | `BRAINSTORM_SABOR_EXPRESS.md` |
-| `YYYY-MM-DD_` | Documentos datados | `2026-04-29_sprint_1.md` |
-| `F[NN]_` | Funcionalidade específica | `F01_site_pedidos` |
-| `[NNN]_` | ADR numerado | `001_escolha_stack.md` |
+## Checklist Antes de Criar Documento
 
-### Regras de Nomenclatura
-
-1. **Use snake_case** para nomes de arquivos: `especificacao_tecnica.md`
-2. **Use UPPERCASE** para documentos principais: `PLANEJAMENTO_SABOR_EXPRESS.md`
-3. **Inclua data** em relatórios e análises: `2026-04-29_retrospectiva.md`
-4. **Seja descritivo**: `raio_x_integracao_asaas.md` > `integracao.md`
-5. **Evite caracteres especiais**: sem acentos, espaços ou símbolos
-6. **Use extensão .md** para todos os documentos (Markdown)
-
----
-
-## 📝 Tipos de Documentos
-
-### 1. Planejamento Estratégico
-**Localização:** Raiz de `docs/`  
-**Nomenclatura:** `PLANEJAMENTO_[NOME].md`  
-**Propósito:** Define o que construir, em que ordem e por quê
-
-**Conteúdo obrigatório:**
-- Visão geral do projeto
-- Sequência de construção com rationale
-- Especificações técnicas por funcionalidade
-- Critérios de pronto
-- Stack tecnológica
-
-**Exemplo:** `PLANEJAMENTO_SABOR_EXPRESS.md`
-
----
-
-### 2. Relatórios
-**Localização:** `docs/relatorios/`  
-**Nomenclatura:** `YYYY-MM-DD_[tipo]_[descricao].md`  
-**Propósito:** Documentar progresso, análises e retrospectivas
-
-**Tipos de relatórios:**
-- **Sprint:** progresso da sprint, tarefas concluídas, bloqueios
-- **Retrospectiva:** lições aprendidas ao final de cada fase
-- **Análise:** análises de performance, bugs, incidentes
-- **Status:** status geral do projeto para stakeholders
-
-**Template mínimo:**
-```markdown
-# [Tipo] — [Descrição]
-**Data:** YYYY-MM-DD
-**Fase:** N
-**Autor:** [Nome]
-
-## Contexto
-[O que motivou este relatório]
-
-## Resumo Executivo
-[3-5 linhas do essencial]
-
-## Detalhamento
-[Conteúdo principal]
-
-## Ações Necessárias
-- [ ] Ação 1
-- [ ] Ação 2
-
-## Próximos Passos
-[O que vem depois]
-```
-
----
-
-### 3. Raio-X (Análises Técnicas Profundas)
-**Localização:** `docs/raio-x/`  
-**Nomenclatura:** `YYYY-MM-DD_raio_x_[tema].md`  
-**Propósito:** Análises técnicas detalhadas de arquitetura, integrações, performance
-
-**Quando criar:**
-- Antes de decisões arquiteturais importantes
-- Após incidentes críticos (post-mortem)
-- Para documentar integrações complexas
-- Análises de performance e otimização
-
-**Template mínimo:**
-```markdown
-# Raio-X — [Tema]
-**Data:** YYYY-MM-DD
-**Autor:** [Nome]
-**Status:** [Em análise | Concluído | Arquivado]
-
-## Objetivo
-[Por que esta análise foi feita]
-
-## Contexto
-[Situação atual]
-
-## Análise Técnica
-[Detalhamento profundo]
-
-## Descobertas
-[O que foi encontrado]
-
-## Recomendações
-[O que deve ser feito]
-
-## Impacto
-[Consequências de implementar ou não]
-
-## Referências
-[Links, documentos, código]
-```
-
----
-
-### 4. Documentação de Módulos
-**Localização:** `docs/modulos/[nome_modulo]/`  
-**Nomenclatura:** Estrutura padronizada por módulo  
-**Propósito:** Documentação técnica completa de cada funcionalidade
-
-**Estrutura obrigatória por módulo:**
-```
-F[NN]_[nome_funcionalidade]/
-├── README.md                    # Visão geral do módulo
-├── especificacao_tecnica.md     # Specs técnicas detalhadas
-├── fluxos.md                    # Diagramas e fluxos de dados
-├── api.md                       # Documentação de endpoints (se aplicável)
-├── testes.md                    # Estratégia e casos de teste
-└── changelog.md                 # Histórico de mudanças
-```
-
-**README.md do módulo deve conter:**
-- Descrição da funcionalidade
-- Dependências
-- Como rodar localmente
-- Como testar
-- Links para documentação relacionada
-
----
-
-### 5. Especificações de Produto
-**Localização:** `docs/produtos/`  
-**Nomenclatura:** `[nome_feature].md`  
-**Propósito:** Especificações de UX/UI e comportamento do produto
-
-**Conteúdo obrigatório:**
-- Problema que resolve
-- Comportamento esperado
-- Fluxos do usuário
-- Wireframes ou mockups (se aplicável)
-- Critérios de aceitação
-- Métricas de sucesso
-
----
-
-### 6. ADRs (Architecture Decision Records)
-**Localização:** `docs/decisoes/`  
-**Nomenclatura:** `[NNN]_[decisao].md` (numeração sequencial)  
-**Propósito:** Registrar decisões arquiteturais importantes
-
-**Template ADR:**
-```markdown
-# ADR [NNN]: [Título da Decisão]
-
-**Data:** YYYY-MM-DD
-**Status:** [Proposto | Aceito | Rejeitado | Substituído por ADR-XXX]
-**Decisores:** [Nomes]
+1. Confirmar a pasta correta.
+2. Usar o padrao de nome da categoria.
+3. Inserir contexto, objetivo e proximo passo.
+4. Linkar documentos relacionados.
 
 ## Contexto
 [Qual problema estamos resolvendo]

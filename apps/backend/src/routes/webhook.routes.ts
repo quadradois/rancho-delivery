@@ -1,12 +1,12 @@
-import { Router } from 'express';
+import { Router, type Router as ExpressRouter } from 'express';
 import webhookController from '../controllers/webhook.controller';
 
-const router = Router();
+const router: ExpressRouter = Router();
 
 /**
- * POST /webhook/asaas
- * Recebe notificações de pagamento do Asaas
+ * POST /webhook/infinitepay
+ * Recebe notificações de pagamento do InfinitePay
  */
-router.post('/asaas', webhookController.asaas.bind(webhookController));
+router.post('/infinitepay', webhookController.infinitepay.bind(webhookController));
 
 export default router;
