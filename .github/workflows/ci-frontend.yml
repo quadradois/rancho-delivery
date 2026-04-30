@@ -2,13 +2,13 @@ name: CI Frontend
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master, main, develop]
     paths:
       - 'apps/frontend/**'
       - 'packages/shared/**'
       - 'pnpm-lock.yaml'
   pull_request:
-    branches: [main, develop]
+    branches: [master, main, develop]
     paths:
       - 'apps/frontend/**'
       - 'packages/shared/**'
@@ -28,12 +28,12 @@ jobs:
           node-version: '18'
       
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: 8
       
       - name: Obter cache do pnpm
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
           key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
@@ -44,18 +44,18 @@ jobs:
         run: pnpm install --frozen-lockfile
       
       - name: Verificar tipos TypeScript
-        run: pnpm --filter @sabor-express/frontend typecheck
+        run: pnpm --filter @rancho-delivery/frontend typecheck
       
       - name: Executar linter
-        run: pnpm --filter @sabor-express/frontend lint
+        run: pnpm --filter @rancho-delivery/frontend lint
       
       - name: Executar testes
-        run: pnpm --filter @sabor-express/frontend test
+        run: pnpm --filter @rancho-delivery/frontend exec vitest run
         env:
           NODE_ENV: test
       
       - name: Build do frontend
-        run: pnpm --filter @sabor-express/frontend build
+        run: pnpm --filter @rancho-delivery/frontend build
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL || 'http://localhost:3001' }}
       
@@ -81,7 +81,7 @@ jobs:
           node-version: '18'
       
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: 8
       
@@ -89,7 +89,7 @@ jobs:
         run: pnpm install --frozen-lockfile
       
       - name: Build do frontend
-        run: pnpm --filter @sabor-express/frontend build
+        run: pnpm --filter @rancho-delivery/frontend build
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3001
       

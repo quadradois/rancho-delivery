@@ -2,13 +2,13 @@ name: CI Backend
 
 on:
   push:
-    branches: [main, develop]
+    branches: [master, main, develop]
     paths:
       - 'apps/backend/**'
       - 'packages/shared/**'
       - 'pnpm-lock.yaml'
   pull_request:
-    branches: [main, develop]
+    branches: [master, main, develop]
     paths:
       - 'apps/backend/**'
       - 'packages/shared/**'
@@ -24,7 +24,7 @@ jobs:
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: sabor_express_test
+          POSTGRES_DB: rancho_delivery_test
         ports:
           - 5432:5432
         options: >-
@@ -43,12 +43,12 @@ jobs:
           node-version: '18'
       
       - name: Setup pnpm
-        uses: pnpm/action-setup@v2
+        uses: pnpm/action-setup@v4
         with:
           version: 8
       
       - name: Obter cache do pnpm
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ~/.pnpm-store
           key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
@@ -59,35 +59,35 @@ jobs:
         run: pnpm install --frozen-lockfile
       
       - name: Verificar tipos TypeScript
-        run: pnpm --filter @sabor-express/backend typecheck
+        run: pnpm --filter @rancho-delivery/backend typecheck
       
       - name: Executar linter
-        run: pnpm --filter @sabor-express/backend lint
+        run: pnpm --filter @rancho-delivery/backend lint
       
       - name: Gerar Prisma Client
-        run: pnpm --filter @sabor-express/backend db:generate
+        run: pnpm --filter @rancho-delivery/backend db:generate
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sabor_express_test
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rancho_delivery_test
       
       - name: Executar migrações
-        run: pnpm --filter @sabor-express/backend db:migrate:deploy
+        run: pnpm --filter @rancho-delivery/backend db:migrate:deploy
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sabor_express_test
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rancho_delivery_test
       
       - name: Executar testes
-        run: pnpm --filter @sabor-express/backend test
+        run: pnpm --filter @rancho-delivery/backend test
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sabor_express_test
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rancho_delivery_test
           NODE_ENV: test
       
       - name: Verificar cobertura de testes
-        run: pnpm --filter @sabor-express/backend test:coverage
+        run: pnpm --filter @rancho-delivery/backend test:coverage
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sabor_express_test
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rancho_delivery_test
           NODE_ENV: test
       
       - name: Build do backend
-        run: pnpm --filter @sabor-express/backend build
+        run: pnpm --filter @rancho-delivery/backend build
       
       - name: Upload de artefatos
         uses: actions/upload-artifact@v3
