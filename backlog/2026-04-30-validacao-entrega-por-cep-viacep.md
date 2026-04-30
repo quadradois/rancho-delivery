@@ -2,7 +2,7 @@
 
 **Data de Criação:** 2026-04-30
 **Prioridade:** P1
-**Status:** Refinar
+**Status:** Implementado
 **Fase Relacionada:** F01
 
 ## Contexto
@@ -13,66 +13,61 @@ Durante o primeiro teste real de checkout, um pedido foi bloqueado porque o bair
 
 O sistema hoje valida bairro por nome. Qualquer divergencia entre o nome cadastrado pelo proprietario e o nome retornado/preenchido via CEP pode causar `Bairro nao atendido`, mesmo quando a regiao e atendida. Ao mesmo tempo, normalizacoes agressivas ou aliases automaticos podem aceitar bairros incorretos.
 
-## Escopo Futuro
+## Implementado
 
-1. No painel admin, permitir que o proprietario cadastre bairros por CEP, padronizando o nome de rua/bairro com a base ViaCEP.
-2. No site de cardapio, exibir um modal inicial convidando o cliente a verificar se entregamos na regiao.
-3. No modal, o cliente digita o CEP e o sistema consulta ViaCEP.
-4. O sistema confronta o bairro/CEP com as regioes cadastradas:
-   - se atende, libera a navegacao/compra com a regiao validada;
-   - se nao atende, informa claramente que ainda nao entregamos naquela regiao.
-5. No checkout, nao permitir digitacao manual de bairro e rua quando o CEP ja foi validado.
-6. No checkout, solicitar apenas campos complementares necessarios para entrega:
-   - numero;
-   - quadra;
-   - lote;
-   - complemento;
-   - ponto de referencia, se aplicavel.
-7. Persistir no pedido o endereco padronizado pelo CEP e os complementos informados pelo cliente.
+### Admin — Entregas (ex-Bairros)
+- Cadastro de bairro por CEP: digita o CEP → ViaCEP preenche o nome automaticamente (travado)
+- Campo tempo de entrega (minutos) por bairro
+- Links de marketplace (iFood, 99Food, outro customizável) exibidos quando cliente fora da área
+- Menu renomeado de "Bairros" para "Entregas"
 
-## Impactos
+### Site — Modal de verificação de CEP (não bloqueante)
+- Aparece 800ms após carregar a página
+- Cliente digita o CEP → sistema consulta ViaCEP → verifica cobertura
+- CEP atendido: exibe bairro, tempo de entrega e taxa — libera navegação
+- CEP não atendido: exibe links de marketplace configurados no admin
+- CEP validado salvo em `sessionStorage` para pré-preencher o checkout
+- Cliente pode fechar o modal e navegar mesmo sem validar
 
-**Positivos:**
-- Reduz pedidos bloqueados por variacao de nome de bairro.
-- Evita aliases automaticos perigosos entre bairros parecidos.
-- Padroniza a base operacional de entrega.
-- Diminui atrito no checkout porque rua/bairro deixam de ser digitados manualmente.
+### Site — Card do produto
+- Exibe tempo de preparo individual por produto (cadastrado no admin)
+- Exibe tempo de entrega do bairro validado pelo CEP
+- Exibe taxa de entrega
+- Quando CEP não validado: exibe "Digite seu CEP para calcular o tempo de entrega"
 
-**Negativos/Trade-offs:**
-- Exige UX cuidadosa para clientes cujo CEP nao esteja na base ou retorne bairro inesperado.
-- Pode exigir ajuste no modelo de dados para salvar CEP, rua, quadra e lote separadamente.
-- Depende da disponibilidade da API ViaCEP ou de fallback em caso de falha.
+### Site — Checkout
+- CEP do modal pré-preenche automaticamente o formulário (não precisa digitar novamente)
+- Rua e bairro travados (vindos do ViaCEP)
+- Campos: CEP, Número, Quadra, Lote, Complemento, Ponto de referência
 
-**Dependencias:**
-- Definir formato oficial de cadastro de regioes no admin.
-- Definir se a validacao sera por CEP exato, faixa de CEP, bairro retornado pelo CEP, ou combinacao desses criterios.
-- Revisar schema de pedido/endereco antes de alterar checkout.
+### Backend
+- Novos endpoints: `GET /api/bairros/cep/:cep` e `GET /api/bairros/viacep/:cep`
+- CRUD completo de bairros via API
+- Migration: `tempo_entrega` em `bairros` e `tempo_preparo` em `produtos`
+- Fallback: se ViaCEP indisponível, retorna erro claro sem travar o sistema
 
-## Critério de Pronto Futuro
+## Critério de Pronto
 
-- [ ] Admin permite cadastrar/editar regiao atendida a partir de CEP consultado no ViaCEP.
-- [ ] Site exibe modal inicial de verificacao de entrega por CEP.
-- [ ] CEP atendido libera cardapio/checkout com endereco base travado.
-- [ ] CEP nao atendido exibe mensagem clara e nao permite concluir pedido.
-- [ ] Checkout nao permite editar manualmente bairro e rua quando CEP esta validado.
-- [ ] Checkout coleta numero, quadra, lote, complemento e ponto de referencia.
-- [ ] Pedido salvo contem endereco padronizado e complementos.
-- [ ] Bairros parecidos nao sao aceitos por alias automatico.
-- [ ] Fluxo testado em mobile.
+- [x] Admin permite cadastrar/editar regiao atendida a partir de CEP consultado no ViaCEP
+- [x] Site exibe modal inicial de verificacao de entrega por CEP
+- [x] CEP atendido exibe taxa e tempo de entrega — libera cardapio/checkout
+- [x] CEP nao atendido exibe links de marketplace como alternativa
+- [x] Checkout nao permite editar manualmente bairro e rua quando CEP esta validado
+- [x] Checkout coleta numero, quadra, lote, complemento e ponto de referencia
+- [x] CEP validado no modal e aproveitado no checkout (sessionStorage)
+- [x] Card do produto exibe tempo de preparo e tempo/taxa de entrega
+- [x] Bairros parecidos nao sao aceitos por alias automatico
+- [ ] Fluxo testado em mobile
 
-## Estimativa
+## Pendências
 
-**Complexidade:** Media
-**Tempo Estimado:** 2-4 dias
-
-## Notas Adicionais
-
-Melhoria futura relacionada: transformar o formulario de cadastro/checkout em formato de wizard para reduzir a impressao de formulario grande e diminuir desanimo/abandono do cliente.
-
-Essa melhoria deve ser tratada como item de UX posterior ou subitem deste fluxo, mantendo o primeiro passo focado em validacao segura de regiao por CEP.
+- Testar fluxo completo em mobile
+- Configurar bairros reais com CEPs via painel admin em produção
+- Rodar migration `db:migrate:deploy` no servidor de produção
 
 ## Histórico de Mudanças
 
 | Data | Mudança | Autor |
 |------|---------|-------|
 | 2026-04-30 | Criação do item | Codex |
+| 2026-04-30 | Implementação completa — CEP, modal, card, checkout, admin | Kiro |

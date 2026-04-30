@@ -28,6 +28,7 @@ type ProdutoForm = {
   midia: string;
   disponivel: boolean;
   ordem: string;
+  tempoPreparo: string;
 };
 
 type ProdutoErrors = Partial<Record<keyof ProdutoForm, string>>;
@@ -42,6 +43,7 @@ const FORM_VAZIO: ProdutoForm = {
   midia: '',
   disponivel: true,
   ordem: '0',
+  tempoPreparo: '15',
 };
 
 export default function FormularioProdutoPage() {
@@ -69,6 +71,7 @@ export default function FormularioProdutoPage() {
           midia: produto.midia || produto.imagemUrl || '',
           disponivel: produto.disponivel !== false,
           ordem: String(produto.ordem || 0),
+          tempoPreparo: String(produto.tempoPreparo || 15),
         });
       } catch (err) {
         showError('Erro ao carregar produto', err instanceof Error ? err.message : 'Tente novamente');
@@ -115,7 +118,8 @@ export default function FormularioProdutoPage() {
       midia: form.midia || undefined,
       disponivel: form.disponivel,
       ordem: parseInt(form.ordem) || 0,
-      };
+      tempoPreparo: parseInt(form.tempoPreparo) || 15,
+    };
     try {
       if (isEdicao) {
         const response = await fetch(`${baseUrl}/api/produtos/${params.id}`, {
@@ -217,6 +221,19 @@ export default function FormularioProdutoPage() {
             error={errors.preco}
             placeholder="0.00"
           />
+          <Input
+            label="Tempo de preparo (min) *"
+            type="number"
+            min="1"
+            step="1"
+            value={form.tempoPreparo}
+            onChange={(e) => setForm({ ...form, tempoPreparo: e.target.value })}
+            placeholder="15"
+            hint="Tempo médio de preparo em minutos"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
           <Input
             label="Ordem de exibição"
             type="number"

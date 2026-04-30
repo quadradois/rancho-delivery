@@ -9,7 +9,20 @@ interface ProdutoInput {
   categoria: string;
   disponivel?: boolean;
   ordem?: number;
+  tempoPreparo?: number;
 }
+
+const PRODUTO_SELECT = {
+  id: true,
+  nome: true,
+  preco: true,
+  midia: true,
+  descricao: true,
+  categoria: true,
+  disponivel: true,
+  ordem: true,
+  tempoPreparo: true,
+};
 
 export class ProdutoService {
   /**
@@ -18,21 +31,9 @@ export class ProdutoService {
   async listarProdutos() {
     try {
       const produtos = await prisma.produto.findMany({
-        where: {
-          disponivel: true,
-        },
-        orderBy: {
-          ordem: 'asc',
-        },
-        select: {
-          id: true,
-          nome: true,
-          preco: true,
-          midia: true,
-          descricao: true,
-          categoria: true,
-          ordem: true,
-        },
+        where: { disponivel: true },
+        orderBy: { ordem: 'asc' },
+        select: PRODUTO_SELECT,
       });
 
       logger.info(`Listados ${produtos.length} produtos disponíveis`);
@@ -50,16 +51,7 @@ export class ProdutoService {
     try {
       const produto = await prisma.produto.findUnique({
         where: { id },
-        select: {
-          id: true,
-          nome: true,
-          preco: true,
-          midia: true,
-          descricao: true,
-          categoria: true,
-          disponivel: true,
-          ordem: true,
-        },
+        select: PRODUTO_SELECT,
       });
 
       if (!produto) {
@@ -81,22 +73,9 @@ export class ProdutoService {
   async listarProdutosPorCategoria(categoria: string) {
     try {
       const produtos = await prisma.produto.findMany({
-        where: {
-          categoria,
-          disponivel: true,
-        },
-        orderBy: {
-          ordem: 'asc',
-        },
-        select: {
-          id: true,
-          nome: true,
-          preco: true,
-          midia: true,
-          descricao: true,
-          categoria: true,
-          ordem: true,
-        },
+        where: { categoria, disponivel: true },
+        orderBy: { ordem: 'asc' },
+        select: PRODUTO_SELECT,
       });
 
       logger.info(`Listados ${produtos.length} produtos da categoria ${categoria}`);
@@ -121,6 +100,7 @@ export class ProdutoService {
           categoria: dados.categoria,
           disponivel: dados.disponivel ?? true,
           ordem: dados.ordem ?? 0,
+          tempoPreparo: dados.tempoPreparo ?? 15,
         },
       });
 
@@ -147,6 +127,7 @@ export class ProdutoService {
           ...(dados.categoria !== undefined && { categoria: dados.categoria }),
           ...(dados.disponivel !== undefined && { disponivel: dados.disponivel }),
           ...(dados.ordem !== undefined && { ordem: dados.ordem }),
+          ...(dados.tempoPreparo !== undefined && { tempoPreparo: dados.tempoPreparo }),
         },
       });
 
@@ -157,7 +138,6 @@ export class ProdutoService {
         logger.warn(`Produto não encontrado para atualização: ${id}`);
         return null;
       }
-
       logger.error(`Erro ao atualizar produto ${id}:`, error);
       throw new Error('Erro ao atualizar produto');
     }
@@ -180,7 +160,6 @@ export class ProdutoService {
         logger.warn(`Produto não encontrado para exclusão: ${id}`);
         return null;
       }
-
       logger.error(`Erro ao excluir produto ${id}:`, error);
       throw new Error('Erro ao excluir produto');
     }

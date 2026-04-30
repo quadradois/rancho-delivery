@@ -11,6 +11,7 @@ const produtoSchema = z.object({
   midia: z.string().optional(),
   disponivel: z.boolean().optional(),
   ordem: z.number().int().min(0).optional(),
+  tempoPreparo: z.number().int().min(1).optional(),
 });
 
 const produtoUpdateSchema = produtoSchema.partial();

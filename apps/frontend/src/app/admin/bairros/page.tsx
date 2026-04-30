@@ -12,6 +12,7 @@ interface Bairro {
   nome: string;
   cep?: string;
   taxa: number;
+  tempoEntrega: number;
   ativo: boolean;
   linkIfood?: string;
   link99food?: string;
@@ -33,6 +34,7 @@ const FORM_VAZIO = {
   logradouro: '',
   localidade: '',
   taxa: '',
+  tempoEntrega: '30',
   ativo: true,
   linkIfood: '',
   link99food: '',
@@ -116,6 +118,7 @@ export default function AdminBairrosPage() {
       logradouro: '',
       localidade: '',
       taxa: String(bairro.taxa),
+      tempoEntrega: String(bairro.tempoEntrega ?? 30),
       ativo: bairro.ativo,
       linkIfood: bairro.linkIfood || '',
       link99food: bairro.link99food || '',
@@ -137,6 +140,7 @@ export default function AdminBairrosPage() {
       nome: form.nome,
       cep: form.cep.replace(/\D/g, '') || undefined,
       taxa: parseFloat(form.taxa),
+      tempoEntrega: parseInt(form.tempoEntrega) || 30,
       ativo: form.ativo,
       linkIfood: form.linkIfood || undefined,
       link99food: form.link99food || undefined,
@@ -227,6 +231,7 @@ export default function AdminBairrosPage() {
                 <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Bairro</th>
                 <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">CEP Ref.</th>
                 <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Taxa</th>
+                <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Tempo</th>
                 <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Marketplaces</th>
                 <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Status</th>
                 <th className="text-right px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Ações</th>
@@ -241,6 +246,9 @@ export default function AdminBairrosPage() {
                   </td>
                   <td className="px-6 py-4">
                     <span className="font-brand font-black text-red-500">{formatCurrency(bairro.taxa)}</span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-neutral-600 font-semibold">
+                    🕐 {bairro.tempoEntrega ?? 30} min
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex gap-1">
@@ -353,16 +361,28 @@ export default function AdminBairrosPage() {
                   )}
                 </div>
 
-                {/* Taxa */}
-                <Input
-                  label="Taxa de entrega (R$) *"
-                  type="number"
-                  min="0"
-                  step="0.50"
-                  value={form.taxa}
-                  onChange={e => setForm(p => ({ ...p, taxa: e.target.value }))}
-                  placeholder="0.00"
-                />
+                {/* Taxa e Tempo */}
+                <div className="grid grid-cols-2 gap-3">
+                  <Input
+                    label="Taxa de entrega (R$) *"
+                    type="number"
+                    min="0"
+                    step="0.50"
+                    value={form.taxa}
+                    onChange={e => setForm(p => ({ ...p, taxa: e.target.value }))}
+                    placeholder="0.00"
+                  />
+                  <Input
+                    label="Tempo de entrega (min) *"
+                    type="number"
+                    min="1"
+                    step="5"
+                    value={form.tempoEntrega}
+                    onChange={e => setForm(p => ({ ...p, tempoEntrega: e.target.value }))}
+                    placeholder="30"
+                    hint="Tempo médio em minutos"
+                  />
+                </div>
 
                 {/* Ativo */}
                 <label className="flex items-center gap-3 cursor-pointer">

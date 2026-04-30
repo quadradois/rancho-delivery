@@ -20,6 +20,7 @@ interface ValidacaoCep {
     uf: string;
   };
   taxa?: number;
+  tempoEntrega?: number;
   marketplaces?: MarketplaceLinks;
   erro?: string;
 }
@@ -48,6 +49,7 @@ export function salvarCepValidado(dados: {
   localidade: string;
   uf: string;
   taxa: number;
+  tempoEntrega: number;
 }) {
   sessionStorage.setItem(CEP_VALIDADO_KEY, JSON.stringify(dados));
 }
@@ -57,7 +59,7 @@ export function limparCepValidado() {
 }
 
 interface ModalVerificacaoCepProps {
-  onAtendido: (dados: { cep: string; bairro: string; logradouro: string; localidade: string; uf: string; taxa: number }) => void;
+  onAtendido: (dados: { cep: string; bairro: string; logradouro: string; localidade: string; uf: string; taxa: number; tempoEntrega: number }) => void;
 }
 
 export default function ModalVerificacaoCep({ onAtendido }: ModalVerificacaoCepProps) {
@@ -104,6 +106,7 @@ export default function ModalVerificacaoCep({ onAtendido }: ModalVerificacaoCepP
           localidade: data.endereco.localidade,
           uf: data.endereco.uf,
           taxa: data.taxa,
+          tempoEntrega: data.tempoEntrega ?? 30,
         };
         salvarCepValidado(dadosValidados);
         onAtendido(dadosValidados);
@@ -208,10 +211,18 @@ export default function ModalVerificacaoCep({ onAtendido }: ModalVerificacaoCepP
                   </svg>
                 </div>
                 <div>
-                  <p className="font-bold text-[#4A7840] text-sm">Ótimo! Entregamos na sua região</p>
+                  <p className="font-bold text-[#4A7840] text-sm">Entregamos na sua região!</p>
                   <p className="text-xs text-[#9A7B5C] mt-0.5">
                     {resultado.endereco?.bairro} — {resultado.endereco?.localidade}/{resultado.endereco?.uf}
                   </p>
+                  <div className="flex gap-3 mt-2">
+                    <span className="text-xs font-bold text-[#E87830]">
+                      🛵 {resultado.tempoEntrega ?? 30} min
+                    </span>
+                    <span className="text-xs font-bold text-[#E8A040]">
+                      {resultado.taxa === 0 ? '✅ Frete grátis' : `💰 ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(resultado.taxa ?? 0)}`}
+                    </span>
+                  </div>
                 </div>
               </div>
             ) : resultado.erro ? (

@@ -91,7 +91,7 @@ export class BairroController {
    */
   async criar(req: Request, res: Response) {
     try {
-      const { nome, cep, taxa, ativo, linkIfood, link99food, linkOutro, nomeOutro } = req.body;
+      const { nome, cep, taxa, tempoEntrega, ativo, linkIfood, link99food, linkOutro, nomeOutro } = req.body;
 
       if (!nome || taxa === undefined) {
         return res.status(400).json({
@@ -104,6 +104,7 @@ export class BairroController {
         nome,
         cep: cep || undefined,
         taxa: Number(taxa),
+        tempoEntrega: tempoEntrega ? Number(tempoEntrega) : 30,
         ativo: ativo !== false,
         linkIfood: linkIfood || undefined,
         link99food: link99food || undefined,
@@ -125,12 +126,13 @@ export class BairroController {
   async atualizar(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { nome, cep, taxa, ativo, linkIfood, link99food, linkOutro, nomeOutro } = req.body;
+      const { nome, cep, taxa, tempoEntrega, ativo, linkIfood, link99food, linkOutro, nomeOutro } = req.body;
 
       const bairro = await bairroService.atualizar(id, {
         nome,
         cep: cep || undefined,
         taxa: taxa !== undefined ? Number(taxa) : undefined,
+        tempoEntrega: tempoEntrega !== undefined ? Number(tempoEntrega) : undefined,
         ativo,
         linkIfood: linkIfood ?? null,
         link99food: link99food ?? null,

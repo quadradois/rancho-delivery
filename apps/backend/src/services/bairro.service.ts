@@ -52,6 +52,7 @@ export class BairroService {
           nome: true,
           cep: true,
           taxa: true,
+          tempoEntrega: true,
           linkIfood: true,
           link99food: true,
           linkOutro: true,
@@ -112,6 +113,7 @@ export class BairroService {
     atendido: boolean;
     endereco?: ViaCepResponse;
     taxa?: number;
+    tempoEntrega?: number;
     bairroId?: string;
     marketplaces?: { ifood?: string; food99?: string; outro?: string; nomeOutro?: string };
     erro?: string;
@@ -137,6 +139,7 @@ export class BairroService {
       atendido: true,
       endereco,
       taxa: Number(bairro.taxa),
+      tempoEntrega: bairro.tempoEntrega,
       bairroId: bairro.id,
     };
   }
@@ -185,6 +188,7 @@ export class BairroService {
     nome: string;
     cep?: string;
     taxa: number;
+    tempoEntrega?: number;
     ativo?: boolean;
     linkIfood?: string;
     link99food?: string;
@@ -202,19 +206,17 @@ export class BairroService {
   /**
    * Atualiza bairro
    */
-  async atualizar(
-    id: string,
-    dados: {
-      nome?: string;
-      cep?: string;
-      taxa?: number;
-      ativo?: boolean;
-      linkIfood?: string | null;
-      link99food?: string | null;
-      linkOutro?: string | null;
-      nomeOutro?: string | null;
-    }
-  ) {
+  async atualizar(id: string, dados: {
+    nome?: string;
+    cep?: string;
+    taxa?: number;
+    tempoEntrega?: number;
+    ativo?: boolean;
+    linkIfood?: string | null;
+    link99food?: string | null;
+    linkOutro?: string | null;
+    nomeOutro?: string | null;
+  }) {
     try {
       return await prisma.bairro.update({ where: { id }, data: dados });
     } catch (error) {

@@ -14,6 +14,9 @@ export interface ProductCardProps {
   imageUrl?: string;
   rating?: number;
   reviewCount?: number;
+  tempoPreparo?: number;
+  tempoEntrega?: number;
+  taxaEntrega?: number;
   badge?: {
     text: string;
     variant?: 'brand' | 'gold' | 'green';
@@ -33,6 +36,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
   imageUrl,
   rating = 0,
   reviewCount = 0,
+  tempoPreparo,
+  tempoEntrega,
+  taxaEntrega,
   badge,
   onAddToCart,
   onFavoriteToggle,
@@ -130,9 +136,41 @@ const ProductCard: React.FC<ProductCardProps> = ({
         </h3>
 
         {/* Description */}
-        <p className="text-sm text-[#9A7B5C] leading-relaxed mb-4 line-clamp-2">
+        <p className="text-sm text-[#9A7B5C] leading-relaxed mb-3 line-clamp-2">
           {description}
         </p>
+
+        {/* Tempo de preparo e entrega */}
+        <div className="flex flex-col gap-1 mb-3">
+          {tempoPreparo !== undefined && (
+            <div className="flex items-center gap-1.5 text-xs text-[#9A7B5C]">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="10" />
+                <polyline points="12 6 12 12 16 14" />
+              </svg>
+              <span>Preparo: <strong className="text-[#E8D4B0]">{tempoPreparo} min</strong></span>
+            </div>
+          )}
+          <div className="flex items-center gap-1.5 text-xs text-[#9A7B5C]">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M5 17H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v3" />
+              <rect x="9" y="11" width="14" height="10" rx="2" />
+              <circle cx="12" cy="21" r="1" /><circle cx="20" cy="21" r="1" />
+            </svg>
+            {tempoEntrega !== undefined ? (
+              <span>Entrega: <strong className="text-[#E8D4B0]">{tempoEntrega} min</strong>
+                {taxaEntrega !== undefined && taxaEntrega > 0 && (
+                  <span className="text-[#E87830] ml-1">· {formatCurrency(taxaEntrega)}</span>
+                )}
+                {taxaEntrega === 0 && (
+                  <span className="text-[#4A7840] ml-1 font-bold">· Grátis</span>
+                )}
+              </span>
+            ) : (
+              <span className="text-[#5C3418] italic">Digite seu CEP para calcular o tempo de entrega</span>
+            )}
+          </div>
+        </div>
 
         {/* Rating */}
         {reviewCount > 0 && (

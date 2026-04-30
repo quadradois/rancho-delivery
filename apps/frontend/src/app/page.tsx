@@ -31,6 +31,8 @@ export default function Home() {
   const [products, setProducts] = useState<Produto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [taxaEntrega, setTaxaEntrega] = useState<number | undefined>(undefined);
+  const [tempoEntrega, setTempoEntrega] = useState<number | undefined>(undefined);
 
   // Drawers
   const [cartOpen, setCartOpen] = useState(false);
@@ -145,6 +147,8 @@ export default function Home() {
       <ModalVerificacaoCep
         onAtendido={(dados) => {
           salvarCepValidado(dados);
+          setTaxaEntrega(dados.taxa);
+          setTempoEntrega(dados.tempoEntrega);
         }}
       />
 
@@ -218,6 +222,9 @@ export default function Home() {
                   price={product.preco}
                   category={product.categoria}
                   imageUrl={product.midia || product.imagemUrl}
+                  tempoPreparo={product.tempoPreparo}
+                  tempoEntrega={tempoEntrega}
+                  taxaEntrega={taxaEntrega}
                   onAddToCart={handleAddToCart}
                   onFavoriteToggle={(id, isFav) => console.log(`fav ${id}: ${isFav}`)}
                 />

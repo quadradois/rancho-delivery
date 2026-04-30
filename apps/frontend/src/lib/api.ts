@@ -13,7 +13,7 @@ export interface Produto {
   midia?: string;
   imagemUrl?: string;
   ordem?: number;
-  tempoPreparoMin?: number;
+  tempoPreparo?: number;
   createdAt?: string;
   updatedAt?: string;
 }
