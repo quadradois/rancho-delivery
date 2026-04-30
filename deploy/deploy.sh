@@ -14,4 +14,4 @@ pnpm --filter @rancho-delivery/backend db:migrate:deploy
 PM2_HOME="$PM2_HOME" pm2 reload "$APP_DIR/deploy/ecosystem.config.cjs" --update-env
 PM2_HOME="$PM2_HOME" pm2 save
 
-"$APP_DIR/deploy/healthcheck.sh" "http://127.0.0.1"
+"$APP_DIR/deploy/healthcheck.sh" "http://127.0.0.1:3001" "http://127.0.0.1:3000"

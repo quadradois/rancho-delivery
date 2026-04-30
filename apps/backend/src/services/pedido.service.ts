@@ -26,6 +26,98 @@ interface CriarPedidoInput {
 
 export class PedidoService {
   /**
+   * Lista pedidos para o painel admin
+   */
+  async listarPedidos(filtros?: { status?: string; page?: number; limit?: number }) {
+    try {
+      const page = Math.max(1, filtros?.page || 1);
+      const limit = Math.min(100, Math.max(1, filtros?.limit || 50));
+      const skip = (page - 1) * limit;
+
+      const where: any = {};
+      if (filtros?.status && filtros.status !== 'todos') {
+        where.status = filtros.status.toUpperCase();
+      }
+
+      const pedidos = await prisma.pedido.findMany({
+        where,
+        orderBy: { criadoEm: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          cliente: {
+            select: {
+              nome: true,
+              telefone: true,
+              endereco: true,
+              bairro: true,
+            },
+          },
+          itens: {
+            include: {
+              produto: {
+                select: {
+                  nome: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      const total = await prisma.pedido.count({ where });
+
+      const data = pedidos.map((pedido) => ({
+        id: pedido.id,
+        numero: pedido.id.slice(-6).toUpperCase(),
+        clienteNome: pedido.cliente?.nome || 'Cliente',
+        clienteTelefone: pedido.cliente?.telefone || '',
+        clienteEmail: '',
+        formaPagamento: 'pix',
+        trocoParaValor: undefined,
+        itens: pedido.itens.map((item) => ({
+          id: item.id,
+          produtoId: item.produtoId,
+          produto: {
+            nome: item.produto?.nome || 'Produto',
+          },
+          quantidade: item.quantidade,
+          precoUnit: Number(item.precoUnit),
+          precoUnitario: Number(item.precoUnit),
+          subtotal: Number(item.subtotal),
+          observacao: item.observacao || undefined,
+          observacoes: item.observacao || undefined,
+        })),
+        subtotal: Number(pedido.subtotal),
+        taxaEntrega: Number(pedido.taxaEntrega),
+        total: Number(pedido.total),
+        status: pedido.status.toLowerCase(),
+        observacao: pedido.observacao || undefined,
+        observacoes: pedido.observacao || undefined,
+        pagamentoId: pedido.pagamentoId || undefined,
+        linkPagamento: undefined,
+        endereco: {
+          rua: pedido.cliente?.endereco || '',
+          numero: '',
+          complemento: undefined,
+          bairro: pedido.cliente?.bairro || '',
+          cep: '',
+          pontoReferencia: undefined,
+        },
+        tempoEstimadoMin: 30,
+        createdAt: pedido.criadoEm.toISOString(),
+        criadoEm: pedido.criadoEm.toISOString(),
+        atualizadoEm: pedido.atualizadoEm.toISOString(),
+      }));
+
+      return { data, pagination: { page, limit, total } };
+    } catch (error) {
+      logger.error('Erro ao listar pedidos:', error);
+      throw new Error('Erro ao buscar pedidos');
+    }
+  }
+
+  /**
    * Cria novo pedido
    */
   async criarPedido(dados: CriarPedidoInput) {
@@ -129,6 +221,16 @@ export class PedidoService {
         const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         const redirectUrl = `${baseUrl}/pedido/${pedido.id}`;
         const webhookUrl = process.env.INFINITEPAY_WEBHOOK_URL || `${baseUrl}/webhook/infinitepay`;
+        const telefoneNumeros = pedido.cliente?.telefone?.replace(/\D/g, '') || '';
+        const telefoneFormatado = telefoneNumeros ? `+55${telefoneNumeros}` : undefined;
+        const customer = {
+          name: pedido.cliente?.nome || undefined,
+          phone_number: telefoneFormatado,
+        };
+        const address = {
+          street: pedido.cliente?.endereco || undefined,
+          neighborhood: pedido.cliente?.bairro || undefined,
+        };
 
         // Montar itens para InfinitePay (preço em centavos)
         const itensInfinitePay = pedido.itens.map((item) => ({
@@ -151,6 +253,8 @@ export class PedidoService {
           order_nsu: pedido.id,
           redirect_url: redirectUrl,
           webhook_url: webhookUrl,
+          customer,
+          address,
         });
 
         // Atualizar pedido com ID do pagamento

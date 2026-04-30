@@ -12,6 +12,18 @@ interface CriarLinkInput {
   order_nsu?: string;
   redirect_url?: string;
   webhook_url?: string;
+  customer?: {
+    name?: string;
+    email?: string;
+    phone_number?: string;
+  };
+  address?: {
+    cep?: string;
+    street?: string;
+    neighborhood?: string;
+    number?: string;
+    complement?: string;
+  };
 }
 
 interface LinkPagamentoResponse {
@@ -49,6 +61,8 @@ export class InfinitePayService {
         ...(dados.order_nsu && { order_nsu: dados.order_nsu }),
         ...(dados.redirect_url && { redirect_url: dados.redirect_url }),
         ...(dados.webhook_url && { webhook_url: dados.webhook_url }),
+        ...(dados.customer && { customer: dados.customer }),
+        ...(dados.address && { address: dados.address }),
       };
 
       logger.info('Criando link InfinitePay:', {

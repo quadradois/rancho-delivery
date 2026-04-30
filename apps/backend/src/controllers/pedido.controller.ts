@@ -21,6 +21,36 @@ const criarPedidoSchema = z.object({
 
 export class PedidoController {
   /**
+   * GET /api/pedidos
+   * Lista pedidos para admin
+   */
+  async listar(req: Request, res: Response) {
+    try {
+      const { status, page, limit } = req.query;
+
+      const resultado = await pedidoService.listarPedidos({
+        status: typeof status === 'string' ? status : undefined,
+        page: typeof page === 'string' ? Number(page) : undefined,
+        limit: typeof limit === 'string' ? Number(limit) : undefined,
+      });
+
+      return res.json({
+        success: true,
+        data: resultado.data,
+        pagination: resultado.pagination,
+      });
+    } catch (error) {
+      logger.error('Erro ao listar pedidos:', error);
+      return res.status(500).json({
+        success: false,
+        error: {
+          message: 'Erro ao buscar pedidos',
+        },
+      });
+    }
+  }
+
+  /**
    * POST /api/pedidos
    * Cria novo pedido
    */

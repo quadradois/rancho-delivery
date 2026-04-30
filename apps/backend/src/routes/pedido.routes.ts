@@ -4,6 +4,12 @@ import pedidoController from '../controllers/pedido.controller';
 const router: ExpressRouter = Router();
 
 /**
+ * GET /api/pedidos
+ * Lista pedidos para admin
+ */
+router.get('/', pedidoController.listar.bind(pedidoController));
+
+/**
  * POST /api/pedidos
  * Cria novo pedido
  */

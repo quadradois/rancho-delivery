@@ -22,6 +22,11 @@ export default function OrderPage({ params }: OrderPageProps) {
   const [pedido, setPedido] = useState<Pedido | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const statusNormalizado = (pedido?.status || '').toString().toLowerCase();
+  const enderecoTexto = pedido?.cliente?.endereco || '';
+  const bairroTexto = pedido?.cliente?.bairro || '';
+  const criadoEm = pedido?.createdAt || pedido?.criadoEm || '';
+
   useEffect(() => {
     const loadPedido = async () => {
       try {
@@ -57,15 +62,15 @@ export default function OrderPage({ params }: OrderPageProps) {
         id: 'confirmado',
         label: 'Confirmado',
         icon: '✓',
-        status: pedido.status === 'pendente' ? 'pending' as const : 'done' as const,
+        status: statusNormalizado === 'pendente' ? 'pending' as const : 'done' as const,
       },
       {
         id: 'preparando',
         label: 'Preparando',
         icon: '👨‍🍳',
         status: 
-          pedido.status === 'preparando' ? 'active' as const :
-          ['saiu_entrega', 'entregue'].includes(pedido.status) ? 'done' as const :
+          statusNormalizado === 'preparando' ? 'active' as const :
+          ['saiu_entrega', 'entregue'].includes(statusNormalizado) ? 'done' as const :
           'pending' as const,
       },
       {
@@ -73,15 +78,15 @@ export default function OrderPage({ params }: OrderPageProps) {
         label: 'A caminho',
         icon: '🛵',
         status: 
-          pedido.status === 'saiu_entrega' ? 'active' as const :
-          pedido.status === 'entregue' ? 'done' as const :
+          statusNormalizado === 'saiu_entrega' ? 'active' as const :
+          statusNormalizado === 'entregue' ? 'done' as const :
           'pending' as const,
       },
       {
         id: 'entregue',
         label: 'Entregue',
         icon: '🏠',
-        status: pedido.status === 'entregue' ? 'done' as const : 'pending' as const,
+        status: statusNormalizado === 'entregue' ? 'done' as const : 'pending' as const,
       },
     ];
 
@@ -100,7 +105,7 @@ export default function OrderPage({ params }: OrderPageProps) {
       cancelado: { variant: 'red' as const, text: 'Cancelado' },
     };
 
-    const status = statusMap[pedido.status];
+    const status = statusMap[statusNormalizado] || { variant: 'gold' as const, text: 'Aguardando' };
     return <Badge variant={status.variant} size="lg">{status.text}</Badge>;
   };
 
@@ -172,7 +177,7 @@ export default function OrderPage({ params }: OrderPageProps) {
               </div>
               <div className="flex items-center justify-between text-sm mt-2">
                 <span className="text-[#9A7B5C]">Pedido realizado:</span>
-                <span className="font-bold text-[#F4E8CC]">{formatTime(pedido.createdAt)}</span>
+                <span className="font-bold text-[#F4E8CC]">{criadoEm ? formatTime(criadoEm) : '--:--'}</span>
               </div>
             </div>
           </div>
@@ -185,14 +190,8 @@ export default function OrderPage({ params }: OrderPageProps) {
             <div className="space-y-1 text-sm">
               <p className="font-semibold text-[#F4E8CC]">{pedido.clienteNome}</p>
               <p className="text-[#9A7B5C]">{pedido.clienteTelefone}</p>
-              <p className="text-[#9A7B5C] mt-2">
-                {pedido.endereco.rua}, {pedido.endereco.numero}
-                {pedido.endereco.complemento && ` - ${pedido.endereco.complemento}`}
-              </p>
-              <p className="text-[#9A7B5C]">{pedido.endereco.bairro} - CEP {pedido.endereco.cep}</p>
-              {pedido.endereco.pontoReferencia && (
-                <p className="text-[#5C3418] text-xs mt-2">Ref: {pedido.endereco.pontoReferencia}</p>
-              )}
+              <p className="text-[#9A7B5C] mt-2">{enderecoTexto || 'Endereço não informado'}</p>
+              <p className="text-[#9A7B5C]">{bairroTexto || 'Bairro não informado'}</p>
             </div>
           </div>
 
@@ -210,13 +209,13 @@ export default function OrderPage({ params }: OrderPageProps) {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-[#F4E8CC]">{item.produto.nome}</p>
                     <p className="text-xs text-[#9A7B5C]">Quantidade: {item.quantidade}</p>
-                    {item.observacoes && (
-                      <p className="text-xs text-[#9A7B5C] mt-1">Obs: {item.observacoes}</p>
+                    {(item.observacoes || item.observacao) && (
+                      <p className="text-xs text-[#9A7B5C] mt-1">Obs: {item.observacoes || item.observacao}</p>
                     )}
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-[#F4E8CC]">{formatCurrency(item.precoUnitario * item.quantidade)}</p>
-                    <p className="text-xs text-[#9A7B5C]">{formatCurrency(item.precoUnitario)} cada</p>
+                    <p className="font-bold text-[#F4E8CC]">{formatCurrency((item.precoUnitario || item.precoUnit) * item.quantidade)}</p>
+                    <p className="text-xs text-[#9A7B5C]">{formatCurrency(item.precoUnitario || item.precoUnit)} cada</p>
                   </div>
                 </div>
               ))}
@@ -257,10 +256,10 @@ export default function OrderPage({ params }: OrderPageProps) {
           </div>
 
           {/* Observações */}
-          {pedido.observacoes && (
+          {(pedido.observacoes || pedido.observacao) && (
             <div className="rounded-2xl p-4" style={{ background: '#3E2214', border: '1px solid #5C3418' }}>
               <p className="text-sm font-semibold text-[#E8A040] mb-1">Observações:</p>
-              <p className="text-sm text-[#E8D4B0]">{pedido.observacoes}</p>
+              <p className="text-sm text-[#E8D4B0]">{pedido.observacoes || pedido.observacao}</p>
             </div>
           )}
 
