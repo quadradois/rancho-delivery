@@ -14,6 +14,8 @@ vi.mock('../../services/infinitepay.service');
 describe('PedidoService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    process.env.FRONTEND_URL = 'https://rancho.delivery';
+    process.env.INFINITEPAY_WEBHOOK_URL = 'https://rancho.delivery/webhook/infinitepay';
   });
 
   const dadosPedidoValido = {
@@ -78,7 +80,11 @@ describe('PedidoService', () => {
 
     expect(resultado.id).toBe('pedido-123');
     expect((resultado as any).linkPagamento).toContain('infinitepay');
-    expect(infinitePayService.criarLinkPagamento).toHaveBeenCalled();
+    expect(infinitePayService.criarLinkPagamento).toHaveBeenCalledWith(expect.objectContaining({
+      order_nsu: 'pedido-123',
+      redirect_url: 'https://rancho.delivery/pedido/pedido-123',
+      webhook_url: 'https://rancho.delivery/webhook/infinitepay',
+    }));
   });
 
   it('rejeita pedido com bairro não atendido', async () => {

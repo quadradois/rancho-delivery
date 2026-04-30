@@ -11,6 +11,7 @@ interface CriarLinkInput {
   itens: ItemInfinitePay[];
   order_nsu?: string;
   redirect_url?: string;
+  webhook_url?: string;
 }
 
 interface LinkPagamentoResponse {
@@ -27,7 +28,7 @@ export class InfinitePayService {
     this.handle = process.env.INFINITEPAY_HANDLE || 'orancho-comida';
 
     this.api = axios.create({
-      baseURL: 'https://api.checkout.infinitepay.io',
+      baseURL: 'https://api.infinitepay.io/invoices/public/checkout',
       headers: {
         'Content-Type': 'application/json',
       },
@@ -44,14 +45,17 @@ export class InfinitePayService {
     try {
       const payload = {
         handle: this.handle,
-        itens: dados.itens,
+        items: dados.itens,
         ...(dados.order_nsu && { order_nsu: dados.order_nsu }),
         ...(dados.redirect_url && { redirect_url: dados.redirect_url }),
+        ...(dados.webhook_url && { webhook_url: dados.webhook_url }),
       };
 
       logger.info('Criando link InfinitePay:', {
         handle: this.handle,
         order_nsu: dados.order_nsu,
+        redirect_url: dados.redirect_url,
+        webhook_url: dados.webhook_url,
         total_itens: dados.itens.length,
         total_centavos: dados.itens.reduce((acc, i) => acc + i.price * i.quantity, 0),
       });

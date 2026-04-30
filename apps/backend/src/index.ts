@@ -12,6 +12,32 @@ dotenv.config();
 
 const app: Application = express();
 const PORT = process.env.PORT || 3001;
+const HOST = process.env.HOST || '127.0.0.1';
+
+function getFrontendOrigins() {
+  const frontendUrl = process.env.FRONTEND_URL;
+  if (!frontendUrl) return [];
+
+  try {
+    const url = new URL(frontendUrl);
+    const origins = [url.origin];
+
+    if (!url.hostname.startsWith('www.')) {
+      url.hostname = `www.${url.hostname}`;
+      origins.push(url.origin);
+    }
+
+    if (!url.hostname.startsWith('app.')) {
+      url.hostname = url.hostname.replace(/^www\./, '');
+      url.hostname = `app.${url.hostname}`;
+      origins.push(url.origin);
+    }
+
+    return origins;
+  } catch {
+    return [frontendUrl];
+  }
+}
 
 // Middlewares de segurança
 app.use(helmet());
@@ -27,7 +53,7 @@ const corsOptions = {
       'http://localhost:3000',
       'http://localhost:3001',
       'http://localhost:3002',
-      process.env.FRONTEND_URL
+      ...getFrontendOrigins()
     ].filter(Boolean);
     
     if (allowedOrigins.indexOf(origin) !== -1) {
@@ -89,10 +115,10 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // Iniciar servidor
-app.listen(PORT, () => {
-  logger.info(`🚀 Servidor rodando na porta ${PORT}`);
+app.listen(Number(PORT), HOST, () => {
+  logger.info(`🚀 Servidor rodando em ${HOST}:${PORT}`);
   logger.info(`📍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
-  logger.info(`📡 API disponível em http://localhost:${PORT}/api`);
+  logger.info(`📡 API disponível em http://${HOST}:${PORT}/api`);
 });
 
 export default app;

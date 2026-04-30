@@ -39,9 +39,15 @@ export default function AdminProdutosPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/produtos/${id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/produtos/${id}`, {
         method: 'DELETE',
       });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        throw new Error(error?.error?.message || 'Erro ao excluir produto');
+      }
+
       showSuccess('Produto excluído com sucesso!');
       setProdutos((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {

@@ -115,21 +115,29 @@ export default function FormularioProdutoPage() {
       midia: form.midia || undefined,
       disponivel: form.disponivel,
       ordem: parseInt(form.ordem) || 0,
-    };
+      };
     try {
       if (isEdicao) {
-        await fetch(`${baseUrl}/api/produtos/${params.id}`, {
+        const response = await fetch(`${baseUrl}/api/produtos/${params.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
+        if (!response.ok) {
+          const error = await response.json().catch(() => null);
+          throw new Error(error?.error?.message || 'Erro ao atualizar produto');
+        }
         showSuccess('Produto atualizado com sucesso!');
       } else {
-        await fetch(`${baseUrl}/api/produtos`, {
+        const response = await fetch(`${baseUrl}/api/produtos`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload),
         });
+        if (!response.ok) {
+          const error = await response.json().catch(() => null);
+          throw new Error(error?.error?.message || 'Erro ao cadastrar produto');
+        }
         showSuccess('Produto cadastrado com sucesso!');
       }
       router.push('/admin/produtos');

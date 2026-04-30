@@ -1,6 +1,16 @@
 import prisma from '../config/database';
 import { logger } from '../config/logger';
 
+interface ProdutoInput {
+  nome: string;
+  preco: number;
+  midia?: string;
+  descricao: string;
+  categoria: string;
+  disponivel?: boolean;
+  ordem?: number;
+}
+
 export class ProdutoService {
   /**
    * Lista todos os produtos disponíveis ordenados por ordem
@@ -94,6 +104,85 @@ export class ProdutoService {
     } catch (error) {
       logger.error(`Erro ao listar produtos da categoria ${categoria}:`, error);
       throw new Error('Erro ao buscar produtos por categoria');
+    }
+  }
+
+  /**
+   * Cria um produto no cardápio
+   */
+  async criarProduto(dados: ProdutoInput) {
+    try {
+      const produto = await prisma.produto.create({
+        data: {
+          nome: dados.nome,
+          preco: dados.preco,
+          midia: dados.midia || '',
+          descricao: dados.descricao,
+          categoria: dados.categoria,
+          disponivel: dados.disponivel ?? true,
+          ordem: dados.ordem ?? 0,
+        },
+      });
+
+      logger.info(`Produto criado: ${produto.nome}`);
+      return produto;
+    } catch (error) {
+      logger.error('Erro ao criar produto:', error);
+      throw new Error('Erro ao criar produto');
+    }
+  }
+
+  /**
+   * Atualiza um produto existente
+   */
+  async atualizarProduto(id: string, dados: Partial<ProdutoInput>) {
+    try {
+      const produto = await prisma.produto.update({
+        where: { id },
+        data: {
+          ...(dados.nome !== undefined && { nome: dados.nome }),
+          ...(dados.preco !== undefined && { preco: dados.preco }),
+          ...(dados.midia !== undefined && { midia: dados.midia || '' }),
+          ...(dados.descricao !== undefined && { descricao: dados.descricao }),
+          ...(dados.categoria !== undefined && { categoria: dados.categoria }),
+          ...(dados.disponivel !== undefined && { disponivel: dados.disponivel }),
+          ...(dados.ordem !== undefined && { ordem: dados.ordem }),
+        },
+      });
+
+      logger.info(`Produto atualizado: ${produto.nome}`);
+      return produto;
+    } catch (error: any) {
+      if (error?.code === 'P2025') {
+        logger.warn(`Produto não encontrado para atualização: ${id}`);
+        return null;
+      }
+
+      logger.error(`Erro ao atualizar produto ${id}:`, error);
+      throw new Error('Erro ao atualizar produto');
+    }
+  }
+
+  /**
+   * Remove produto do cardápio sem apagar histórico de pedidos
+   */
+  async excluirProduto(id: string) {
+    try {
+      const produto = await prisma.produto.update({
+        where: { id },
+        data: { disponivel: false },
+      });
+
+      logger.info(`Produto desativado: ${produto.nome}`);
+      return produto;
+    } catch (error: any) {
+      if (error?.code === 'P2025') {
+        logger.warn(`Produto não encontrado para exclusão: ${id}`);
+        return null;
+      }
+
+      logger.error(`Erro ao excluir produto ${id}:`, error);
+      throw new Error('Erro ao excluir produto');
     }
   }
 }

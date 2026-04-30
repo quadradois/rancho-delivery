@@ -15,6 +15,29 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [0.8.0] - 2026-04-30
+
+### Adicionado
+- CRUD de produtos no backend (`POST`, `PUT` e `DELETE /api/produtos`).
+- Validação de payload de produtos com Zod.
+- Tratamento de erro no painel admin ao criar, editar e excluir produtos.
+- Documentação operacional para agentes em `AGENTS.md`.
+- Runbook curto de deploy padrão em `docs/operacao/DEPLOY_PADRAO.md`.
+- Scripts de produção em `deploy/`, incluindo healthcheck, PM2 ecosystem e deploy automatizado.
+- Backlog para validação futura de entrega por CEP com base ViaCEP.
+
+### Alterado
+- InfinitePay passa a enviar `items`, `redirect_url` e `webhook_url` no payload de checkout.
+- Backend passa a aceitar `HOST` via ambiente e, em produção, escuta somente em `127.0.0.1`.
+- Configuração de CORS considera variações `www` e `app` do domínio configurado.
+- Versionamento dos pacotes atualizado para `0.8.0`.
+
+### Operação
+- Deploy padronizado para rodar com usuário `deploy`, grupo `www-data` e PM2 gerenciado por `pm2-deploy.service`.
+- Arquivos `.env` sensíveis devem permanecer com permissão `600`.
+
+---
+
 ## [0.6.0] - 2026-04-29
 
 ### Adicionado

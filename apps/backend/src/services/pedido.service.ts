@@ -128,6 +128,7 @@ export class PedidoService {
       try {
         const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         const redirectUrl = `${baseUrl}/pedido/${pedido.id}`;
+        const webhookUrl = process.env.INFINITEPAY_WEBHOOK_URL || `${baseUrl}/webhook/infinitepay`;
 
         // Montar itens para InfinitePay (preço em centavos)
         const itensInfinitePay = pedido.itens.map((item) => ({
@@ -149,6 +150,7 @@ export class PedidoService {
           itens: itensInfinitePay,
           order_nsu: pedido.id,
           redirect_url: redirectUrl,
+          webhook_url: webhookUrl,
         });
 
         // Atualizar pedido com ID do pagamento
