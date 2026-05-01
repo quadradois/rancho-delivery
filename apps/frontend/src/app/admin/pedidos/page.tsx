@@ -36,7 +36,7 @@ const STATUS_OPTIONS = [
   { value: 'ENTREGUE', label: 'Entregue' },
   { value: 'CANCELADO', label: 'Cancelado' },
 ];
-const STATUS_FLOW = ['CONFIRMADO', 'PREPARANDO', 'SAIU_ENTREGA', 'ENTREGUE'] as const;
+const STATUS_FLOW = ['AGUARDANDO_PAGAMENTO', 'CONFIRMADO', 'PREPARANDO', 'SAIU_ENTREGA', 'ENTREGUE'] as const;
 const CANCEL_MOTIVOS = ['Cliente desistiu', 'Sem entregador disponível', 'Fora de área', 'Item indisponível', 'Pagamento não aprovado', 'Erro operacional'];
 
 function toBadgeVariant(status: string) {
@@ -105,6 +105,13 @@ function actorClass(ator: string) {
     default:
       return 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)]';
   }
+}
+
+function flowBadgeClass(flowStatus: string, currentStatus: string) {
+  if (flowStatus === currentStatus) {
+    return 'ring-2 ring-[var(--color-accent)] ring-offset-1 ring-offset-[var(--color-surface)]';
+  }
+  return 'opacity-70';
 }
 
 export default function AdminPedidosPage() {
@@ -379,6 +386,14 @@ export default function AdminPedidosPage() {
 
   const avancarStatus = useCallback(async () => {
     if (!pedidoDetalhe || savingStatus) return;
+    if (pedidoDetalhe.status === 'PENDENTE') {
+      showError('Aguardando confirmação de pagamento');
+      return;
+    }
+    if (pedidoDetalhe.status === 'AGUARDANDO_PAGAMENTO' && pedidoDetalhe.statusPagamento !== 'CONFIRMADO') {
+      showError('Aguardando confirmação de pagamento');
+      return;
+    }
     const atual = pedidoDetalhe.status;
     const idx = STATUS_FLOW.indexOf(atual as (typeof STATUS_FLOW)[number]);
     if (idx < 0 || idx === STATUS_FLOW.length - 1) return;
@@ -427,6 +442,10 @@ export default function AdminPedidosPage() {
       await carregarMensagens(pedidoDetalhe.cliente.telefone, true);
       showSuccess('Mensagem enviada');
     } catch (error: any) {
+      if (error?.code === 'WHATSAPP_ENVIO_FALHOU') {
+        showError('WhatsApp desconectado', 'Acesse Configurações para reconectar.');
+        return;
+      }
       showError('Falha ao enviar mensagem', error?.message || 'Tente novamente.');
     }
   }, [pedidoDetalhe, textoMensagem, carregarMensagens, showSuccess, showError]);
@@ -661,10 +680,34 @@ export default function AdminPedidosPage() {
                       <p className="mb-2 text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Fluxo de status</p>
                       {clienteResumo?.emListaNegra && <div className="mb-2 rounded-md border border-[var(--color-danger)] bg-[var(--color-danger-muted)] p-2 text-xs text-[var(--color-danger-text)]">Cliente em lista negra: {clienteResumo.motivoListaNegra}</div>}
                       <div className="mb-3 flex flex-wrap items-center gap-2">
-                        {STATUS_FLOW.map((status) => <CrmBadge key={status} variant={toBadgeVariant(status)}>{labelStatus(status)}</CrmBadge>)}
+                        {STATUS_FLOW.map((status) => (
+                          <CrmBadge
+                            key={status}
+                            variant={toBadgeVariant(status)}
+                            className={flowBadgeClass(status, pedidoDetalhe.status)}
+                          >
+                            {labelStatus(status)}
+                          </CrmBadge>
+                        ))}
                       </div>
                       <div className="flex gap-2">
-                        <CrmButton size="sm" onClick={() => void avancarStatus()} disabled={savingStatus || !STATUS_FLOW.includes(pedidoDetalhe.status as (typeof STATUS_FLOW)[number]) || pedidoDetalhe.status === 'ENTREGUE'}>
+                        <CrmButton
+                          size="sm"
+                          onClick={() => void avancarStatus()}
+                          disabled={
+                            savingStatus ||
+                            !STATUS_FLOW.includes(pedidoDetalhe.status as (typeof STATUS_FLOW)[number]) ||
+                            pedidoDetalhe.status === 'ENTREGUE' ||
+                            pedidoDetalhe.status === 'PENDENTE' ||
+                            (pedidoDetalhe.status === 'AGUARDANDO_PAGAMENTO' && pedidoDetalhe.statusPagamento !== 'CONFIRMADO')
+                          }
+                          title={
+                            pedidoDetalhe.status === 'PENDENTE' ||
+                            (pedidoDetalhe.status === 'AGUARDANDO_PAGAMENTO' && pedidoDetalhe.statusPagamento !== 'CONFIRMADO')
+                              ? 'Aguardando confirmação de pagamento'
+                              : 'Avançar status'
+                          }
+                        >
                           {savingStatus ? 'Atualizando...' : 'Avançar status'}
                         </CrmButton>
                         <CrmButton size="sm" variant="danger" onClick={() => setShowCancelModal(true)}>Cancelar</CrmButton>

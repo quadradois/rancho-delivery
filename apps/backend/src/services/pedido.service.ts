@@ -335,7 +335,8 @@ export class PedidoService {
 
     const agora = Date.now();
     const data = pedidos.map((pedido) => {
-      const tempoNoEstagio = Math.max(0, Math.floor((agora - pedido.atualizadoEm.getTime()) / 1000));
+      const baseStatus = pedido.statusMudouEm || pedido.atualizadoEm;
+      const tempoNoEstagio = Math.max(0, Math.floor((agora - baseStatus.getTime()) / 1000));
       return {
         id: pedido.id,
         numero: pedido.id.slice(-6).toUpperCase(),
@@ -413,7 +414,8 @@ export class PedidoService {
 
     if (!pedido) return null;
 
-    const tempoNoEstagio = Math.max(0, Math.floor((Date.now() - pedido.atualizadoEm.getTime()) / 1000));
+    const baseStatus = pedido.statusMudouEm || pedido.atualizadoEm;
+    const tempoNoEstagio = Math.max(0, Math.floor((Date.now() - baseStatus.getTime()) / 1000));
     return {
       id: pedido.id,
       numero: pedido.id.slice(-6).toUpperCase(),
@@ -534,6 +536,7 @@ export class PedidoService {
           taxaEntrega,
           total,
           status: StatusPedido.AGUARDANDO_PAGAMENTO,
+          statusMudouEm: new Date(),
           pagamentoExpiraEm,
           observacao,
           itens: {
@@ -693,6 +696,7 @@ export class PedidoService {
         where: { id },
         data: {
           status: status as StatusPedido,
+          statusMudouEm: new Date(),
           pagamentoId,
           ...(virouConfirmado && { recuperadoEm: eraAbandonadoOuExpirado ? new Date() : null }),
         },
@@ -734,6 +738,7 @@ export class PedidoService {
       where: { id },
       data: {
         status: novoStatus,
+        statusMudouEm: new Date(),
         ...(novoStatus === StatusPedido.CANCELADO && motivoCancelamento
           ? { canceladoMotivo: motivoCancelamento }
           : {}),
@@ -829,6 +834,7 @@ export class PedidoService {
         where: { id: pedido.id },
         data: {
           status: StatusPedido.CONFIRMADO,
+          statusMudouEm: new Date(),
         },
       });
       await this.registrarTimeline(pedido.id, 'OPERADOR', 'Pedido manual em dinheiro confirmado');
@@ -860,6 +866,7 @@ export class PedidoService {
       where: { id },
       data: {
         status: StatusPedido.CANCELADO,
+        statusMudouEm: new Date(),
         canceladoMotivo: motivo.trim(),
         estornoNecessario,
       },
@@ -999,7 +1006,7 @@ export class PedidoService {
           status: StatusPedido.AGUARDANDO_PAGAMENTO,
           pagamentoExpiraEm: { not: null, lte: agora },
         },
-        data: { status: StatusPedido.EXPIRADO },
+        data: { status: StatusPedido.EXPIRADO, statusMudouEm: agora },
       });
 
       const abandonados = await prisma.pedido.updateMany({
@@ -1010,6 +1017,7 @@ export class PedidoService {
         },
         data: {
           status: StatusPedido.ABANDONADO,
+          statusMudouEm: agora,
           abandonadoEm: agora,
         },
       });

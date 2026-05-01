@@ -33,10 +33,14 @@ class ApiClient {
       const response = await fetch(url, config);
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({
-          message: 'Erro ao processar requisição',
-        }));
-        throw new Error(error.message || `HTTP ${response.status}`);
+        const errorBody = await response.json().catch(() => null);
+        const apiError = errorBody?.error;
+        throw new ApiException(
+          apiError?.message || errorBody?.message || `HTTP ${response.status}`,
+          apiError?.code,
+          apiError?.details,
+          response.status
+        );
       }
 
       const json = await response.json();
@@ -88,3 +92,4 @@ class ApiClient {
 const apiClient = new ApiClient(`${API_BASE_URL}/api`);
 
 export default apiClient;
+import { ApiException } from '@/types/api.types';

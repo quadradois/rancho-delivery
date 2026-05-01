@@ -93,6 +93,7 @@ model Pedido {
   taxaEntrega     Decimal       @map("taxa_entrega") @db.Decimal(10, 2)
   total           Decimal       @db.Decimal(10, 2)
   status          StatusPedido  @default(PENDENTE)
+  statusMudouEm   DateTime      @default(now()) @map("status_mudou_em")
   pagamentoId     String?       @map("pagamento_id") @db.VarChar(255) // ID do Asaas
   motoboyId       String?       @map("motoboy_id")
   observacaoEntrega String?     @map("observacao_entrega") @db.Text
