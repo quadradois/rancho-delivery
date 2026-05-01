@@ -68,6 +68,32 @@ export class AdminClienteController {
     }
   }
 
+  async prepararConexaoWhatsApp(_req: Request, res: Response) {
+    try {
+      const data = await clienteService.prepararConexaoWhatsApp();
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao preparar conexão do WhatsApp:', error);
+      return res.status(500).json({
+        success: false,
+        error: { message: 'Erro ao preparar conexão do WhatsApp' },
+      });
+    }
+  }
+
+  async atualizarQrCodeWhatsApp(_req: Request, res: Response) {
+    try {
+      const data = await clienteService.atualizarQrCodeWhatsApp();
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao atualizar QR Code do WhatsApp:', error);
+      return res.status(500).json({
+        success: false,
+        error: { message: 'Erro ao atualizar QR Code do WhatsApp' },
+      });
+    }
+  }
+
   async resumoCliente(req: Request, res: Response) {
     try {
       const { telefone } = req.params;

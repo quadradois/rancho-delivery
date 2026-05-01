@@ -61,6 +61,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [mode, setMode] = useState<'dark-mode' | 'light-mode'>('dark-mode');
   const [whatsConnected, setWhatsConnected] = useState(false);
+  const [whatsInstanceName, setWhatsInstanceName] = useState<string>('');
+  const [showWhatsModal, setShowWhatsModal] = useState(false);
+  const [whatsQrCode, setWhatsQrCode] = useState<string | null>(null);
+  const [whatsLoading, setWhatsLoading] = useState(false);
 
   useEffect(() => {
     const saved = window.localStorage.getItem('rancho:admin:theme');
@@ -84,9 +88,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     const loadStatus = async () => {
       try {
         const data = await api.adminClientes.statusWhatsApp();
-        if (mounted) setWhatsConnected(Boolean(data.conectado));
+        if (mounted) {
+          setWhatsConnected(Boolean(data.conectado));
+          setWhatsInstanceName(data.instanceName || '');
+        }
       } catch {
-        if (mounted) setWhatsConnected(false);
+        if (mounted) {
+          setWhatsConnected(false);
+          setWhatsInstanceName('');
+        }
       }
     };
 
@@ -103,6 +113,31 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   const toggleMode = () => {
     setMode((prev) => (prev === 'dark-mode' ? 'light-mode' : 'dark-mode'));
+  };
+
+  const prepararConexaoWhatsApp = async () => {
+    setWhatsLoading(true);
+    try {
+      const data = await api.adminClientes.prepararWhatsApp();
+      setWhatsConnected(Boolean(data.conectado));
+      setWhatsInstanceName(data.instanceName || '');
+      setWhatsQrCode(data.qrCodeBase64 || null);
+      setShowWhatsModal(true);
+    } finally {
+      setWhatsLoading(false);
+    }
+  };
+
+  const atualizarQrCode = async () => {
+    setWhatsLoading(true);
+    try {
+      const data = await api.adminClientes.atualizarQrCodeWhatsApp();
+      setWhatsConnected(Boolean(data.conectado));
+      setWhatsInstanceName(data.instanceName || '');
+      setWhatsQrCode(data.qrCodeBase64 || null);
+    } finally {
+      setWhatsLoading(false);
+    }
   };
 
   return (
@@ -124,6 +159,15 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               WhatsApp {whatsConnected ? 'conectado' : 'desconectado'}
             </span>
           </div>
+          {!whatsConnected && (
+            <button
+              type="button"
+              onClick={() => void prepararConexaoWhatsApp()}
+              className="mt-3 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 text-xs font-semibold text-[var(--color-text-primary)] hover:border-[var(--color-border-strong)]"
+            >
+              {whatsLoading ? 'Conectando...' : 'Conectar WhatsApp'}
+            </button>
+          )}
         </div>
 
         {/* Nav */}
@@ -175,6 +219,41 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <main className="flex-1 overflow-auto bg-[var(--color-bg)] text-[var(--color-text-primary)]">
         {children}
       </main>
+
+      {showWhatsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+            <div className="mb-2 text-lg font-bold">Conectar WhatsApp</div>
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              Instância: <span className="font-semibold text-[var(--color-text-primary)]">{whatsInstanceName || '-'}</span>
+            </p>
+            <div className="mt-4 flex items-center justify-center rounded-md border border-[var(--color-border)] bg-white p-3">
+              {whatsQrCode ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={whatsQrCode} alt="QR Code do WhatsApp" className="h-64 w-64" />
+              ) : (
+                <span className="text-sm text-slate-500">Sem QR no momento. Atualize.</span>
+              )}
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => void atualizarQrCode()}
+                className="flex-1 rounded-md bg-[var(--color-accent)] px-3 py-2 text-sm font-semibold text-[var(--color-text-on-accent)]"
+              >
+                {whatsLoading ? 'Atualizando...' : 'Atualizar QR'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowWhatsModal(false)}
+                className="rounded-md border border-[var(--color-border)] px-3 py-2 text-sm font-semibold text-[var(--color-text-primary)]"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

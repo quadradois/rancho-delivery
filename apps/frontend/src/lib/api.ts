@@ -176,6 +176,16 @@ export interface ClienteResumoAdmin {
   motivoListaNegra: string | null;
 }
 
+export interface WhatsAppStatusAdmin {
+  instanceName: string;
+  conectado: boolean;
+  state: string;
+}
+
+export interface WhatsAppSetupAdmin extends WhatsAppStatusAdmin {
+  qrCodeBase64: string | null;
+}
+
 export interface Bairro {
   id: string;
   nome: string;
@@ -251,8 +261,16 @@ export const adminPedidoService = {
 };
 
 export const adminClienteService = {
-  async statusWhatsApp(): Promise<{ conectado: boolean }> {
-    return apiClient.get<{ conectado: boolean }>('/admin/whatsapp/status');
+  async statusWhatsApp(): Promise<WhatsAppStatusAdmin> {
+    return apiClient.get<WhatsAppStatusAdmin>('/admin/whatsapp/status');
+  },
+
+  async prepararWhatsApp(): Promise<WhatsAppSetupAdmin> {
+    return apiClient.post<WhatsAppSetupAdmin>('/admin/whatsapp/setup', {});
+  },
+
+  async atualizarQrCodeWhatsApp(): Promise<WhatsAppSetupAdmin> {
+    return apiClient.post<WhatsAppSetupAdmin>('/admin/whatsapp/qrcode', {});
   },
 
   async listarMensagens(telefone: string, marcarComoLida = false): Promise<MensagemClienteAdmin[]> {

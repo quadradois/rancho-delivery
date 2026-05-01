@@ -6,6 +6,14 @@ interface EnviarMensagemInput {
   mensagem: string;
 }
 
+interface EvolutionConnectionStateResponse {
+  instance?: {
+    instanceName?: string;
+    state?: string;
+  };
+  state?: string;
+}
+
 export class EvolutionService {
   private api: AxiosInstance;
   private instanceName: string;
@@ -57,11 +65,11 @@ export class EvolutionService {
    */
   async verificarConexao(): Promise<boolean> {
     try {
-      const response = await this.api.get(
+      const response = await this.api.get<EvolutionConnectionStateResponse>(
         `/instance/connectionState/${this.instanceName}`
       );
-
-      const conectado = response.data?.state === 'open';
+      const state = response.data?.instance?.state || response.data?.state || 'close';
+      const conectado = state === 'open';
       
       if (conectado) {
         logger.info('WhatsApp conectado');
@@ -73,6 +81,81 @@ export class EvolutionService {
     } catch (error: any) {
       logger.error('Erro ao verificar conexão WhatsApp:', error.response?.data || error.message);
       return false;
+    }
+  }
+
+  async obterStatusInstancia() {
+    try {
+      const response = await this.api.get<EvolutionConnectionStateResponse>(
+        `/instance/connectionState/${this.instanceName}`
+      );
+      const state = response.data?.instance?.state || response.data?.state || 'close';
+      return {
+        instanceName: this.instanceName,
+        conectado: state === 'open',
+        state,
+      };
+    } catch (error: any) {
+      logger.error('Erro ao obter status detalhado do WhatsApp:', error.response?.data || error.message);
+      return {
+        instanceName: this.instanceName,
+        conectado: false,
+        state: 'not_found',
+      };
+    }
+  }
+
+  async garantirInstanciaEObterQrCode() {
+    const existente = await this.obterInstanciaPorNome(this.instanceName);
+    if (!existente) {
+      await this.api.post(
+        '/instance/create',
+        {
+          instanceName: this.instanceName,
+          qrcode: true,
+          integration: 'WHATSAPP-BAILEYS',
+        }
+      );
+      logger.info('Instância WhatsApp criada na Evolution', { instanceName: this.instanceName });
+    }
+
+    const status = await this.obterStatusInstancia();
+    if (status.conectado) {
+      return {
+        instanceName: this.instanceName,
+        state: status.state,
+        conectado: true,
+        qrCodeBase64: null as string | null,
+      };
+    }
+
+    const qr = await this.obterQrCode();
+    return {
+      instanceName: this.instanceName,
+      state: status.state,
+      conectado: false,
+      qrCodeBase64: qr,
+    };
+  }
+
+  async obterQrCode(): Promise<string | null> {
+    try {
+      const response = await this.api.get(`/instance/connect/${this.instanceName}`);
+      return response.data?.base64 || response.data?.qrcode?.base64 || null;
+    } catch (error: any) {
+      logger.error('Erro ao obter QR Code da instância WhatsApp:', error.response?.data || error.message);
+      return null;
+    }
+  }
+
+  private async obterInstanciaPorNome(instanceName: string) {
+    try {
+      const response = await this.api.get<any[]>('/instance/fetchInstances');
+      const instancias = Array.isArray(response.data) ? response.data : [];
+      return instancias.find((item) => item?.name === instanceName) || null;
+    } catch (error: any) {
+      logger.error('Erro ao listar instâncias da Evolution:', error.response?.data || error.message);
+      return null;
     }
   }
 

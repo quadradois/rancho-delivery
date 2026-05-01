@@ -160,8 +160,27 @@ export class ClienteService {
   }
 
   async obterStatusWhatsApp() {
-    const conectado = await evolutionService.verificarConexao();
-    return { conectado };
+    return evolutionService.obterStatusInstancia();
+  }
+
+  async prepararConexaoWhatsApp() {
+    return evolutionService.garantirInstanciaEObterQrCode();
+  }
+
+  async atualizarQrCodeWhatsApp() {
+    const status = await evolutionService.obterStatusInstancia();
+    if (status.conectado) {
+      return {
+        ...status,
+        qrCodeBase64: null as string | null,
+      };
+    }
+
+    const qrCodeBase64 = await evolutionService.obterQrCode();
+    return {
+      ...status,
+      qrCodeBase64,
+    };
   }
 
   async obterResumoCliente(telefone: string) {
