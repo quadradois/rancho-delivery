@@ -1,17 +1,20 @@
 name: CI Frontend
 
 on:
+  workflow_dispatch:
   push:
     branches: [master, main, develop]
     paths:
       - 'apps/frontend/**'
       - 'packages/shared/**'
       - 'pnpm-lock.yaml'
+      - '.github/workflows/ci-frontend.yml'
   pull_request:
     branches: [master, main, develop]
     paths:
       - 'apps/frontend/**'
       - 'packages/shared/**'
+      - '.github/workflows/ci-frontend.yml'
 
 jobs:
   test:
