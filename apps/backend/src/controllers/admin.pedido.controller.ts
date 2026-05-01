@@ -329,6 +329,7 @@ export class AdminPedidoController {
         });
       }
       const data = await pedidoService.atualizarStatusLoja(status, mensagem);
+      realtimeService.emit('loja:status', data);
       return res.json({ success: true, data });
     } catch (error: any) {
       if (error.message === 'MENSAGEM_PAUSADO_OBRIGATORIA') {

@@ -23,6 +23,7 @@ export interface ProductCardProps {
   };
   onAddToCart?: (id: string) => void;
   onFavoriteToggle?: (id: string, isFavorite: boolean) => void;
+  disabled?: boolean;
   className?: string;
 }
 
@@ -42,6 +43,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   badge,
   onAddToCart,
   onFavoriteToggle,
+  disabled = false,
   className,
 }) => {
   const [isFavorite, setIsFavorite] = useState(false);
@@ -55,6 +57,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
+    if (disabled) return;
     onAddToCart?.(id);
   };
 
@@ -200,13 +203,14 @@ const ProductCard: React.FC<ProductCardProps> = ({
           <button
             onClick={handleAddToCart}
             aria-label="Adicionar ao carrinho"
+            disabled={disabled}
             className={cn(
               'w-10 h-10 bg-[#D4601C] rounded-full flex-shrink-0',
               'flex items-center justify-center',
               'transition-all duration-200',
-              'hover:bg-[#E87830] hover:scale-110',
-              'hover:shadow-[0_4px_12px_rgba(212,96,28,0.55)]',
-              'active:scale-95'
+              disabled
+                ? 'opacity-45 cursor-not-allowed'
+                : 'hover:bg-[#E87830] hover:scale-110 hover:shadow-[0_4px_12px_rgba(212,96,28,0.55)] active:scale-95'
             )}
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">

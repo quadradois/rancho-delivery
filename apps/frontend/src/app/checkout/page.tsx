@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/contexts/ToastContext';
+import useLojaStatus from '@/hooks/useLojaStatus';
 import { formatCurrency } from '@/lib/utils';
 import api, { CriarPedidoDTO } from '@/lib/api';
 import { getCepValidado, salvarCepValidado } from '@/components/ui/ModalVerificacaoCep';
@@ -159,6 +160,7 @@ export default function CheckoutPage() {
   const router = useRouter();
   const { items, totalPrice, clearCart, deliveryFee: cartDeliveryFee, setDeliveryFee: setCartDeliveryFee } = useCart();
   const { showSuccess, showError } = useToast();
+  const { status: lojaStatus, lojaAberta, mensagem: lojaMensagem } = useLojaStatus();
 
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('address');
   const [loading, setLoading] = useState(false);
@@ -177,6 +179,14 @@ export default function CheckoutPage() {
     formaPagamento: 'pix',
     trocoParaValor: undefined,
   });
+
+  const lojaIndisponivelTitulo = lojaStatus?.status === 'PAUSADO' ? 'Loja pausada' : 'Loja fechada';
+  const avisarLojaIndisponivel = () => {
+    showError(
+      lojaIndisponivelTitulo,
+      lojaMensagem || 'No momento não estamos recebendo novos pedidos.'
+    );
+  };
 
   // Correção 1 — verificar recovery antes de redirecionar para /
   useEffect(() => {
@@ -311,6 +321,11 @@ export default function CheckoutPage() {
   };
 
   const handleNextStep = () => {
+    if (!lojaAberta) {
+      avisarLojaIndisponivel();
+      return;
+    }
+
     if (currentStep === 'address') {
       if (!validateAddress()) return;
       setCurrentStep('payment');
@@ -325,6 +340,11 @@ export default function CheckoutPage() {
   };
 
   const handleFinishOrder = async () => {
+    if (!lojaAberta) {
+      avisarLojaIndisponivel();
+      return;
+    }
+
     setLoading(true);
     try {
       const finger = fingerprintPedido(addressForm, items.map((item) => ({ id: item.id, quantity: item.quantity })));
@@ -483,6 +503,14 @@ export default function CheckoutPage() {
 
       <main className="flex-1 overflow-y-auto pb-32">
         <div className="container py-6 max-w-2xl">
+          {!lojaAberta && lojaStatus && (
+            <div className="rounded-2xl p-4 mb-6 border border-[#E8A040]/35 bg-[#251208]">
+              <p className="font-brand font-black uppercase tracking-wider text-[#E8A040]">
+                {lojaStatus.status === 'PAUSADO' ? 'Loja pausada' : 'Loja fechada'}
+              </p>
+              <p className="text-sm text-[#E8D4B0] mt-1">{lojaMensagem}</p>
+            </div>
+          )}
 
           {/* Progress Steps */}
           <div className="flex items-center justify-between mb-8">
@@ -731,11 +759,11 @@ export default function CheckoutPage() {
             <span className="font-brand font-black text-xl text-[#E87830]">{formatCurrency(totalWithDelivery)}</span>
           </div>
           {currentStep === 'review' ? (
-            <Button size="lg" className="w-full" onClick={handleFinishOrder} loading={loading}>
+            <Button size="lg" className="w-full" onClick={handleFinishOrder} loading={loading} disabled={!lojaAberta}>
               Confirmar e Pagar
             </Button>
           ) : (
-            <Button size="lg" className="w-full" onClick={handleNextStep}>
+            <Button size="lg" className="w-full" onClick={handleNextStep} disabled={!lojaAberta}>
               {currentStep === 'address' ? 'Continuar para Pagamento' : 'Revisar Pedido'}
             </Button>
           )}

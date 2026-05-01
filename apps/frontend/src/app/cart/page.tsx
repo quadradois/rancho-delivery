@@ -5,14 +5,24 @@ import AppBar from '@/components/layout/AppBar';
 import OrderCard from '@/components/product/OrderCard';
 import Button from '@/components/ui/Button';
 import { useCart } from '@/contexts/CartContext';
+import { useToast } from '@/contexts/ToastContext';
+import useLojaStatus from '@/hooks/useLojaStatus';
 import { formatCurrency } from '@/lib/utils';
 
 export default function CartPage() {
   const router = useRouter();
   const { items, updateQuantity, totalPrice, itemCount } = useCart();
+  const { showError } = useToast();
+  const { status: lojaStatus, lojaAberta, mensagem: lojaMensagem } = useLojaStatus();
+
+  const lojaIndisponivelTitulo = lojaStatus?.status === 'PAUSADO' ? 'Loja pausada' : 'Loja fechada';
 
   const handleCheckout = () => {
     if (items.length === 0) {
+      return;
+    }
+    if (!lojaAberta) {
+      showError(lojaIndisponivelTitulo, lojaMensagem || 'No momento não estamos recebendo novos pedidos.');
       return;
     }
     router.push('/checkout');
@@ -47,6 +57,15 @@ export default function CartPage() {
 
       <main className="flex-1 overflow-y-auto pb-32">
         <div className="container py-6 space-y-4">
+          {!lojaAberta && lojaStatus && (
+            <div className="rounded-2xl p-4 border border-[#E8A040]/35 bg-[#251208]">
+              <p className="font-brand font-black uppercase tracking-wider text-[#E8A040]">
+                {lojaStatus.status === 'PAUSADO' ? 'Loja pausada' : 'Loja fechada'}
+              </p>
+              <p className="text-sm text-[#E8D4B0] mt-1">{lojaMensagem}</p>
+            </div>
+          )}
+
           {items.map((item) => (
             <OrderCard key={item.id} {...item} onQuantityChange={updateQuantity} />
           ))}
@@ -72,7 +91,7 @@ export default function CartPage() {
           </div>
         </div>
 
-        <Button size="lg" className="w-full" onClick={handleCheckout}>
+        <Button size="lg" className="w-full" onClick={handleCheckout} disabled={!lojaAberta}>
           Finalizar Pedido
         </Button>
       </div>

@@ -13,6 +13,7 @@ import BottomSheet from '@/components/ui/BottomSheet';
 import ModalVerificacaoCep, { salvarCepValidado } from '@/components/ui/ModalVerificacaoCep';
 import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/contexts/ToastContext';
+import useLojaStatus from '@/hooks/useLojaStatus';
 import { formatCurrency } from '@/lib/utils';
 import api, { Produto } from '@/lib/api';
 
@@ -42,6 +43,15 @@ export default function Home() {
 
   const { addItem, removeItem, updateQuantity, items, itemCount, totalPrice, deliveryFee, total } = useCart();
   const { showSuccess, showError } = useToast();
+  const { status: lojaStatus, lojaAberta, mensagem: lojaMensagem } = useLojaStatus();
+
+  const lojaIndisponivelTitulo = lojaStatus?.status === 'PAUSADO' ? 'Loja pausada' : 'Loja fechada';
+  const avisarLojaIndisponivel = () => {
+    showError(
+      lojaIndisponivelTitulo,
+      lojaMensagem || 'No momento não estamos recebendo novos pedidos.'
+    );
+  };
 
   // Carregar produtos da API
   useEffect(() => {
@@ -78,6 +88,11 @@ export default function Home() {
   }, [products, searchQuery]);
 
   const handleAddToCart = (productId: string) => {
+    if (!lojaAberta) {
+      avisarLojaIndisponivel();
+      return;
+    }
+
     const product = products.find((p) => p.id === productId);
     if (product) {
       addItem({
@@ -101,6 +116,15 @@ export default function Home() {
   const handleCartClose = () => { setCartOpen(false); setActiveTab('home'); };
   const handleSearchClose = () => { setSearchOpen(false); setSearchQuery(''); setActiveTab('home'); };
   const handleProfileClose = () => { setProfileOpen(false); setActiveTab('home'); };
+
+  const handleCheckoutFromCart = () => {
+    if (!lojaAberta) {
+      avisarLojaIndisponivel();
+      return;
+    }
+    handleCartClose();
+    router.push('/checkout');
+  };
 
   const tabBarItems = [
     {
@@ -170,8 +194,24 @@ export default function Home() {
             price={0}
             priceLabel="na entrega"
             buttonText="Pedir Agora"
-            onButtonClick={() => { setCartOpen(true); setActiveTab('cart'); }}
+            onButtonClick={() => {
+              if (!lojaAberta) {
+                avisarLojaIndisponivel();
+                return;
+              }
+              setCartOpen(true);
+              setActiveTab('cart');
+            }}
           />
+
+          {!lojaAberta && lojaStatus && (
+            <div className="rounded-2xl p-4 border border-[#E8A040]/35 bg-[#251208]">
+              <p className="font-brand font-black uppercase tracking-wider text-[#E8A040]">
+                {lojaStatus.status === 'PAUSADO' ? 'Loja pausada' : 'Loja fechada'}
+              </p>
+              <p className="text-sm text-[#E8D4B0] mt-1">{lojaMensagem}</p>
+            </div>
+          )}
 
           {/* Categories */}
           <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2">
@@ -225,6 +265,7 @@ export default function Home() {
                   tempoPreparo={product.tempoPreparo}
                   tempoEntrega={tempoEntrega}
                   taxaEntrega={taxaEntrega}
+                  disabled={!lojaAberta}
                   onAddToCart={handleAddToCart}
                   onFavoriteToggle={(id, isFav) => console.log(`fav ${id}: ${isFav}`)}
                 />
@@ -306,8 +347,9 @@ export default function Home() {
             </div>
 
             <button
-              onClick={() => { handleCartClose(); router.push('/checkout'); }}
-              className="w-full py-4 bg-[#D4601C] text-white rounded-full font-brand font-black uppercase tracking-wider text-lg hover:bg-[#E87830] transition-colors shadow-[0_4px_14px_rgba(212,96,28,0.45)]">
+              onClick={handleCheckoutFromCart}
+              disabled={!lojaAberta}
+              className="w-full py-4 bg-[#D4601C] text-white rounded-full font-brand font-black uppercase tracking-wider text-lg hover:bg-[#E87830] transition-colors shadow-[0_4px_14px_rgba(212,96,28,0.45)] disabled:opacity-45 disabled:cursor-not-allowed disabled:shadow-none">
               Finalizar Pedido
             </button>
           </div>
@@ -359,8 +401,16 @@ export default function Home() {
                     <p className="text-xs text-[#9A7B5C] truncate">{product.descricao}</p>
                     <p className="text-[#E87830] font-brand font-black text-sm mt-0.5">{formatCurrency(product.preco)}</p>
                   </div>
-                  <button onClick={() => { handleAddToCart(product.id); handleSearchClose(); }}
-                    className="w-9 h-9 bg-[#D4601C] rounded-full flex items-center justify-center flex-shrink-0 hover:bg-[#E87830] transition-colors"
+                  <button onClick={() => {
+                    if (!lojaAberta) {
+                      avisarLojaIndisponivel();
+                      return;
+                    }
+                    handleAddToCart(product.id);
+                    handleSearchClose();
+                  }}
+                    disabled={!lojaAberta}
+                    className="w-9 h-9 bg-[#D4601C] rounded-full flex items-center justify-center flex-shrink-0 hover:bg-[#E87830] transition-colors disabled:opacity-45 disabled:cursor-not-allowed"
                     aria-label={`Adicionar ${product.nome} ao carrinho`}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
                       <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />

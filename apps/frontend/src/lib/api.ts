@@ -282,6 +282,12 @@ export const pedidoService = {
   },
 };
 
+export const lojaService = {
+  async obterStatus(): Promise<LojaStatusAdmin> {
+    return apiClient.get<LojaStatusAdmin>('/loja/status');
+  },
+};
+
 export const adminPedidoService = {
   async listar(params?: { status?: string; busca?: string }): Promise<AdminPedidoListaItem[]> {
     const query = new URLSearchParams();
@@ -399,6 +405,7 @@ export const bairroService = {
 const api = {
   produtos: produtoService,
   pedidos: pedidoService,
+  loja: lojaService,
   adminPedidos: adminPedidoService,
   adminClientes: adminClienteService,
   bairros: bairroService,

@@ -334,9 +334,9 @@
 
 - [x] Pedido novo aparece na lista em tempo real sem recarregar a página
 - [x] Botão CONFIRMAR bloqueado para pedidos com pagamento pendente
-- [ ] Mudar para Confirmado dispara mensagem automática no WhatsApp
-- [ ] Mudar para Em Rota dispara mensagem automática no WhatsApp
-- [ ] Mudar para Entregue dispara mensagem automática no WhatsApp
+- [x] Mudar para Confirmado dispara mensagem automática no WhatsApp
+- [x] Mudar para Em Rota dispara mensagem automática no WhatsApp
+- [x] Mudar para Entregue dispara mensagem automática no WhatsApp
 - [x] Cancelamento com pagamento confirmado exibe alerta de estorno
 - [x] SLA muda cor do timer conforme tabela de tempos
 - [x] Som toca quando chega pedido novo (funciona com aba em background)
@@ -344,7 +344,7 @@
 - [x] Operador responde WhatsApp sem sair do cockpit
 - [x] Pedido manual funciona nos dois fluxos (Pix e dinheiro)
 - [x] Timeline registra todas as ações com timestamp e ator
-- [ ] Botão Abrir/Fechar/Pausar loja reflete no site em tempo real
+- [x] Botão Abrir/Fechar/Pausar loja reflete no site em tempo real
 - [x] Lista negra alerta operador antes de confirmar pedido
 - [x] Aba IA visível e desativada com label "em breve"
 - [x] Campo `origem: HUMANO | SISTEMA | IA` em todas as mensagens no banco

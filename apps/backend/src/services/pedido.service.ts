@@ -657,6 +657,31 @@ export class PedidoService {
 
       await this.registrarTimeline(id, 'SISTEMA', `Status -> ${status}`);
 
+      const novoStatus = status as StatusPedido;
+      const deveNotificarCliente =
+        novoStatus === StatusPedido.CONFIRMADO ||
+        novoStatus === StatusPedido.SAIU_ENTREGA ||
+        novoStatus === StatusPedido.ENTREGUE;
+
+      if (deveNotificarCliente) {
+        try {
+          const pedidoCompleto = await this.buscarPedidoPorId(id);
+          if (pedidoCompleto) {
+            const texto = evolutionService.formatarMensagemStatusPedido(pedidoCompleto, novoStatus);
+            const enviado = await evolutionService.notificarClienteStatusPedido(pedidoCompleto, novoStatus);
+            if (enviado && texto) {
+              await clienteService.registrarMensagemSistema(
+                pedidoCompleto.cliente.telefone,
+                texto,
+                pedidoCompleto.id
+              );
+            }
+          }
+        } catch (error) {
+          logger.error('Erro ao enviar mensagem automática de status ao cliente:', error);
+        }
+      }
+
       logger.info(`Status do pedido ${id} atualizado para: ${status}`);
       return pedido;
     } catch (error) {
