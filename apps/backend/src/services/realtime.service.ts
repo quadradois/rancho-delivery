@@ -5,7 +5,10 @@ export type RealtimeEventName =
   | 'pedido:atualizado'
   | 'mensagem:nova'
   | 'metricas:atualizadas'
-  | 'loja:status';
+  | 'loja:status'
+  | 'decisao:nova'
+  | 'decisao:atualizada'
+  | 'decisao:resolvida';
 
 interface RealtimeEventPayload {
   type: RealtimeEventName;

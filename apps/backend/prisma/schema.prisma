@@ -23,6 +23,7 @@ model Cliente {
   // Relações
   pedidos    Pedido[]
   mensagens  MensagemCliente[]
+  alertas    AlertaOperacional[]
   listaNegra ListaNegraCliente?
   indicacoes Indicacao[] @relation("Indicador")
   indicadoPor Indicacao? @relation("Indicado")
@@ -115,6 +116,7 @@ model Pedido {
   itens   ItemPedido[]
   mensagens MensagemCliente[]
   timeline PedidoTimeline[]
+  alertas AlertaOperacional[]
   
   @@map("pedidos")
   @@index([clienteTelefone])
@@ -146,6 +148,71 @@ enum OrigemMensagem {
   HUMANO
   SISTEMA
   IA
+}
+
+enum TipoAlertaOperacional {
+  PEDIDO_PAGO_SEM_CONFIRMACAO
+  CLIENTE_SEM_RESPOSTA
+  PREPARO_ATRASADO
+  PEDIDO_SEM_ENTREGADOR
+  ESTORNO_NECESSARIO
+  WHATSAPP_INDISPONIVEL
+  FALHA_ENVIO_WHATSAPP
+  ENDERECO_DUVIDOSO
+}
+
+enum SeveridadeAlerta {
+  INFO
+  ATENCAO
+  CRITICO
+}
+
+enum StatusAlerta {
+  ABERTO
+  EM_TRATAMENTO
+  RESOLVIDO
+  IGNORADO
+}
+
+enum AcaoRecomendada {
+  CONFIRMAR_PEDIDO
+  RESPONDER_CLIENTE
+  VERIFICAR_COZINHA
+  ATRIBUIR_ENTREGADOR
+  MARCAR_ESTORNO
+  RECONECTAR_WHATSAPP
+  REVISAR_ENDERECO
+  ACOMPANHAR
+}
+
+model AlertaOperacional {
+  id              String                 @id @default(cuid())
+  tipo            TipoAlertaOperacional
+  severidade      SeveridadeAlerta
+  status          StatusAlerta           @default(ABERTO)
+  pedidoId        String?                @map("pedido_id")
+  clienteTelefone String?                @map("cliente_telefone") @db.VarChar(20)
+  titulo          String                 @db.VarChar(120)
+  descricao       String                 @db.Text
+  motivo          String                 @db.Text
+  proximaAcao     AcaoRecomendada        @map("proxima_acao")
+  acaoPayload     Json?                  @map("acao_payload")
+  dedupeKey       String                 @unique @map("dedupe_key") @db.VarChar(180)
+  detectadoEm     DateTime               @default(now()) @map("detectado_em")
+  resolvidoEm     DateTime?              @map("resolvido_em")
+  resolvidoPor    String?                @map("resolvido_por") @db.VarChar(80)
+  resolucaoMotivo String?                @map("resolucao_motivo") @db.Text
+  criadoEm        DateTime               @default(now()) @map("criado_em")
+  atualizadoEm    DateTime               @updatedAt @map("atualizado_em")
+
+  pedido          Pedido?                @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+  cliente         Cliente?               @relation(fields: [clienteTelefone], references: [telefone], onDelete: SetNull)
+
+  @@map("alertas_operacionais")
+  @@index([status, severidade, detectadoEm])
+  @@index([pedidoId])
+  @@index([clienteTelefone])
+  @@index([tipo])
 }
 
 model PedidoTimeline {

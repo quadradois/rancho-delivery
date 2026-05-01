@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { logger } from '../config/logger';
 import { Origem, OrigemMensagem } from '@prisma/client';
 import evolutionService from './evolution.service';
+import decisaoService from './decisao.service';
 
 export class ClienteService {
   /**
@@ -102,6 +103,9 @@ export class ClienteService {
         },
         data: { lida: true },
       });
+      void decisaoService.resolverAlertasClienteSemResposta(telefone).catch((error) => {
+        logger.error('Erro ao resolver alertas de cliente sem resposta:', error);
+      });
     }
 
     return prisma.mensagemCliente.findMany({
@@ -126,7 +130,7 @@ export class ClienteService {
     const cliente = await prisma.cliente.findUnique({ where: { telefone } });
     if (!cliente) return null;
 
-    return prisma.mensagemCliente.create({
+    const mensagem = await prisma.mensagemCliente.create({
       data: {
         clienteTelefone: telefone,
         pedidoId: pedidoId || null,
@@ -135,6 +139,10 @@ export class ClienteService {
         lida: false,
       },
     });
+    void decisaoService.avaliarMensagensCliente(telefone, pedidoId).catch((error) => {
+      logger.error('Erro ao avaliar mensagem recebida:', error);
+    });
+    return mensagem;
   }
 
   async enviarMensagemHumana(telefone: string, texto: string, pedidoId?: string | null) {
@@ -146,9 +154,14 @@ export class ClienteService {
       mensagem: texto,
     });
 
-    if (!enviado) throw new Error('FALHA_ENVIO_WHATSAPP');
+    if (!enviado) {
+      void decisaoService.registrarFalhaWhatsApp('Falha ao enviar mensagem humana para cliente').catch((error) => {
+        logger.error('Erro ao registrar falha WhatsApp na Central de Decisoes:', error);
+      });
+      throw new Error('FALHA_ENVIO_WHATSAPP');
+    }
 
-    return prisma.mensagemCliente.create({
+    const mensagem = await prisma.mensagemCliente.create({
       data: {
         clienteTelefone: telefone,
         pedidoId: pedidoId || null,
@@ -157,6 +170,10 @@ export class ClienteService {
         lida: true,
       },
     });
+    void decisaoService.resolverAlertasClienteSemResposta(telefone, pedidoId).catch((error) => {
+      logger.error('Erro ao resolver alertas apos mensagem humana:', error);
+    });
+    return mensagem;
   }
 
   async obterStatusWhatsApp() {

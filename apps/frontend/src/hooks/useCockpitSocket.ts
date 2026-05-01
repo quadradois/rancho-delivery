@@ -2,7 +2,15 @@
 
 import { useEffect, useRef } from 'react';
 
-type CockpitEventName = 'pedido:novo' | 'pedido:atualizado' | 'mensagem:nova' | 'metricas:atualizadas' | 'loja:status';
+type CockpitEventName =
+  | 'pedido:novo'
+  | 'pedido:atualizado'
+  | 'mensagem:nova'
+  | 'metricas:atualizadas'
+  | 'loja:status'
+  | 'decisao:nova'
+  | 'decisao:atualizada'
+  | 'decisao:resolvida';
 
 interface UseCockpitSocketOptions {
   onPedidoNovo?: (payload: any) => void;
@@ -10,6 +18,9 @@ interface UseCockpitSocketOptions {
   onMensagemNova?: (payload: any) => void;
   onMetricasAtualizadas?: (payload: any) => void;
   onLojaStatus?: (payload: any) => void;
+  onDecisaoNova?: (payload: any) => void;
+  onDecisaoAtualizada?: (payload: any) => void;
+  onDecisaoResolvida?: (payload: any) => void;
   onFallbackPoll?: () => void;
   fallbackIntervalMs?: number;
 }
@@ -66,6 +77,9 @@ export function useCockpitSocket(options: UseCockpitSocketOptions) {
       onEvent('mensagem:nova', optionsRef.current.onMensagemNova);
       onEvent('metricas:atualizadas', optionsRef.current.onMetricasAtualizadas);
       onEvent('loja:status', optionsRef.current.onLojaStatus);
+      onEvent('decisao:nova', optionsRef.current.onDecisaoNova);
+      onEvent('decisao:atualizada', optionsRef.current.onDecisaoAtualizada);
+      onEvent('decisao:resolvida', optionsRef.current.onDecisaoResolvida);
 
       source.onopen = () => {
         reconnectAttempts = 0;

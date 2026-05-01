@@ -25,6 +25,23 @@ vi.mock('../config/database', () => ({
     },
     pedido: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
+    pedidoTimeline: {
+      create: vi.fn(),
+    },
+    mensagemCliente: {
+      findFirst: vi.fn(),
+      findMany: vi.fn(),
+      updateMany: vi.fn(),
+      create: vi.fn(),
+    },
+    alertaOperacional: {
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
       findMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),

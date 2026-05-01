@@ -2,6 +2,7 @@ import { Router, type Router as ExpressRouter } from 'express';
 import adminPedidoRoutes from './admin.pedido.routes';
 import adminRealtimeRoutes from './admin.realtime.routes';
 import adminClienteRoutes from './admin.cliente.routes';
+import adminDecisaoRoutes from './admin.decisao.routes';
 import adminPedidoController from '../controllers/admin.pedido.controller';
 import { autenticarAdmin, loginAdmin } from '../middlewares/adminAuth.middleware';
 
@@ -9,6 +10,7 @@ const router: ExpressRouter = Router();
 
 router.post('/auth/login', loginAdmin);
 router.use(autenticarAdmin);
+router.use('/decisoes', adminDecisaoRoutes);
 router.use('/pedidos', adminPedidoRoutes);
 router.use('/', adminRealtimeRoutes);
 router.use('/', adminClienteRoutes);
