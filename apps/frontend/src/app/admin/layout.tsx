@@ -76,6 +76,39 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    if (!showWhatsModal) return;
+
+    let active = true;
+    const checkConnection = async () => {
+      try {
+        const data = await api.adminClientes.statusWhatsApp();
+        if (!active) return;
+
+        const conectado = Boolean(data.conectado);
+        setWhatsConnected(conectado);
+        setWhatsInstanceName(data.instanceName || '');
+
+        if (conectado) {
+          setShowWhatsModal(false);
+          setWhatsQrCode(null);
+        }
+      } catch {
+        // ignore polling errors while modal is open
+      }
+    };
+
+    void checkConnection();
+    const id = window.setInterval(() => {
+      void checkConnection();
+    }, 3000);
+
+    return () => {
+      active = false;
+      window.clearInterval(id);
+    };
+  }, [showWhatsModal]);
+
+  useEffect(() => {
     const html = document.documentElement;
     html.classList.remove('dark-mode', 'light-mode');
     html.classList.add(mode);
@@ -119,10 +152,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     setWhatsLoading(true);
     try {
       const data = await api.adminClientes.prepararWhatsApp();
-      setWhatsConnected(Boolean(data.conectado));
+      const conectado = Boolean(data.conectado);
+      setWhatsConnected(conectado);
       setWhatsInstanceName(data.instanceName || '');
       setWhatsQrCode(data.qrCodeBase64 || null);
-      setShowWhatsModal(true);
+      setShowWhatsModal(!conectado);
     } finally {
       setWhatsLoading(false);
     }
