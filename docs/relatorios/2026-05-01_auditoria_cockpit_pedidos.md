@@ -39,12 +39,12 @@
 
 ## 🟡 Médios
 
-- [ ] **#6 — Aba "IA" desabilitada sem tooltip ou previsão**  
+- [x] **#6 — Aba "IA" desabilitada sem tooltip ou previsão**  
   `apps/frontend/src/app/admin/pedidos/page.tsx:655`  
   Tab com `disabled` sem `CrmTabPanel` correspondente e sem mensagem "em breve". Se habilitada acidentalmente, renderiza vazio.  
   _Correção: adicionar tooltip "Em breve" ou remover a aba até a funcionalidade estar pronta._
 
-- [ ] **#7 — Checkbox "Imprimir comanda" sem implementação**  
+- [x] **#7 — Checkbox "Imprimir comanda" sem implementação**  
   `apps/frontend/src/app/admin/pedidos/page.tsx:681`  
   Elemento desabilitado com label "(em breve)". Sem onClick, sem integração com impressora.  
   _Correção: implementar ou remover do layout._
@@ -73,17 +73,17 @@
 
 ## 🟢 Baixo
 
-- [ ] **#12 — Botão "Fechar loja" sem modal de confirmação**  
+- [x] **#12 — Botão "Fechar loja" sem modal de confirmação**  
   `apps/frontend/src/app/admin/pedidos/page.tsx:531`  
   Um clique acidental fecha a loja imediatamente. Pausar exige mensagem (validado no backend), mas Fechar não tem nenhuma proteção.  
   _Correção: adicionar `window.confirm` ou modal antes de executar `atualizarStatusLoja('FECHADO')`._
 
-- [ ] **#13 — Label do botão "Som on/off" invertido**  
+- [x] **#13 — Label do botão "Som on/off" invertido**  
   `apps/frontend/src/app/admin/pedidos/page.tsx:525`  
   Quando `muted = true` (som desligado), exibe "Som off" — descreve o estado atual em vez da ação disponível. Convenção esperada seria "Ligar som" ou ícone toggle.  
   _Correção: trocar para `{muted ? 'Ligar som' : 'Desligar som'}` ou usar ícone de alto-falante._
 
-- [ ] **#14 — Paginação da lista posicionada fora do card**  
+- [x] **#14 — Paginação da lista posicionada fora do card**  
   `apps/frontend/src/app/admin/pedidos/page.tsx:806`  
   Os botões Anterior/Próxima ficam abaixo do painel de detalhes, visualmente desconectados da lista de pedidos que controlam.  
   _Correção: mover a paginação para dentro do `CrmCard` da lista de pedidos._

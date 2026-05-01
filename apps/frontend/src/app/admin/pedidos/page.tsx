@@ -548,6 +548,12 @@ export default function AdminPedidosPage() {
     }
   }, [mensagemPausa, showSuccess, showError]);
 
+  const fecharLojaComConfirmacao = useCallback(async () => {
+    const confirmar = window.confirm('Tem certeza que deseja fechar a loja agora?');
+    if (!confirmar) return;
+    await atualizarStatusLoja('FECHADO');
+  }, [atualizarStatusLoja]);
+
   return (
     <div className="p-5 md:p-6">
       <div className="mb-4 flex items-center justify-between">
@@ -559,12 +565,12 @@ export default function AdminPedidosPage() {
         </div>
         <div className="flex items-center gap-2">
           <CrmButton size="sm" variant={muted ? 'ghost' : 'primary'} onClick={() => setMuted(!muted)}>
-            {muted ? 'Som off' : 'Som on'}
+            {muted ? 'Ligar som' : 'Desligar som'}
           </CrmButton>
           <CrmButton size="sm" onClick={() => setShowManualModal(true)}>Pedido manual</CrmButton>
           <CrmButton size="sm" variant={lojaStatus?.status === 'ABERTO' ? 'primary' : 'ghost'} onClick={() => void atualizarStatusLoja('ABERTO')}>Abrir</CrmButton>
           <CrmButton size="sm" variant={lojaStatus?.status === 'PAUSADO' ? 'danger' : 'ghost'} onClick={() => void atualizarStatusLoja('PAUSADO')}>Pausar</CrmButton>
-          <CrmButton size="sm" variant={lojaStatus?.status === 'FECHADO' ? 'danger' : 'ghost'} onClick={() => void atualizarStatusLoja('FECHADO')}>Fechar</CrmButton>
+          <CrmButton size="sm" variant={lojaStatus?.status === 'FECHADO' ? 'danger' : 'ghost'} onClick={() => void fecharLojaComConfirmacao()}>Fechar</CrmButton>
           <CrmButton variant="ghost" onClick={() => void carregarLista()}>Atualizar</CrmButton>
         </div>
       </div>
@@ -604,62 +610,77 @@ export default function AdminPedidosPage() {
       </div>
 
       <div className="grid min-h-[72vh] grid-cols-1 gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <CrmCard className="max-h-[72vh] overflow-auto p-3">
-          {loadingList ? (
-            <p className="p-3 text-sm text-[var(--color-text-secondary)]">Carregando pedidos...</p>
-          ) : pedidos.length === 0 ? (
-            <p className="p-3 text-sm text-[var(--color-text-secondary)]">Sem pedidos para os filtros atuais.</p>
-          ) : (
-            <div className="space-y-2">
-              {pedidos.map((pedido) => {
-                const sla = slaByStatus(pedido.status);
-                return (
-                  <button
-                    key={pedido.id}
-                    type="button"
-                    onClick={() => setSelectedId(pedido.id)}
-                    className={`w-full rounded-md border p-3 text-left transition-colors ${
-                      selectedId === pedido.id
-                        ? 'border-[var(--color-accent)] bg-[var(--color-accent-muted)]'
-                        : 'border-[var(--color-border)] bg-[var(--color-surface-raised)] hover:bg-[var(--color-surface-hover)]'
-                    }`}
-                  >
-                    <div className="mb-1 flex items-center justify-between gap-2">
-                      <span className="font-mono-crm text-xs font-semibold text-[var(--color-text-secondary)]">#{pedido.numero}</span>
-                      <CrmTimer elapsedSeconds={pedido.tempoNoEstagio} warningAt={sla.warningAt} dangerAt={sla.dangerAt} blinkOnDanger />
-                    </div>
-                    <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{pedido.clienteNome}</p>
-                    <p className="truncate text-xs text-[var(--color-text-secondary)]">{pedido.bairro}</p>
-                    <p className="mt-1 truncate text-xs text-[var(--color-text-tertiary)]">{pedido.itensResumo.join(' + ')}</p>
-                    <div className="mt-2 flex items-center justify-between">
-                      <CrmBadge variant={pedido.statusPagamento === 'CONFIRMADO' ? 'paid' : pedido.statusPagamento === 'EXPIRADO' ? 'expired' : 'unpaid'}>
-                        {paymentIcon(pedido.statusPagamento)} {pedido.statusPagamento}
-                      </CrmBadge>
-                      <span className="text-sm font-semibold text-[var(--color-accent)]">{formatCurrency(pedido.total)}</span>
-                    </div>
-                    {pedido.mensagensNaoLidas > 0 && (
-                      <div className="mt-2"><CrmBadge variant="waiting">{pedido.mensagensNaoLidas} msg</CrmBadge></div>
-                    )}
-                    <div className="mt-2">
-                      <CrmButton
-                        size="sm"
-                        className="w-full"
-                        disabled={pedido.statusPagamento !== 'CONFIRMADO' || pedido.status !== 'AGUARDANDO_PAGAMENTO'}
-                        title={pedido.statusPagamento !== 'CONFIRMADO' ? 'Aguardando pagamento' : 'Confirmar pedido'}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          void confirmarPedido(pedido.id);
-                        }}
-                      >
-                        Confirmar
-                      </CrmButton>
-                    </div>
-                  </button>
-                );
-              })}
+        <CrmCard className="flex max-h-[72vh] min-h-[72vh] flex-col p-3">
+          <div className="flex-1 overflow-auto">
+            {loadingList ? (
+              <p className="p-3 text-sm text-[var(--color-text-secondary)]">Carregando pedidos...</p>
+            ) : pedidos.length === 0 ? (
+              <p className="p-3 text-sm text-[var(--color-text-secondary)]">Sem pedidos para os filtros atuais.</p>
+            ) : (
+              <div className="space-y-2">
+                {pedidos.map((pedido) => {
+                  const sla = slaByStatus(pedido.status);
+                  return (
+                    <button
+                      key={pedido.id}
+                      type="button"
+                      onClick={() => setSelectedId(pedido.id)}
+                      className={`w-full rounded-md border p-3 text-left transition-colors ${
+                        selectedId === pedido.id
+                          ? 'border-[var(--color-accent)] bg-[var(--color-accent-muted)]'
+                          : 'border-[var(--color-border)] bg-[var(--color-surface-raised)] hover:bg-[var(--color-surface-hover)]'
+                      }`}
+                    >
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <span className="font-mono-crm text-xs font-semibold text-[var(--color-text-secondary)]">#{pedido.numero}</span>
+                        <CrmTimer elapsedSeconds={pedido.tempoNoEstagio} warningAt={sla.warningAt} dangerAt={sla.dangerAt} blinkOnDanger />
+                      </div>
+                      <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{pedido.clienteNome}</p>
+                      <p className="truncate text-xs text-[var(--color-text-secondary)]">{pedido.bairro}</p>
+                      <p className="mt-1 truncate text-xs text-[var(--color-text-tertiary)]">{pedido.itensResumo.join(' + ')}</p>
+                      <div className="mt-2 flex items-center justify-between">
+                        <CrmBadge variant={pedido.statusPagamento === 'CONFIRMADO' ? 'paid' : pedido.statusPagamento === 'EXPIRADO' ? 'expired' : 'unpaid'}>
+                          {paymentIcon(pedido.statusPagamento)} {pedido.statusPagamento}
+                        </CrmBadge>
+                        <span className="text-sm font-semibold text-[var(--color-accent)]">{formatCurrency(pedido.total)}</span>
+                      </div>
+                      {pedido.mensagensNaoLidas > 0 && (
+                        <div className="mt-2"><CrmBadge variant="waiting">{pedido.mensagensNaoLidas} msg</CrmBadge></div>
+                      )}
+                      <div className="mt-2">
+                        <CrmButton
+                          size="sm"
+                          className="w-full"
+                          disabled={pedido.statusPagamento !== 'CONFIRMADO' || pedido.status !== 'AGUARDANDO_PAGAMENTO'}
+                          title={pedido.statusPagamento !== 'CONFIRMADO' ? 'Aguardando pagamento' : 'Confirmar pedido'}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            void confirmarPedido(pedido.id);
+                          }}
+                        >
+                          Confirmar
+                        </CrmButton>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <div className="mt-3 flex items-center justify-between border-t border-[var(--color-border)] pt-3">
+            <p className="text-xs text-[var(--color-text-secondary)]">
+              Página {page} · {pedidos.length} de {totalPedidos}
+            </p>
+            <div className="flex gap-2">
+              <CrmButton size="sm" variant="ghost" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                Anterior
+              </CrmButton>
+              <CrmButton size="sm" variant="ghost" disabled={page * pageSize >= totalPedidos} onClick={() => setPage((p) => p + 1)}>
+                Próxima
+              </CrmButton>
             </div>
-          )}
+          </div>
         </CrmCard>
 
         <CrmCard className="p-5">
@@ -688,7 +709,7 @@ export default function AdminPedidosPage() {
                   }}>WhatsApp</CrmTabTrigger>
                   <CrmTabTrigger value="cliente" onClick={() => void carregarResumoCliente(pedidoDetalhe.cliente.telefone)}>Cliente</CrmTabTrigger>
                   <CrmTabTrigger value="timeline">Timeline</CrmTabTrigger>
-                  <CrmTabTrigger value="ia" disabled>IA</CrmTabTrigger>
+                  <CrmTabTrigger value="ia" disabled title="Em breve">IA</CrmTabTrigger>
                 </CrmTabList>
 
                 <CrmTabPanel value="pedido">
@@ -734,12 +755,6 @@ export default function AdminPedidosPage() {
                     <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
                       <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Pagamento</p>
                       <p className="text-sm text-[var(--color-text-primary)]">{pedidoDetalhe.statusPagamento}</p>
-                    </div>
-                    <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
-                      <label className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]">
-                        <span>Imprimir comanda (em breve)</span>
-                        <input type="checkbox" disabled className="h-4 w-4 cursor-not-allowed accent-[var(--color-accent)]" />
-                      </label>
                     </div>
                     <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
                       <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Endereço</p>
@@ -863,20 +878,6 @@ export default function AdminPedidosPage() {
           )}
         </CrmCard>
       </div>
-      <div className="mt-3 flex items-center justify-between">
-        <p className="text-xs text-[var(--color-text-secondary)]">
-          Página {page} · {pedidos.length} de {totalPedidos}
-        </p>
-        <div className="flex gap-2">
-          <CrmButton size="sm" variant="ghost" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-            Anterior
-          </CrmButton>
-          <CrmButton size="sm" variant="ghost" disabled={page * pageSize >= totalPedidos} onClick={() => setPage((p) => p + 1)}>
-            Próxima
-          </CrmButton>
-        </div>
-      </div>
-
       <CrmModal open={showCancelModal} onClose={() => setShowCancelModal(false)} title="Cancelar pedido">
         <select value={motivoCancelamento} onChange={(e) => setMotivoCancelamento(e.target.value)} className="mb-3 h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-sm">
           {CANCEL_MOTIVOS.map((m) => <option key={m} value={m}>{m}</option>)}
