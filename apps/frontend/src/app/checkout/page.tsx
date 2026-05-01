@@ -9,10 +9,12 @@ import { useCart } from '@/contexts/CartContext';
 import { useToast } from '@/contexts/ToastContext';
 import { formatCurrency } from '@/lib/utils';
 import api, { CriarPedidoDTO } from '@/lib/api';
-import { getCepValidado } from '@/components/ui/ModalVerificacaoCep';
+import { getCepValidado, salvarCepValidado } from '@/components/ui/ModalVerificacaoCep';
 import { z } from 'zod';
 
 const CHECKOUT_RECOVERY_KEY = 'rancho:checkout_recovery';
+const CHECKOUT_DRAFT_KEY = 'rancho:checkout_draft';
+const CHECKOUT_LAST_ATTEMPT_KEY = 'rancho:checkout_last_attempt';
 const RECOVERY_TTL_MS = 30 * 60 * 1000; // 30 minutos
 
 type CheckoutStep = 'address' | 'payment' | 'review' | 'return';
@@ -88,15 +90,62 @@ function limparRecovery() {
   try { sessionStorage.removeItem(CHECKOUT_RECOVERY_KEY); } catch { /* noop */ }
 }
 
+function salvarDraft(data: {
+  addressForm: AddressForm;
+  paymentForm: PaymentForm;
+  deliveryFee: number;
+  cepAtendido: boolean;
+}) {
+  try {
+    sessionStorage.setItem(CHECKOUT_DRAFT_KEY, JSON.stringify({ ...data, timestamp: Date.now() }));
+  } catch { /* noop */ }
+}
+
+function lerDraft() {
+  try {
+    const raw = sessionStorage.getItem(CHECKOUT_DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (Date.now() - parsed.timestamp > RECOVERY_TTL_MS) {
+      sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);
+      return null;
+    }
+    return parsed as {
+      addressForm: AddressForm;
+      paymentForm: PaymentForm;
+      deliveryFee: number;
+      cepAtendido: boolean;
+      timestamp: number;
+    };
+  } catch {
+    return null;
+  }
+}
+
+function limparDraft() {
+  try { sessionStorage.removeItem(CHECKOUT_DRAFT_KEY); } catch { /* noop */ }
+}
+
+function fingerprintPedido(addressForm: AddressForm, items: Array<{ id: string; quantity: number }>) {
+  const itens = [...items].sort((a, b) => a.id.localeCompare(b.id)).map((i) => `${i.id}:${i.quantity}`).join('|');
+  return [
+    addressForm.nome.trim().toLowerCase(),
+    addressForm.telefone.replace(/\D/g, ''),
+    addressForm.cep.replace(/\D/g, ''),
+    addressForm.numero.trim().toLowerCase(),
+    itens,
+  ].join('::');
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
-  const { items, totalPrice, clearCart } = useCart();
+  const { items, totalPrice, clearCart, deliveryFee: cartDeliveryFee, setDeliveryFee: setCartDeliveryFee } = useCart();
   const { showSuccess, showError } = useToast();
 
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('address');
   const [loading, setLoading] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
-  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [deliveryFee, setDeliveryFee] = useState(cartDeliveryFee || 0);
   const [cepAtendido, setCepAtendido] = useState(false);
   const [errors, setErrors] = useState<AddressErrors>({});
   const [recoveryData, setRecoveryData] = useState<ReturnType<typeof lerRecovery>>(null);
@@ -123,10 +172,23 @@ export default function CheckoutPage() {
       setCurrentStep('return');
       return;
     }
+    const draft = lerDraft();
+    if (draft) {
+      setAddressForm(draft.addressForm);
+      setPaymentForm(draft.paymentForm);
+      setDeliveryFee(draft.deliveryFee || 0);
+      setCartDeliveryFee(draft.deliveryFee || 0);
+      setCepAtendido(Boolean(draft.cepAtendido));
+    }
     // Sem recovery: redirecionar se carrinho vazio
     if (items.length === 0) router.push('/');
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (currentStep === 'return') return;
+    salvarDraft({ addressForm, paymentForm, deliveryFee, cepAtendido });
+  }, [addressForm, paymentForm, deliveryFee, cepAtendido, currentStep]);
 
   // Pré-preencher com CEP validado na sessão
   useEffect(() => {
@@ -142,6 +204,7 @@ export default function CheckoutPage() {
         uf: cepSalvo.uf,
       }));
       setDeliveryFee(cepSalvo.taxa);
+      setCartDeliveryFee(cepSalvo.taxa);
       setCepAtendido(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -179,16 +242,29 @@ export default function CheckoutPage() {
       if (!data.atendido) {
         showError('Fora da área de entrega', `Ainda não entregamos em ${data.endereco?.bairro || 'sua região'}`);
         setAddressForm(prev => ({ ...prev, rua: '', bairro: '', localidade: '', uf: '' }));
+        setDeliveryFee(0);
+        setCartDeliveryFee(0);
         return;
       }
-      setAddressForm(prev => ({
-        ...prev,
-        rua: data.endereco.logradouro || '',
+      const dadosCep = {
+        cep: cepLimpo,
         bairro: data.endereco.bairro || '',
+        logradouro: data.endereco.logradouro || '',
         localidade: data.endereco.localidade || '',
         uf: data.endereco.uf || '',
+        taxa: Number(data.taxa || 0),
+        tempoEntrega: Number(data.tempoEntrega || 30),
+      };
+      setAddressForm(prev => ({
+        ...prev,
+        rua: dadosCep.logradouro,
+        bairro: dadosCep.bairro,
+        localidade: dadosCep.localidade,
+        uf: dadosCep.uf,
       }));
-      setDeliveryFee(data.taxa);
+      salvarCepValidado(dadosCep);
+      setDeliveryFee(dadosCep.taxa);
+      setCartDeliveryFee(dadosCep.taxa);
       setCepAtendido(true);
     } catch {
       showError('Erro ao buscar CEP', 'Tente novamente');
@@ -233,6 +309,17 @@ export default function CheckoutPage() {
   const handleFinishOrder = async () => {
     setLoading(true);
     try {
+      const finger = fingerprintPedido(addressForm, items.map((item) => ({ id: item.id, quantity: item.quantity })));
+      const ultimoRaw = sessionStorage.getItem(CHECKOUT_LAST_ATTEMPT_KEY);
+      if (ultimoRaw) {
+        const ultimo = JSON.parse(ultimoRaw);
+        if (ultimo?.fingerprint === finger && Date.now() - Number(ultimo.timestamp || 0) < RECOVERY_TTL_MS) {
+          showSuccess('Pedido já iniciado', `Redirecionando para pagamento #${String(ultimo.pedidoId || '').slice(-8)}`);
+          window.location.href = String(ultimo.linkPagamento);
+          return;
+        }
+      }
+
       const enderecoCompleto = [
         addressForm.rua,
         addressForm.numero && `nº ${addressForm.numero}`,
@@ -260,6 +347,12 @@ export default function CheckoutPage() {
       showSuccess('Pedido realizado!', `Pedido #${pedido.id.slice(-8)}`);
 
       if (pedido.linkPagamento) {
+        sessionStorage.setItem(CHECKOUT_LAST_ATTEMPT_KEY, JSON.stringify({
+          fingerprint: finger,
+          pedidoId: pedido.id,
+          linkPagamento: pedido.linkPagamento,
+          timestamp: Date.now(),
+        }));
         // Correção 2 — salvar dados ANTES de limpar carrinho e redirecionar
         salvarRecovery({
           addressForm,
@@ -267,11 +360,13 @@ export default function CheckoutPage() {
           pedidoId: pedido.id,
           linkPagamento: pedido.linkPagamento,
         });
+        limparDraft();
         clearCart();
         window.location.href = pedido.linkPagamento;
         return;
       }
 
+      limparDraft();
       clearCart();
       router.push(`/pedido/${pedido.id}`);
     } catch (error) {
@@ -430,6 +525,8 @@ export default function CheckoutPage() {
                       onChange={e => {
                         setAddressForm(p => ({ ...p, cep: formatarCep(e.target.value) }));
                         setCepAtendido(false);
+                        setDeliveryFee(0);
+                        setCartDeliveryFee(0);
                       }}
                       onBlur={handleCepBlur}
                       error={errors.cep}
