@@ -189,7 +189,7 @@ export default function FormularioProdutoPage() {
             onChange={(e) => setForm({ ...form, descricao: e.target.value })}
             placeholder="Descreva o produto com detalhes..."
             rows={3}
-            className={`w-full resize-none rounded-xl border px-4 py-3 text-sm outline-none transition-colors focus:border-[var(--color-accent)] ${
+            className={`w-full resize-none rounded-xl border bg-[var(--color-surface-input)] px-4 py-3 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] placeholder:opacity-90 outline-none transition-colors focus:border-[var(--color-accent)] ${
               errors.descricao ? 'border-[var(--color-danger)]' : 'border-[var(--color-border)]'
             }`}
           />

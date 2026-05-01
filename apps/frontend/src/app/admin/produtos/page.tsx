@@ -91,7 +91,7 @@ export default function AdminProdutosPage() {
             placeholder="Buscar por nome ou descrição..."
             value={busca}
             onChange={(e) => { setBusca(e.target.value); setPagina(1); }}
-            className="w-full h-10 pl-9 pr-4 text-sm border border-[var(--color-border)] rounded-xl outline-none focus:border-[var(--color-accent)] transition-colors"
+            className="h-10 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-input)] pl-9 pr-4 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] placeholder:opacity-90 outline-none transition-colors focus:border-[var(--color-accent)]"
           />
         </div>
 

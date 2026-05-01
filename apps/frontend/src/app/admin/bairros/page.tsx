@@ -313,7 +313,7 @@ export default function AdminBairrosPage() {
                       value={form.cep}
                       onChange={e => handleCepChange(e.target.value)}
                       maxLength={9}
-                      className="w-full h-11 px-4 pr-10 text-sm border border-[var(--color-border)] rounded-xl outline-none focus:border-[var(--color-accent)] transition-colors"
+                      className="w-full h-11 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-input)] px-4 pr-10 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-secondary)] placeholder:opacity-90 outline-none transition-colors focus:border-[var(--color-accent)]"
                     />
                     {loadingCep && (
                       <div className="absolute right-3 top-1/2 -translate-y-1/2">

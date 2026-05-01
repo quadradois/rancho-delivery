@@ -1,0 +1,3365 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark-mode">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Rancho Comida Caseira — Design System v1.0</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<style>
+/* ============================================================
+   DESIGN TOKENS — INLINE
+   Duplicados aqui para o arquivo ser standalone.
+   Source of truth: rancho-ds-tokens.css
+   ============================================================ */
+
+:root {
+  /* Primitives */
+  --brasa-50:#FFF3EB;--brasa-100:#FFE0C7;--brasa-200:#FFBD93;
+  --brasa-300:#FF9558;--brasa-400:#F07030;--brasa-500:#D4601C;
+  --brasa-600:#B04A10;--brasa-700:#8C3608;--brasa-800:#6B2503;
+  --brasa-900:#4A1600;
+
+  --neutral-0:#FFFFFF;--neutral-50:#F9F8F6;--neutral-100:#F0EDEA;
+  --neutral-150:#E4DED8;--neutral-200:#D3CAC1;--neutral-300:#B5A99C;
+  --neutral-400:#8E7F72;--neutral-500:#6B5E52;--neutral-600:#4E4338;
+  --neutral-700:#352C23;--neutral-750:#271F17;--neutral-800:#1C1510;
+  --neutral-850:#14100B;--neutral-900:#0E0A06;--neutral-950:#080502;
+
+  /* Typography */
+  --font-display:'Sora','DM Sans',sans-serif;
+  --font-body:'DM Sans',sans-serif;
+  --font-mono:'JetBrains Mono','Fira Code',monospace;
+  --text-xs:0.6875rem;--text-sm:0.8125rem;--text-base:0.9375rem;
+  --text-md:1.0625rem;--text-lg:1.25rem;--text-xl:1.5rem;
+  --text-2xl:2rem;--text-3xl:2.75rem;--text-4xl:3.5rem;
+  --leading-tight:1.2;--leading-snug:1.35;--leading-normal:1.5;
+  --leading-relaxed:1.65;
+  --tracking-tight:-0.03em;--tracking-normal:0em;--tracking-wide:0.05em;
+  --tracking-wider:0.08em;--tracking-widest:0.15em;
+  --weight-normal:400;--weight-medium:500;--weight-semibold:600;--weight-bold:700;
+
+  /* Spacing */
+  --space-0:0;--space-1:0.25rem;--space-1-5:0.375rem;--space-2:0.5rem;
+  --space-2-5:0.625rem;--space-3:0.75rem;--space-4:1rem;--space-5:1.25rem;
+  --space-6:1.5rem;--space-7:1.75rem;--space-8:2rem;--space-10:2.5rem;
+  --space-12:3rem;--space-16:4rem;--space-20:5rem;--space-24:6rem;
+
+  /* Radii */
+  --radius-xs:2px;--radius-sm:4px;--radius-md:6px;--radius-lg:8px;
+  --radius-xl:12px;--radius-2xl:16px;--radius-pill:9999px;
+
+  /* Motion */
+  --duration-instant:60ms;--duration-fast:120ms;--duration-normal:200ms;--duration-slow:350ms;
+  --ease-out:cubic-bezier(0.0,0,0.2,1);--ease-in:cubic-bezier(0.4,0,1,1);
+  --ease-in-out:cubic-bezier(0.4,0,0.2,1);--ease-spring:cubic-bezier(0.34,1.56,0.64,1);
+
+  /* Cockpit dimensions */
+  --sidebar-width:220px;--topbar-height:64px;
+}
+
+/* Dark mode (default) */
+:root, .dark-mode {
+  --color-bg:#0C0905;--color-surface:#141009;--color-surface-raised:#1D1610;
+  --color-surface-overlay:#261D14;--color-surface-input:#1A1208;
+  --color-surface-hover:#2A2018;--color-surface-active:#33271C;
+  --color-border:#2C2118;--color-border-strong:#3D2E20;--color-border-focus:#D4601C;
+  --color-text-primary:#F5EFE8;--color-text-secondary:#9E8E80;
+  --color-text-tertiary:#6B5C50;--color-text-disabled:#3D3028;
+  --color-text-inverse:#0E0A06;--color-text-on-accent:#FFFFFF;
+  --color-accent:#D4601C;--color-accent-hover:#E87030;
+  --color-accent-muted:rgba(212,96,28,0.15);--color-accent-subtle:rgba(212,96,28,0.08);
+  --color-success:#10B981;--color-success-hover:#34D399;
+  --color-success-muted:rgba(16,185,129,0.15);--color-success-subtle:rgba(16,185,129,0.08);
+  --color-success-text:#34D399;
+  --color-warning:#F59E0B;--color-warning-hover:#FBBF24;
+  --color-warning-muted:rgba(245,158,11,0.15);--color-warning-subtle:rgba(245,158,11,0.08);
+  --color-warning-text:#FBBF24;
+  --color-danger:#EF4444;--color-danger-hover:#F87171;
+  --color-danger-muted:rgba(239,68,68,0.15);--color-danger-subtle:rgba(239,68,68,0.08);
+  --color-danger-text:#F87171;
+  --color-info:#3B82F6;--color-info-hover:#60A5FA;
+  --color-info-muted:rgba(59,130,246,0.15);--color-info-subtle:rgba(59,130,246,0.08);
+  --color-info-text:#60A5FA;
+  --color-whatsapp:#25D366;--color-whatsapp-muted:rgba(37,211,102,0.15);
+  --shadow-sm:0 1px 2px rgba(0,0,0,0.5);--shadow-md:0 4px 12px rgba(0,0,0,0.6);
+  --shadow-lg:0 8px 24px rgba(0,0,0,0.7);--shadow-xl:0 16px 48px rgba(0,0,0,0.8);
+  --shadow-glow-accent:0 0 12px rgba(212,96,28,0.4);
+  --shadow-glow-danger:0 0 12px rgba(239,68,68,0.4);
+  --shadow-glow-success:0 0 12px rgba(16,185,129,0.3);
+}
+
+/* Light mode */
+.light-mode {
+  --color-bg:#F5F0EB;--color-surface:#FFFFFF;--color-surface-raised:#F9F6F3;
+  --color-surface-overlay:#FFFFFF;--color-surface-input:#FFFFFF;
+  --color-surface-hover:#F0EBE5;--color-surface-active:#E8DDD5;
+  --color-border:#E2D8CF;--color-border-strong:#C8BAB0;--color-border-focus:#D4601C;
+  --color-text-primary:#1C1510;--color-text-secondary:#6B5E52;
+  --color-text-tertiary:#9E8E80;--color-text-disabled:#C8BAB0;
+  --color-text-inverse:#FFFFFF;--color-text-on-accent:#FFFFFF;
+  --color-accent:#D4601C;--color-accent-hover:#B04A10;
+  --color-accent-muted:rgba(212,96,28,0.12);--color-accent-subtle:rgba(212,96,28,0.06);
+  --color-success:#059669;--color-success-hover:#047857;
+  --color-success-muted:rgba(5,150,105,0.12);--color-success-subtle:rgba(5,150,105,0.06);
+  --color-success-text:#047857;
+  --color-warning:#D97706;--color-warning-hover:#B45309;
+  --color-warning-muted:rgba(217,119,6,0.12);--color-warning-subtle:rgba(217,119,6,0.06);
+  --color-warning-text:#B45309;
+  --color-danger:#DC2626;--color-danger-hover:#B91C1C;
+  --color-danger-muted:rgba(220,38,38,0.12);--color-danger-subtle:rgba(220,38,38,0.06);
+  --color-danger-text:#B91C1C;
+  --color-info:#2563EB;--color-info-hover:#1D4ED8;
+  --color-info-muted:rgba(37,99,235,0.12);--color-info-subtle:rgba(37,99,235,0.06);
+  --color-info-text:#1D4ED8;
+  --color-whatsapp:#128C7E;--color-whatsapp-muted:rgba(18,140,126,0.12);
+  --shadow-sm:0 1px 2px rgba(0,0,0,0.08);--shadow-md:0 4px 12px rgba(0,0,0,0.10);
+  --shadow-lg:0 8px 24px rgba(0,0,0,0.12);--shadow-xl:0 16px 48px rgba(0,0,0,0.15);
+  --shadow-glow-accent:0 0 12px rgba(212,96,28,0.25);
+  --shadow-glow-danger:0 0 12px rgba(220,38,38,0.20);
+  --shadow-glow-success:0 0 12px rgba(5,150,105,0.20);
+}
+
+/* ============================================================ BASE RESET ============================================================ */
+*, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+html { font-size:16px; }
+body {
+  font-family: var(--font-body);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  line-height: var(--leading-normal);
+  transition: background var(--duration-normal) var(--ease-out),
+              color var(--duration-normal) var(--ease-out);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================ DS PAGE LAYOUT ============================================================ */
+.ds-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--space-10) var(--space-8);
+}
+
+.ds-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-12);
+  padding-bottom: var(--space-8);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ds-header-brand { display: flex; align-items: center; gap: var(--space-4); }
+.ds-header-logo {
+  width: 48px; height: 48px;
+  background: var(--color-accent-muted);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-xl);
+  display: flex; align-items: center; justify-content: center;
+}
+
+.ds-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+}
+.ds-subtitle {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+
+/* Mode toggle */
+.mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  padding: var(--space-1-5) var(--space-3);
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+  transition: all var(--duration-fast) var(--ease-out);
+  user-select: none;
+}
+.mode-toggle:hover { border-color: var(--color-border-strong); color: var(--color-text-primary); }
+.mode-toggle svg { width: 16px; height: 16px; }
+
+/* Section headers */
+.ds-section {
+  margin-bottom: var(--space-16);
+}
+.ds-section-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+.ds-section-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
+  letter-spacing: var(--tracking-tight);
+}
+.ds-section-badge {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-accent);
+  background: var(--color-accent-muted);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+.ds-section-desc {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-relaxed);
+  margin-bottom: var(--space-6);
+  max-width: 680px;
+}
+
+/* Preview frames */
+.ds-preview {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+}
+.ds-preview-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+.ds-preview-label::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+.ds-preview-body {
+  padding: var(--space-6);
+}
+
+/* Subsection titles */
+.ds-sub {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--space-3);
+}
+
+/* Token table */
+.token-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-3);
+}
+.token-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2-5) var(--space-3);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.token-swatch {
+  width: 28px; height: 28px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+  border: 1px solid var(--color-border-strong);
+}
+.token-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  flex: 1;
+}
+.token-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+
+/* Flex row + col helpers */
+.row { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.col { display: flex; flex-direction: column; gap: var(--space-3); }
+.divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: var(--space-6) 0;
+}
+
+/* ============================================================
+   COMPONENT: SIDEBAR
+   ============================================================ */
+.sidebar {
+  width: var(--sidebar-width);
+  height: 640px;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.sidebar-logo {
+  padding: var(--space-5) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.sidebar-logo-icon {
+  width: 36px; height: 36px;
+  background: var(--color-accent-muted);
+  border: 1px solid rgba(212,96,28,0.3);
+  border-radius: var(--radius-lg);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.sidebar-logo-text {
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  line-height: var(--leading-tight);
+}
+.sidebar-logo-sub {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  font-weight: var(--weight-normal);
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: var(--space-3) var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  overflow-y: auto;
+}
+.sidebar-section-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  padding: var(--space-2) var(--space-3);
+  margin-top: var(--space-2);
+}
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  position: relative;
+  text-decoration: none;
+}
+.sidebar-item svg { width: 17px; height: 17px; flex-shrink: 0; opacity: 0.7; }
+.sidebar-item:hover {
+  background: var(--color-surface-hover);
+  color: var(--color-text-primary);
+}
+.sidebar-item:hover svg { opacity: 1; }
+.sidebar-item.active {
+  background: var(--color-accent-muted);
+  color: var(--color-accent);
+}
+.sidebar-item.active svg { opacity: 1; color: var(--color-accent); }
+.sidebar-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px; bottom: 4px;
+  width: 3px;
+  background: var(--color-accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.sidebar-badge {
+  margin-left: auto;
+  background: var(--color-danger);
+  color: #fff;
+  font-size: 10px;
+  font-weight: var(--weight-bold);
+  min-width: 18px; height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-pill);
+  display: flex; align-items: center; justify-content: center;
+  line-height: 1;
+}
+
+.sidebar-footer {
+  padding: var(--space-3) var(--space-2);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.sidebar-wa-status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2-5);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-whatsapp-muted);
+  border: 1px solid rgba(37,211,102,0.2);
+}
+.sidebar-wa-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--color-whatsapp);
+  box-shadow: 0 0 6px var(--color-whatsapp);
+  animation: pulse-wa 2s ease-in-out infinite;
+}
+.sidebar-wa-text { font-size: var(--text-xs); color: var(--color-whatsapp); font-weight: var(--weight-medium); }
+
+.sidebar-wa-status.disconnected {
+  background: var(--color-danger-subtle);
+  border-color: rgba(239,68,68,0.2);
+}
+.sidebar-wa-status.disconnected .sidebar-wa-dot {
+  background: var(--color-danger); box-shadow: none; animation: none;
+}
+.sidebar-wa-status.disconnected .sidebar-wa-text { color: var(--color-danger-text); }
+
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2-5);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+.sidebar-user:hover { background: var(--color-surface-hover); }
+.sidebar-avatar {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-accent-muted), var(--color-accent));
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-on-accent);
+  flex-shrink: 0;
+}
+.sidebar-user-info { flex: 1; min-width: 0; }
+.sidebar-user-name {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sidebar-user-role { font-size: 10px; color: var(--color-text-tertiary); }
+
+/* ============================================================
+   COMPONENT: METRIC BAR
+   ============================================================ */
+.metric-bar {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-3) var(--space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.metric-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: var(--space-2-5) var(--space-4);
+  border-right: 1px solid var(--color-border);
+}
+.metric-card:last-of-type { border-right: none; }
+.metric-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  font-weight: var(--weight-medium);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.metric-value {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+}
+.metric-value.urgent { color: var(--color-danger-text); }
+.metric-value.warning { color: var(--color-warning-text); }
+.metric-value.success { color: var(--color-success-text); }
+.metric-value.revenue { color: var(--color-accent); }
+
+/* Store toggle button */
+.store-btn {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-lg);
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  transition: all var(--duration-fast) var(--ease-out);
+  min-width: 100px;
+}
+.store-btn.open {
+  background: var(--color-success-muted);
+  border: 1px solid var(--color-success);
+  color: var(--color-success-text);
+}
+.store-btn.paused {
+  background: var(--color-warning-muted);
+  border: 1px solid var(--color-warning);
+  color: var(--color-warning-text);
+}
+.store-btn.closed {
+  background: var(--color-danger-muted);
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger-text);
+}
+.store-btn svg { width: 20px; height: 20px; }
+
+/* ============================================================
+   COMPONENT: ORDER CARD
+   ============================================================ */
+.order-card {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  position: relative;
+  overflow: hidden;
+}
+.order-card:hover {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-strong);
+  transform: translateX(2px);
+}
+.order-card.selected {
+  background: var(--color-surface-active);
+  border-color: var(--color-accent);
+}
+.order-card.urgent {
+  border-color: rgba(239,68,68,0.4);
+  background: rgba(239,68,68,0.04);
+}
+.order-card.sla-yellow { border-left: 3px solid var(--color-warning); }
+.order-card.sla-red { border-left: 3px solid var(--color-danger); }
+.order-card.sla-red::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, rgba(239,68,68,0.06) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.order-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.order-id {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  letter-spacing: var(--tracking-wide);
+}
+.order-name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-primary);
+}
+.order-hood {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+}
+
+.order-items {
+  font-size: var(--text-xs);
+  color: var(--color-text-secondary);
+  line-height: var(--leading-snug);
+  margin-bottom: var(--space-3);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.order-card-bottom {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.order-value {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
+  flex: 1;
+}
+
+/* SLA Timer */
+.sla-timer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+}
+.sla-timer.normal {
+  background: var(--color-surface);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border);
+}
+.sla-timer.yellow {
+  background: var(--color-warning-muted);
+  color: var(--color-warning-text);
+  border: 1px solid rgba(245,158,11,0.3);
+}
+.sla-timer.red {
+  background: var(--color-danger-muted);
+  color: var(--color-danger-text);
+  border: 1px solid rgba(239,68,68,0.3);
+  animation: pulse-danger 1.5s ease-in-out infinite;
+}
+
+.order-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+/* ============================================================
+   COMPONENT: BUTTONS
+   ============================================================ */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  font-family: var(--font-body);
+  font-weight: var(--weight-semibold);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-out);
+  text-decoration: none;
+  white-space: nowrap;
+  position: relative;
+  overflow: hidden;
+}
+.btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+/* Sizes */
+.btn-xs  { font-size: var(--text-xs);  padding: 4px 10px;  border-radius: var(--radius-sm); }
+.btn-sm  { font-size: var(--text-xs);  padding: 6px 14px;  border-radius: var(--radius-md); }
+.btn-md  { font-size: var(--text-sm);  padding: 8px 18px;  }
+.btn-lg  { font-size: var(--text-base);padding: 11px 24px; border-radius: var(--radius-lg); }
+
+/* Variants */
+.btn-primary {
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  border-color: transparent;
+  box-shadow: 0 1px 4px rgba(212,96,28,0.3);
+}
+.btn-primary:hover {
+  background: var(--color-accent-hover);
+  box-shadow: var(--shadow-glow-accent);
+  transform: translateY(-1px);
+}
+.btn-primary:active { transform: translateY(0); box-shadow: none; }
+
+.btn-secondary {
+  background: var(--color-surface-raised);
+  color: var(--color-text-primary);
+  border-color: var(--color-border-strong);
+}
+.btn-secondary:hover { background: var(--color-surface-hover); border-color: var(--color-border-focus); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-color: transparent;
+}
+.btn-ghost:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
+
+.btn-destructive {
+  background: var(--color-danger-muted);
+  color: var(--color-danger-text);
+  border-color: rgba(239,68,68,0.3);
+}
+.btn-destructive:hover {
+  background: var(--color-danger);
+  color: #fff;
+  border-color: var(--color-danger);
+  box-shadow: var(--shadow-glow-danger);
+}
+
+.btn-success {
+  background: var(--color-success-muted);
+  color: var(--color-success-text);
+  border-color: rgba(16,185,129,0.3);
+}
+.btn-success:hover {
+  background: var(--color-success);
+  color: #fff;
+  border-color: var(--color-success);
+  box-shadow: var(--shadow-glow-success);
+}
+
+.btn:disabled, .btn.disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  pointer-events: none;
+  box-shadow: none;
+}
+.btn.loading { cursor: wait; pointer-events: none; }
+.btn.loading::after {
+  content: '';
+  width: 13px; height: 13px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-left: 4px;
+}
+
+/* ============================================================
+   COMPONENT: BADGES
+   ============================================================ */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-body);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  white-space: nowrap;
+  line-height: 1.4;
+  border: 1px solid transparent;
+}
+.badge svg { width: 11px; height: 11px; }
+.badge-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.badge-neutral   { background: var(--color-surface-raised); color: var(--color-text-secondary); border-color: var(--color-border); }
+.badge-accent    { background: var(--color-accent-muted); color: var(--color-accent); border-color: rgba(212,96,28,0.3); }
+.badge-success   { background: var(--color-success-muted); color: var(--color-success-text); border-color: rgba(16,185,129,0.3); }
+.badge-warning   { background: var(--color-warning-muted); color: var(--color-warning-text); border-color: rgba(245,158,11,0.3); }
+.badge-danger    { background: var(--color-danger-muted); color: var(--color-danger-text); border-color: rgba(239,68,68,0.3); }
+.badge-info      { background: var(--color-info-muted); color: var(--color-info-text); border-color: rgba(59,130,246,0.3); }
+.badge-blacklist { background: #000; color: var(--color-danger-text); border-color: var(--color-danger); letter-spacing: var(--tracking-wide); }
+
+/* ============================================================
+   COMPONENT: INPUTS
+   ============================================================ */
+.input-group { display: flex; flex-direction: column; gap: var(--space-1-5); }
+.input-label {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-secondary);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+.input-wrap { position: relative; }
+.input-icon {
+  position: absolute;
+  left: var(--space-3);
+  top: 50%; transform: translateY(-50%);
+  color: var(--color-text-tertiary);
+  pointer-events: none;
+  width: 15px; height: 15px;
+}
+.input {
+  width: 100%;
+  background: var(--color-surface-input);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  padding: 9px var(--space-3);
+  transition: all var(--duration-fast) var(--ease-out);
+  outline: none;
+}
+.input.has-icon { padding-left: calc(var(--space-3) + 22px); }
+.input::placeholder { color: var(--color-text-tertiary); }
+.input:hover { border-color: var(--color-border-strong); }
+.input:focus {
+  border-color: var(--color-border-focus);
+  box-shadow: 0 0 0 3px var(--color-accent-subtle);
+}
+.input.error { border-color: var(--color-danger); }
+.input.error:focus { box-shadow: 0 0 0 3px var(--color-danger-subtle); }
+.input:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.input-hint { font-size: var(--text-xs); color: var(--color-text-tertiary); }
+.input-error-msg { font-size: var(--text-xs); color: var(--color-danger-text); }
+
+.select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239E8E80' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right var(--space-3) center;
+  padding-right: calc(var(--space-3) + 20px);
+}
+
+/* ============================================================
+   COMPONENT: TABS
+   ============================================================ */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--color-border); }
+.tab {
+  padding: var(--space-2-5) var(--space-4);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all var(--duration-fast) var(--ease-out);
+  white-space: nowrap;
+  display: flex; align-items: center; gap: var(--space-2);
+}
+.tab:hover { color: var(--color-text-primary); }
+.tab.active {
+  color: var(--color-accent);
+  border-bottom-color: var(--color-accent);
+  font-weight: var(--weight-semibold);
+}
+.tab.disabled { color: var(--color-text-disabled); cursor: not-allowed; pointer-events: none; }
+.tab-coming-soon {
+  font-size: 9px;
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wider);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+}
+
+/* ============================================================
+   COMPONENT: TIMELINE STEPS
+   ============================================================ */
+.timeline-steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: var(--space-4) 0;
+}
+.timeline-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  cursor: pointer;
+  position: relative;
+}
+.timeline-step::before {
+  content: '';
+  position: absolute;
+  top: 15px;
+  left: calc(50% + 15px);
+  right: calc(-50% + 15px);
+  height: 2px;
+  background: var(--color-border);
+}
+.timeline-step:last-child::before { display: none; }
+.timeline-step.done::before { background: var(--color-accent); }
+
+.timeline-dot {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border);
+  background: var(--color-surface);
+  display: flex; align-items: center; justify-content: center;
+  position: relative;
+  z-index: 1;
+  transition: all var(--duration-normal) var(--ease-out);
+}
+.timeline-step.done .timeline-dot {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+.timeline-step.current .timeline-dot {
+  border-color: var(--color-accent);
+  background: var(--color-accent-muted);
+  box-shadow: var(--shadow-glow-accent);
+}
+.timeline-label {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  text-align: center;
+  font-weight: var(--weight-medium);
+}
+.timeline-step.done .timeline-label { color: var(--color-text-secondary); }
+.timeline-step.current .timeline-label { color: var(--color-accent); font-weight: var(--weight-semibold); }
+
+/* ============================================================
+   COMPONENT: BANNERS / ALERTS
+   ============================================================ */
+.banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid;
+}
+.banner svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; }
+.banner-content { flex: 1; }
+.banner-title {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  margin-bottom: 2px;
+}
+.banner-desc { font-size: var(--text-xs); line-height: var(--leading-snug); }
+
+.banner-info     { background: var(--color-info-subtle); border-color: rgba(59,130,246,0.25); color: var(--color-info-text); }
+.banner-success  { background: var(--color-success-subtle); border-color: rgba(16,185,129,0.25); color: var(--color-success-text); }
+.banner-warning  { background: var(--color-warning-subtle); border-color: rgba(245,158,11,0.25); color: var(--color-warning-text); }
+.banner-danger   { background: var(--color-danger-subtle); border-color: rgba(239,68,68,0.25); color: var(--color-danger-text); }
+.banner-estorno  {
+  background: linear-gradient(90deg, rgba(212,96,28,0.12), rgba(245,158,11,0.08));
+  border-color: rgba(212,96,28,0.4);
+  color: var(--color-warning-text);
+  border-left: 3px solid var(--color-accent);
+}
+.banner-blacklist {
+  background: rgba(0,0,0,0.5);
+  border: 1px solid var(--color-danger);
+  border-left: 3px solid var(--color-danger);
+  color: var(--color-danger-text);
+}
+.banner-drinks {
+  background: linear-gradient(90deg, rgba(59,130,246,0.10), rgba(59,130,246,0.04));
+  border-color: rgba(59,130,246,0.3);
+  color: var(--color-info-text);
+  border-left: 3px solid var(--color-info);
+}
+
+/* ============================================================
+   COMPONENT: WHATSAPP CHAT
+   ============================================================ */
+.chat-area {
+  background: var(--color-surface);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  height: 280px;
+  overflow-y: auto;
+}
+
+.chat-date-divider {
+  text-align: center;
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+  padding: var(--space-2) 0;
+}
+
+.chat-bubble {
+  max-width: 75%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.chat-bubble.outgoing { align-self: flex-end; }
+.chat-bubble.incoming { align-self: flex-start; }
+
+.bubble-body {
+  padding: var(--space-2-5) var(--space-3);
+  border-radius: var(--radius-xl);
+  font-size: var(--text-sm);
+  line-height: var(--leading-snug);
+  word-break: break-word;
+}
+.chat-bubble.outgoing .bubble-body {
+  background: var(--color-accent-muted);
+  border: 1px solid rgba(212,96,28,0.2);
+  border-bottom-right-radius: var(--radius-xs);
+  color: var(--color-text-primary);
+}
+.chat-bubble.incoming .bubble-body {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-bottom-left-radius: var(--radius-xs);
+  color: var(--color-text-primary);
+}
+.bubble-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+}
+.chat-bubble.outgoing .bubble-meta { justify-content: flex-end; }
+.auto-tag {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--color-warning-text);
+  background: var(--color-warning-muted);
+  border: 1px solid rgba(245,158,11,0.2);
+  padding: 1px 5px;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.04em;
+}
+
+/* ============================================================
+   COMPONENT: TIMELINE LOG
+   ============================================================ */
+.log-container {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  overflow: hidden;
+}
+.log-header {
+  background: var(--color-surface-raised);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-4);
+  display: flex; align-items: center; gap: var(--space-3);
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  letter-spacing: var(--tracking-wide);
+}
+.log-header::before { content: '●'; color: var(--color-success); font-size: 8px; }
+.log-entries { padding: var(--space-3) 0; }
+.log-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
+  padding: var(--space-1) var(--space-4);
+  line-height: var(--leading-snug);
+  transition: background var(--duration-instant);
+}
+.log-entry:hover { background: var(--color-surface-hover); }
+.log-ts { color: var(--color-text-tertiary); white-space: nowrap; flex-shrink: 0; }
+.log-level {
+  flex-shrink: 0;
+  width: 48px;
+  text-align: center;
+  font-weight: var(--weight-semibold);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.log-level.info    { color: var(--color-info-text); }
+.log-level.ok      { color: var(--color-success-text); }
+.log-level.warn    { color: var(--color-warning-text); }
+.log-level.err     { color: var(--color-danger-text); }
+.log-level.sys     { color: var(--color-text-tertiary); }
+.log-msg { color: var(--color-text-secondary); flex: 1; }
+.log-msg strong    { color: var(--color-text-primary); font-weight: var(--weight-semibold); }
+.log-msg .log-tag  {
+  color: var(--color-accent);
+  font-size: 10px;
+  background: var(--color-accent-subtle);
+  padding: 1px 5px;
+  border-radius: var(--radius-xs);
+}
+
+/* ============================================================
+   COMPONENT: MODAL
+   ============================================================ */
+.modal-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+.modal {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-2xl);
+  padding: var(--space-6);
+  max-width: 440px;
+  width: 100%;
+  box-shadow: var(--shadow-xl);
+}
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-5);
+}
+.modal-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  color: var(--color-text-primary);
+}
+.modal-subtitle {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  margin-top: var(--space-1);
+}
+.modal-close {
+  width: 28px; height: 28px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--color-text-secondary);
+  font-size: 16px;
+  flex-shrink: 0;
+}
+.modal-close:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
+.modal-body { display: flex; flex-direction: column; gap: var(--space-4); }
+.modal-footer {
+  display: flex;
+  gap: var(--space-3);
+  justify-content: flex-end;
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border);
+}
+
+.payment-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+}
+.payment-notice.confirmed { background: var(--color-warning-muted); color: var(--color-warning-text); border: 1px solid rgba(245,158,11,0.3); }
+.payment-notice.pending   { background: var(--color-surface); color: var(--color-text-secondary); border: 1px solid var(--color-border); }
+
+/* ============================================================
+   COMPONENT: COLOR PALETTE DISPLAY
+   ============================================================ */
+.palette-row {
+  display: flex;
+  height: 52px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+.palette-swatch {
+  flex: 1;
+  position: relative;
+  cursor: default;
+}
+.palette-swatch-label {
+  position: absolute;
+  bottom: 4px; left: 50%; transform: translateX(-50%);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: var(--weight-semibold);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ============================================================
+   COMPONENT: TYPOGRAPHY SAMPLES
+   ============================================================ */
+.type-sample {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-6);
+}
+.type-sample:last-child { border-bottom: none; }
+.type-meta {
+  min-width: 180px;
+  flex-shrink: 0;
+}
+.type-token {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+.type-spec {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+}
+.type-preview { flex: 1; }
+
+/* ============================================================
+   AI TAB (coming soon)
+   ============================================================ */
+.ai-coming-soon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-12);
+  text-align: center;
+}
+.ai-icon {
+  width: 64px; height: 64px;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2xl);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px;
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+.ai-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  padding: 3px 10px;
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-pill);
+}
+.ai-title {
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-disabled);
+}
+.ai-desc { font-size: var(--text-sm); color: var(--color-text-tertiary); max-width: 280px; line-height: var(--leading-relaxed); }
+
+/* ============================================================
+   DS NAVIGATION (left sidebar for the DS doc itself)
+   ============================================================ */
+.ds-layout {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  min-height: 100vh;
+}
+.ds-nav {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  padding: var(--space-6) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.ds-nav-brand {
+  padding: var(--space-3) var(--space-3);
+  margin-bottom: var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-5);
+}
+.ds-nav-logo-row { display: flex; align-items: center; gap: var(--space-2-5); margin-bottom: var(--space-3); }
+.ds-nav-version {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  letter-spacing: var(--tracking-wide);
+}
+.ds-nav-section-title {
+  font-size: 10px;
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-widest);
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+  padding: var(--space-2) var(--space-3);
+  margin-top: var(--space-3);
+}
+.ds-nav-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1-5) var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all var(--duration-instant) var(--ease-out);
+}
+.ds-nav-link:hover { background: var(--color-surface-hover); color: var(--color-text-primary); }
+.ds-nav-link.active { background: var(--color-accent-muted); color: var(--color-accent); font-weight: var(--weight-medium); }
+.ds-nav-link::before { content: '·'; opacity: 0.4; }
+.ds-nav-link.active::before { content: '›'; opacity: 1; color: var(--color-accent); }
+
+.ds-content { padding: var(--space-10) var(--space-8); max-width: 900px; }
+
+/* ============================================================
+   COCKPIT PREVIEW — full layout mini
+   ============================================================ */
+.cockpit-preview {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) var(--order-list-width) 1fr;
+  height: 640px;
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-lg);
+}
+.cockpit-main {
+  display: flex;
+  flex-direction: column;
+}
+.cockpit-topbar {
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  padding: 0 var(--space-5);
+  height: var(--topbar-height);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+.cockpit-detail {
+  flex: 1;
+  background: var(--color-bg);
+  overflow-y: auto;
+  padding: var(--space-5);
+}
+.cockpit-orders {
+  border-right: 1px solid var(--color-border);
+  background: var(--color-bg);
+  overflow-y: auto;
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+@keyframes pulse-wa {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.7; transform: scale(1.3); }
+}
+@keyframes pulse-danger {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Skeleton loading */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-raised) 25%,
+    var(--color-surface-hover) 50%,
+    var(--color-surface-raised) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+/* Utility classes */
+.mt-2  { margin-top: var(--space-2); }
+.mt-3  { margin-top: var(--space-3); }
+.mt-4  { margin-top: var(--space-4); }
+.mt-6  { margin-top: var(--space-6); }
+.gap-2 { gap: var(--space-2); }
+.gap-3 { gap: var(--space-3); }
+.gap-4 { gap: var(--space-4); }
+.gap-6 { gap: var(--space-6); }
+.text-xs { font-size: var(--text-xs); }
+.text-sm { font-size: var(--text-sm); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-tertiary  { color: var(--color-text-tertiary); }
+.text-accent    { color: var(--color-accent); }
+.font-mono { font-family: var(--font-mono); }
+
+/* DS usage callouts */
+.use-when {
+  display: flex;
+  gap: var(--space-3);
+  background: var(--color-info-subtle);
+  border: 1px solid rgba(59,130,246,0.2);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--color-info-text);
+  line-height: var(--leading-relaxed);
+  margin-top: var(--space-4);
+}
+.use-when::before { content: '↗'; font-weight: bold; flex-shrink: 0; }
+
+/* Rancho logo horns SVG */
+.rancho-logo-svg { width: 28px; height: 28px; }
+</style>
+<style>/*
+ * ============================================================
+ * RANCHO COMIDA CASEIRA — COCKPIT DE GESTÃO
+ * Design System Tokens v1.0
+ * ============================================================
+ *
+ * FILOSOFIA: "Clareza sob pressão"
+ * Cada token existe para uma função específica.
+ * Tokens semânticos — o dev nunca precisa adivinhar.
+ *
+ * ESTRUTURA:
+ * 1. Primitive Palette (valores brutos — não usar diretamente)
+ * 2. Semantic Tokens Dark Mode (padrão — born dark)
+ * 3. Semantic Tokens Light Mode (override via .light-mode)
+ * 4. Typography Scale
+ * 5. Spacing Scale
+ * 6. Radius & Shadow
+ * 7. Motion
+ * ============================================================
+ */
+
+/* ============================================================
+   1. PRIMITIVE PALETTE
+   Valores brutos. Use os tokens semânticos acima destes.
+   ============================================================ */
+
+:root {
+  /* Brand Primitives — Rancho Comida Caseira */
+  --brasa-50:  #FFF3EB;
+  --brasa-100: #FFE0C7;
+  --brasa-200: #FFBD93;
+  --brasa-300: #FF9558;
+  --brasa-400: #F07030;
+  --brasa-500: #D4601C;  /* ← Cor oficial da marca */
+  --brasa-600: #B04A10;
+  --brasa-700: #8C3608;
+  --brasa-800: #6B2503;
+  --brasa-900: #4A1600;
+
+  /* Neutral Scale — base do cockpit */
+  --neutral-0:   #FFFFFF;
+  --neutral-50:  #F9F8F6;
+  --neutral-100: #F0EDEA;
+  --neutral-150: #E4DED8;
+  --neutral-200: #D3CAC1;
+  --neutral-300: #B5A99C;
+  --neutral-400: #8E7F72;
+  --neutral-500: #6B5E52;
+  --neutral-600: #4E4338;
+  --neutral-700: #352C23;
+  --neutral-750: #271F17;
+  --neutral-800: #1C1510;
+  --neutral-850: #14100B;
+  --neutral-900: #0E0A06;
+  --neutral-950: #080502;
+
+  /* Semantic Primitives */
+  --green-400: #34D399;
+  --green-500: #10B981;
+  --green-600: #059669;
+  --green-900: #064E3B;
+  --green-950: #022C22;
+
+  --yellow-400: #FBBF24;
+  --yellow-500: #F59E0B;
+  --yellow-600: #D97706;
+  --yellow-900: #78350F;
+  --yellow-950: #451A03;
+
+  --red-400: #F87171;
+  --red-500: #EF4444;
+  --red-600: #DC2626;
+  --red-900: #7F1D1D;
+  --red-950: #450A0A;
+
+  --blue-400: #60A5FA;
+  --blue-500: #3B82F6;
+  --blue-600: #2563EB;
+  --blue-900: #1E3A5F;
+  --blue-950: #0F1F3D;
+}
+
+/* ============================================================
+   2. SEMANTIC TOKENS — DARK MODE (PADRÃO / BORN DARK)
+   Dark mode é o modo primário deste sistema.
+   Concebido para ambiente de cozinha, luz baixa, turno noturno.
+   ============================================================ */
+
+:root,
+.dark-mode {
+  /* ── Superfícies ────────────────────────────────────────── */
+  --color-bg:              #0C0905;  /* Canvas absoluto — mais fundo que o fundo */
+  --color-surface:         #141009;  /* Superfície base — sidebars, painéis */
+  --color-surface-raised:  #1D1610;  /* Cards elevados sobre a superfície */
+  --color-surface-overlay: #261D14;  /* Dropdowns, tooltips, modais */
+  --color-surface-input:   #1A1208;  /* Campos de input */
+  --color-surface-hover:   #2A2018;  /* Estado hover de rows e itens */
+  --color-surface-active:  #33271C;  /* Estado ativo/selecionado */
+
+  /* ── Bordas ─────────────────────────────────────────────── */
+  --color-border:          #2C2118;  /* Borda padrão — sutil */
+  --color-border-strong:   #3D2E20;  /* Borda com mais contraste */
+  --color-border-focus:    #D4601C;  /* Borda de foco — brasa da marca */
+
+  /* ── Texto ──────────────────────────────────────────────── */
+  --color-text-primary:    #F5EFE8;  /* Texto principal — quase branco com tom quente */
+  --color-text-secondary:  #9E8E80;  /* Texto secundário, labels, metadados */
+  --color-text-tertiary:   #6B5C50;  /* Texto terciário, placeholders */
+  --color-text-disabled:   #3D3028;  /* Texto desabilitado */
+  --color-text-inverse:    #0E0A06;  /* Texto sobre fundos claros (ex: badges claros) */
+  --color-text-on-accent:  #FFFFFF;  /* Texto sobre cor de destaque (brasa) */
+
+  /* ── Destaque / Marca ───────────────────────────────────── */
+  --color-accent:          #D4601C;  /* Brasa — CTA, ações principais */
+  --color-accent-hover:    #E87030;  /* Brasa hover */
+  --color-accent-muted:    rgba(212, 96, 28, 0.15); /* Brasa com transparência — backgrounds */
+  --color-accent-subtle:   rgba(212, 96, 28, 0.08); /* Brasa ultra-sutil */
+
+  /* ── Semânticas de estado ───────────────────────────────── */
+  /* Sucesso — pedido entregue, pagamento confirmado */
+  --color-success:         #10B981;
+  --color-success-hover:   #34D399;
+  --color-success-muted:   rgba(16, 185, 129, 0.15);
+  --color-success-subtle:  rgba(16, 185, 129, 0.08);
+  --color-success-text:    #34D399;
+
+  /* Atenção — SLA amarelo, alertas moderados */
+  --color-warning:         #F59E0B;
+  --color-warning-hover:   #FBBF24;
+  --color-warning-muted:   rgba(245, 158, 11, 0.15);
+  --color-warning-subtle:  rgba(245, 158, 11, 0.08);
+  --color-warning-text:    #FBBF24;
+
+  /* Perigo — SLA crítico, cancelamentos, lista negra */
+  --color-danger:          #EF4444;
+  --color-danger-hover:    #F87171;
+  --color-danger-muted:    rgba(239, 68, 68, 0.15);
+  --color-danger-subtle:   rgba(239, 68, 68, 0.08);
+  --color-danger-text:     #F87171;
+
+  /* Info — informações neutras, abas, logs */
+  --color-info:            #3B82F6;
+  --color-info-hover:      #60A5FA;
+  --color-info-muted:      rgba(59, 130, 246, 0.15);
+  --color-info-subtle:     rgba(59, 130, 246, 0.08);
+  --color-info-text:       #60A5FA;
+
+  /* ── Elementos especiais ────────────────────────────────── */
+  --color-whatsapp:        #25D366;  /* Verde WhatsApp — só para o ícone WA */
+  --color-whatsapp-muted:  rgba(37, 211, 102, 0.15);
+
+  /* ── Sombras ────────────────────────────────────────────── */
+  --shadow-sm:   0 1px 2px rgba(0,0,0,0.5);
+  --shadow-md:   0 4px 12px rgba(0,0,0,0.6);
+  --shadow-lg:   0 8px 24px rgba(0,0,0,0.7);
+  --shadow-xl:   0 16px 48px rgba(0,0,0,0.8);
+  --shadow-glow-accent: 0 0 12px rgba(212, 96, 28, 0.4);
+  --shadow-glow-danger: 0 0 12px rgba(239, 68, 68, 0.4);
+  --shadow-glow-success: 0 0 12px rgba(16, 185, 129, 0.3);
+}
+
+/* ============================================================
+   3. SEMANTIC TOKENS — LIGHT MODE
+   Override via classe .light-mode no <html> ou <body>.
+   Concebido para escritório, reuniões, revisão administrativa.
+   ============================================================ */
+
+.light-mode {
+  /* ── Superfícies ────────────────────────────────────────── */
+  --color-bg:              #F5F0EB;
+  --color-surface:         #FFFFFF;
+  --color-surface-raised:  #F9F6F3;
+  --color-surface-overlay: #FFFFFF;
+  --color-surface-input:   #FFFFFF;
+  --color-surface-hover:   #F0EBE5;
+  --color-surface-active:  #E8DDD5;
+
+  /* ── Bordas ─────────────────────────────────────────────── */
+  --color-border:          #E2D8CF;
+  --color-border-strong:   #C8BAB0;
+  --color-border-focus:    #D4601C;
+
+  /* ── Texto ──────────────────────────────────────────────── */
+  --color-text-primary:    #1C1510;
+  --color-text-secondary:  #6B5E52;
+  --color-text-tertiary:   #9E8E80;
+  --color-text-disabled:   #C8BAB0;
+  --color-text-inverse:    #FFFFFF;
+  --color-text-on-accent:  #FFFFFF;
+
+  /* ── Destaque / Marca ───────────────────────────────────── */
+  --color-accent:          #D4601C;
+  --color-accent-hover:    #B04A10;
+  --color-accent-muted:    rgba(212, 96, 28, 0.12);
+  --color-accent-subtle:   rgba(212, 96, 28, 0.06);
+
+  /* ── Semânticas de estado ───────────────────────────────── */
+  --color-success:         #059669;
+  --color-success-hover:   #047857;
+  --color-success-muted:   rgba(5, 150, 105, 0.12);
+  --color-success-subtle:  rgba(5, 150, 105, 0.06);
+  --color-success-text:    #047857;
+
+  --color-warning:         #D97706;
+  --color-warning-hover:   #B45309;
+  --color-warning-muted:   rgba(217, 119, 6, 0.12);
+  --color-warning-subtle:  rgba(217, 119, 6, 0.06);
+  --color-warning-text:    #B45309;
+
+  --color-danger:          #DC2626;
+  --color-danger-hover:    #B91C1C;
+  --color-danger-muted:    rgba(220, 38, 38, 0.12);
+  --color-danger-subtle:   rgba(220, 38, 38, 0.06);
+  --color-danger-text:     #B91C1C;
+
+  --color-info:            #2563EB;
+  --color-info-hover:      #1D4ED8;
+  --color-info-muted:      rgba(37, 99, 235, 0.12);
+  --color-info-subtle:     rgba(37, 99, 235, 0.06);
+  --color-info-text:       #1D4ED8;
+
+  --color-whatsapp:        #128C7E;
+  --color-whatsapp-muted:  rgba(18, 140, 126, 0.12);
+
+  /* ── Sombras ────────────────────────────────────────────── */
+  --shadow-sm:   0 1px 2px rgba(0,0,0,0.08);
+  --shadow-md:   0 4px 12px rgba(0,0,0,0.10);
+  --shadow-lg:   0 8px 24px rgba(0,0,0,0.12);
+  --shadow-xl:   0 16px 48px rgba(0,0,0,0.15);
+  --shadow-glow-accent:  0 0 12px rgba(212, 96, 28, 0.25);
+  --shadow-glow-danger:  0 0 12px rgba(220, 38, 38, 0.20);
+  --shadow-glow-success: 0 0 12px rgba(5, 150, 105, 0.20);
+}
+
+/* ============================================================
+   4. TIPOGRAFIA
+   Escolha: Sora (display/heading) + DM Sans (body) + JetBrains Mono (logs)
+   - Sora: geométrica, precisa, profissional — não virou clichê ainda
+   - DM Sans: altamente legível em densidades altas, ótimo PT-BR
+   - JetBrains Mono: mono premium, status de ferramenta real
+   ============================================================ */
+
+:root {
+  --font-display: 'Sora', 'DM Sans', sans-serif;
+  --font-body:    'DM Sans', sans-serif;
+  --font-mono:    'JetBrains Mono', 'Fira Code', monospace;
+
+  /* Escala tipográfica */
+  --text-xs:    0.6875rem;  /* 11px — captions, badges */
+  --text-sm:    0.8125rem;  /* 13px — labels, secundário */
+  --text-base:  0.9375rem;  /* 15px — corpo padrão */
+  --text-md:    1.0625rem;  /* 17px — corpo enfatizado */
+  --text-lg:    1.25rem;    /* 20px — headings pequenos */
+  --text-xl:    1.5rem;     /* 24px — headings médios */
+  --text-2xl:   2rem;       /* 32px — headings grandes */
+  --text-3xl:   2.75rem;    /* 44px — display */
+  --text-4xl:   3.5rem;     /* 56px — display hero */
+
+  /* Line Heights */
+  --leading-tight:  1.2;
+  --leading-snug:   1.35;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  /* Letter Spacing */
+  --tracking-tight:   -0.03em;
+  --tracking-normal:  0em;
+  --tracking-wide:    0.05em;
+  --tracking-wider:   0.08em;
+  --tracking-widest:  0.15em;
+
+  /* Font Weights */
+  --weight-normal:    400;
+  --weight-medium:    500;
+  --weight-semibold:  600;
+  --weight-bold:      700;
+
+  /* ============================================================
+     5. ESPAÇAMENTO
+     Escala 4px — todos múltiplos de 4
+     ============================================================ */
+
+  --space-0:    0;
+  --space-1:    0.25rem;   /* 4px */
+  --space-1-5:  0.375rem;  /* 6px */
+  --space-2:    0.5rem;    /* 8px */
+  --space-2-5:  0.625rem;  /* 10px */
+  --space-3:    0.75rem;   /* 12px */
+  --space-4:    1rem;      /* 16px */
+  --space-5:    1.25rem;   /* 20px */
+  --space-6:    1.5rem;    /* 24px */
+  --space-7:    1.75rem;   /* 28px */
+  --space-8:    2rem;      /* 32px */
+  --space-10:   2.5rem;    /* 40px */
+  --space-12:   3rem;      /* 48px */
+  --space-16:   4rem;      /* 64px */
+  --space-20:   5rem;      /* 80px */
+  --space-24:   6rem;      /* 96px */
+
+  /* ============================================================
+     6. RAIOS E BORDAS
+     ============================================================ */
+
+  --radius-xs:   2px;
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   8px;
+  --radius-xl:   12px;
+  --radius-2xl:  16px;
+  --radius-pill: 9999px;
+
+  /* ============================================================
+     7. MOTION
+     Velocidade otimizada para decisões rápidas.
+     Nada demora — tudo responde.
+     ============================================================ */
+
+  --duration-instant: 60ms;
+  --duration-fast:    120ms;
+  --duration-normal:  200ms;
+  --duration-slow:    350ms;
+
+  --ease-out:     cubic-bezier(0.0, 0, 0.2, 1);
+  --ease-in:      cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out:  cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring:  cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ============================================================
+     8. DIMENSÕES DO COCKPIT
+     ============================================================ */
+
+  --sidebar-width:       220px;
+  --topbar-height:       64px;
+  --order-list-width:    340px;
+  --detail-panel-width:  calc(100% - var(--sidebar-width) - var(--order-list-width));
+}
+</style></head>
+
+<body>
+<div class="ds-layout">
+
+  <!-- ══════════════════════════════════════════════════════
+       DS NAV SIDEBAR
+  ══════════════════════════════════════════════════════ -->
+  <nav class="ds-nav" id="ds-nav">
+    <div class="ds-nav-brand">
+      <div class="ds-nav-logo-row">
+        <!-- Rancho horns logo (inline SVG) -->
+        <svg class="rancho-logo-svg" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="80" height="80" rx="16" fill="rgba(212,96,28,0.15)"/>
+          <!-- Horns shape -->
+          <path d="M16 52 C16 52 12 36 20 26 C24 21 30 20 34 24 C36 26 37 30 37 34
+                   M64 52 C64 52 68 36 60 26 C56 21 50 20 46 24 C44 26 43 30 43 34
+                   M37 34 C37 40 39 44 40 46 C41 44 43 40 43 34"
+                stroke="#D4601C" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <ellipse cx="40" cy="54" rx="10" ry="5" fill="rgba(212,96,28,0.25)" stroke="#D4601C" stroke-width="2"/>
+          <text x="40" y="72" text-anchor="middle" font-family="'Sora',sans-serif" font-size="8" font-weight="700" fill="#D4601C" letter-spacing="1">RANCHO</text>
+        </svg>
+        <div>
+          <div style="font-family:var(--font-display);font-size:var(--text-sm);font-weight:var(--weight-bold);color:var(--color-text-primary);line-height:1.2;">Design System</div>
+          <div class="ds-nav-version">v1.0 · Cockpit</div>
+        </div>
+      </div>
+      <!-- Mode toggle inside nav -->
+      <button class="mode-toggle" onclick="toggleMode()" id="mode-btn" style="width:100%;justify-content:center;">
+        <svg id="mode-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+        </svg>
+        <span id="mode-label">Light mode</span>
+      </button>
+    </div>
+
+    <div class="ds-nav-section-title">Fundação</div>
+    <a class="ds-nav-link active" onclick="scrollTo('#tokens')">Tokens</a>
+    <a class="ds-nav-link" onclick="scrollTo('#typography')">Tipografia</a>
+    <a class="ds-nav-link" onclick="scrollTo('#colors')">Cores</a>
+    <a class="ds-nav-link" onclick="scrollTo('#spacing')">Espaçamento</a>
+
+    <div class="ds-nav-section-title">Componentes</div>
+    <a class="ds-nav-link" onclick="scrollTo('#sidebar')">Sidebar</a>
+    <a class="ds-nav-link" onclick="scrollTo('#metricbar')">Barra de Métricas</a>
+    <a class="ds-nav-link" onclick="scrollTo('#ordercards')">Cards de Pedido</a>
+    <a class="ds-nav-link" onclick="scrollTo('#buttons')">Botões</a>
+    <a class="ds-nav-link" onclick="scrollTo('#badges')">Badges</a>
+    <a class="ds-nav-link" onclick="scrollTo('#inputs')">Inputs</a>
+    <a class="ds-nav-link" onclick="scrollTo('#banners')">Banners</a>
+    <a class="ds-nav-link" onclick="scrollTo('#tabs')">Abas e Timeline</a>
+    <a class="ds-nav-link" onclick="scrollTo('#chat')">WhatsApp</a>
+    <a class="ds-nav-link" onclick="scrollTo('#logs')">Log / Timeline</a>
+    <a class="ds-nav-link" onclick="scrollTo('#modal')">Modal</a>
+    <a class="ds-nav-link" onclick="scrollTo('#sla')">SLA Timers</a>
+    <a class="ds-nav-link" onclick="scrollTo('#cockpit')">Cockpit Preview</a>
+  </nav>
+
+  <!-- ══════════════════════════════════════════════════════
+       DS MAIN CONTENT
+  ══════════════════════════════════════════════════════ -->
+  <main class="ds-content">
+
+    <!-- HEADER -->
+    <div style="margin-bottom:var(--space-12);padding-bottom:var(--space-8);border-bottom:1px solid var(--color-border);">
+      <div style="display:flex;align-items:center;gap:var(--space-4);margin-bottom:var(--space-4);">
+        <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg" style="width:56px;height:56px;">
+          <rect width="80" height="80" rx="16" fill="rgba(212,96,28,0.15)"/>
+          <path d="M16 52 C16 52 12 36 20 26 C24 21 30 20 34 24 C36 26 37 30 37 34 M64 52 C64 52 68 36 60 26 C56 21 50 20 46 24 C44 26 43 30 43 34 M37 34 C37 40 39 44 40 46 C41 44 43 40 43 34" stroke="#D4601C" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          <ellipse cx="40" cy="54" rx="10" ry="5" fill="rgba(212,96,28,0.25)" stroke="#D4601C" stroke-width="2"/>
+          <text x="40" y="72" text-anchor="middle" font-family="'Sora',sans-serif" font-size="8" font-weight="700" fill="#D4601C" letter-spacing="1">RANCHO</text>
+        </svg>
+        <div>
+          <div style="font-family:var(--font-display);font-size:var(--text-3xl);font-weight:var(--weight-bold);color:var(--color-text-primary);letter-spacing:var(--tracking-tight);line-height:var(--leading-tight);">Rancho Cockpit</div>
+          <div style="font-size:var(--text-base);color:var(--color-text-secondary);margin-top:var(--space-1);">Design System — Gestão de Restaurante</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
+        <span class="badge badge-accent">v1.0.0</span>
+        <span class="badge badge-neutral" style="font-family:var(--font-mono);">Dark First</span>
+        <span class="badge badge-neutral" style="font-family:var(--font-mono);">PT-BR</span>
+        <span class="badge badge-success">Clareza sob pressão</span>
+      </div>
+    </div>
+
+    <!-- ══════════════ 1. TOKENS ══════════════ -->
+    <section class="ds-section" id="tokens">
+      <div class="ds-section-header">
+        <h2 class="ds-section-title">Design Tokens</h2>
+        <span class="ds-section-badge">CSS Variables</span>
+      </div>
+      <p class="ds-section-desc">Tokens semânticos — o desenvolvedor nunca precisa adivinhar. Cada variável tem uma função clara. Não use os primitivos diretamente no código de produto.</p>
+
+      <div class="ds-preview">
+        <div class="ds-preview-label">Tokens de superfície</div>
+        <div class="ds-preview-body">
+          <div class="token-grid">
+            <div class="token-row"><div class="token-swatch" style="background:var(--color-bg)"></div><div class="token-name">--color-bg</div><div class="token-value">Canvas</div></div>
+            <div class="token-row"><div class="token-swatch" style="background:var(--color-surface)"></div><div class="token-name">--color-surface</div><div class="token-value">Base</div></div>
+            <div class="token-row"><div class="token-swatch" style="background:var(--color-surface-raised)"></div><div class="token-name">--color-surface-raised</div><div class="token-value">Cards</div></div>
+            <div class="token-row"><div class="token-swatch" style="background:var(--color-surface-overlay)"></div><div class="token-name">--color-surface-overlay</div><div class="token-value">Modal</div></div>
+            <div class="token-row"><div class="token-swatch" style="background:var(--color-surface-input)"></div><div class="token-name">--color-surface-input</div><div class="token-value">Input</div></div>
+            <div class="token-row"><div class="token-swatch" style="background:var(--color-surface-hover)"></div><div class="token-name">--color-surface-hover</div><div class="token-value">Hover</div></div>
+            <div class="token-row"><div class="token-swatch" style="background:var(--color-surface-active)"></div><div class="token-name">--color-surface-active</div><div class="token-value">Ativo</div></div>
+          </div>
+
+          <hr class="divider" />
+
+          <div class="ds-sub">Tokens de texto</div>
+          <div class="token-grid">
+            <div class="token-row"><div class="token-swatch" style="background:var(--color-text-primary);border-radius:50%"></div><div class="token-name">--color-text-primary</div><div class="token-value">Principal</div></div>
+            <div class="token-row"><div class="token-swatch" style="background:var(--color-text-secondary);border-radius:50%"></div><div class="token-name">--color-text-secondary</div><div class="token-value">Secundário</div></div>
+            <div class="token-row"><div class="token-swatch" style="background:var(--color-text-tertiary);border-radius:50%"></div><div class="token-name">--color-text-tertiary</div><div class="token-value">Terciário</div></div>
+            <div class="token-row"><div class="token-swatch" style="background:var(--color-text-disabled);border-radius:50%"></div><div class="token-name">--color-text-disabled</div><div class="token-value">Desabilitado</div></div>
+          </div>
+
+          <hr class="divider" />
+
+          <div class="ds-sub">Tokens semânticos de estado</div>
+          <div class="token-grid">
+            <div class="token-row"><div class="token-swatch" style="background:var(--color-accent)"></div><div class="token-name">--color-accent</div><div class="token-value">#D4601C</div></div>
+            <div class="token-row"><div class="token-swatch" style="background:var(--color-success)"></div><div class="token-name">--color-success</div><div class="token-value">Entregue</div></div>
+            <div class="token-row"><div class="token-swatch" style="background:var(--color-warning)"></div><div class="token-name">--color-warning</div><div class="token-value">Alerta</div></div>
+            <div class="token-row"><div class="token-swatch" style="background:var(--color-danger)"></div><div class="token-name">--color-danger</div><div class="token-value">Crítico</div></div>
+            <div class="token-row"><div class="token-swatch" style="background:var(--color-info)"></div><div class="token-name">--color-info</div><div class="token-value">Informação</div></div>
+            <div class="token-row"><div class="token-swatch" style="background:var(--color-whatsapp)"></div><div class="token-name">--color-whatsapp</div><div class="token-value">WhatsApp</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="use-when">Use tokens semânticos em todo código de produto. Tokens primitivos (--brasa-500, --neutral-800) só no arquivo de tokens. Isso garante que o tema dark/light funcione automaticamente sem alterações no componente.</div>
+    </section>
+
+    <!-- ══════════════ 2. TYPOGRAPHY ══════════════ -->
+    <section class="ds-section" id="typography">
+      <div class="ds-section-header">
+        <h2 class="ds-section-title">Tipografia</h2>
+        <span class="ds-section-badge">3 Famílias</span>
+      </div>
+      <p class="ds-section-desc"><strong style="color:var(--color-text-primary)">Sora</strong> para display e headings — geométrica, precisa, sem clichê. <strong style="color:var(--color-text-primary)">DM Sans</strong> para corpo — alta legibilidade em densidades altas, ótimo suporte PT-BR. <strong style="color:var(--color-text-primary)">JetBrains Mono</strong> para logs e timestamps — status de ferramenta profissional.</p>
+
+      <div class="ds-preview">
+        <div class="ds-preview-label">Escala tipográfica</div>
+        <div class="ds-preview-body">
+          <div class="type-sample">
+            <div class="type-meta">
+              <div class="type-token">--text-4xl / Display</div>
+              <div class="type-spec">56px · 700 · Sora</div>
+            </div>
+            <div class="type-preview" style="font-family:var(--font-display);font-size:var(--text-4xl);font-weight:var(--weight-bold);letter-spacing:var(--tracking-tight);line-height:var(--leading-tight);">R$4.280</div>
+          </div>
+          <div class="type-sample">
+            <div class="type-meta">
+              <div class="type-token">--text-3xl / Display</div>
+              <div class="type-spec">44px · 700 · Sora</div>
+            </div>
+            <div class="type-preview" style="font-family:var(--font-display);font-size:var(--text-3xl);font-weight:var(--weight-bold);letter-spacing:var(--tracking-tight);line-height:var(--leading-tight);">Cockpit</div>
+          </div>
+          <div class="type-sample">
+            <div class="type-meta">
+              <div class="type-token">--text-2xl / H1</div>
+              <div class="type-spec">32px · 700 · Sora</div>
+            </div>
+            <div class="type-preview" style="font-family:var(--font-display);font-size:var(--text-2xl);font-weight:var(--weight-bold);letter-spacing:var(--tracking-tight);">Pedidos em Andamento</div>
+          </div>
+          <div class="type-sample">
+            <div class="type-meta">
+              <div class="type-token">--text-xl / H2</div>
+              <div class="type-spec">24px · 600 · Sora</div>
+            </div>
+            <div class="type-preview" style="font-family:var(--font-display);font-size:var(--text-xl);font-weight:var(--weight-semibold);">Rancho Comida Caseira</div>
+          </div>
+          <div class="type-sample">
+            <div class="type-meta">
+              <div class="type-token">--text-lg / H3</div>
+              <div class="type-spec">20px · 600 · Sora</div>
+            </div>
+            <div class="type-preview" style="font-family:var(--font-display);font-size:var(--text-lg);font-weight:var(--weight-semibold);">Detalhes do Pedido</div>
+          </div>
+          <div class="type-sample">
+            <div class="type-meta">
+              <div class="type-token">--text-md / Body Large</div>
+              <div class="type-spec">17px · 400 · DM Sans</div>
+            </div>
+            <div class="type-preview" style="font-size:var(--text-md);">Frango assado com arroz, feijão tropeiro e farofa</div>
+          </div>
+          <div class="type-sample">
+            <div class="type-meta">
+              <div class="type-token">--text-base / Body</div>
+              <div class="type-spec">15px · 400 · DM Sans</div>
+            </div>
+            <div class="type-preview" style="font-size:var(--text-base);">Pedido confirmado às 19:42. Cliente aguardando atualização de status pela plataforma.</div>
+          </div>
+          <div class="type-sample">
+            <div class="type-meta">
+              <div class="type-token">--text-sm / Body Small</div>
+              <div class="type-spec">13px · 400 · DM Sans</div>
+            </div>
+            <div class="type-preview" style="font-size:var(--text-sm);color:var(--color-text-secondary);">Rua das Flores, 42 · Bairro Centro</div>
+          </div>
+          <div class="type-sample">
+            <div class="type-meta">
+              <div class="type-token">--text-xs / Caption</div>
+              <div class="type-spec">11px · 500 · DM Sans</div>
+            </div>
+            <div class="type-preview" style="font-size:var(--text-xs);color:var(--color-text-tertiary);font-weight:var(--weight-medium);">AGUARDANDO APROVAÇÃO · SLA 28min</div>
+          </div>
+          <div class="type-sample">
+            <div class="type-meta">
+              <div class="type-token">--font-mono / Mono</div>
+              <div class="type-spec">13px · 400 · JetBrains</div>
+            </div>
+            <div class="type-preview" style="font-family:var(--font-mono);font-size:var(--text-sm);color:var(--color-text-secondary);">19:42:07 <span style="color:var(--color-success-text);">OK</span> pedido_confirmado #8821</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════ 3. COLORS ══════════════ -->
+    <section class="ds-section" id="colors">
+      <div class="ds-section-header">
+        <h2 class="ds-section-title">Paleta de Cores</h2>
+        <span class="ds-section-badge">Brasa + Semânticas</span>
+      </div>
+      <p class="ds-section-desc">A escala Brasa herda a cor oficial do Rancho (#D4601C). As cores semânticas são calibradas separadamente para dark e light mode — nunca use os valores hex diretamente no produto.</p>
+
+      <div class="ds-preview">
+        <div class="ds-preview-label">Escala Brasa — cor da marca</div>
+        <div class="ds-preview-body">
+          <div class="palette-row">
+            <div class="palette-swatch" style="background:#FFF3EB;"><div class="palette-swatch-label" style="color:#8C3608;">50</div></div>
+            <div class="palette-swatch" style="background:#FFE0C7;"><div class="palette-swatch-label" style="color:#8C3608;">100</div></div>
+            <div class="palette-swatch" style="background:#FFBD93;"><div class="palette-swatch-label" style="color:#8C3608;">200</div></div>
+            <div class="palette-swatch" style="background:#FF9558;"><div class="palette-swatch-label" style="color:#fff;">300</div></div>
+            <div class="palette-swatch" style="background:#F07030;"><div class="palette-swatch-label" style="color:#fff;">400</div></div>
+            <div class="palette-swatch" style="background:#D4601C;position:relative;"><div class="palette-swatch-label" style="color:#fff;">500 ★</div></div>
+            <div class="palette-swatch" style="background:#B04A10;"><div class="palette-swatch-label" style="color:#fff;">600</div></div>
+            <div class="palette-swatch" style="background:#8C3608;"><div class="palette-swatch-label" style="color:#fff;">700</div></div>
+            <div class="palette-swatch" style="background:#6B2503;"><div class="palette-swatch-label" style="color:#fff;">800</div></div>
+            <div class="palette-swatch" style="background:#4A1600;"><div class="palette-swatch-label" style="color:#fff;">900</div></div>
+          </div>
+
+          <hr class="divider" />
+
+          <div class="ds-sub">Escala Neutra — base do cockpit</div>
+          <div class="palette-row">
+            <div class="palette-swatch" style="background:#F9F8F6;"><div class="palette-swatch-label" style="color:#352C23;">50</div></div>
+            <div class="palette-swatch" style="background:#F0EDEA;"><div class="palette-swatch-label" style="color:#352C23;">100</div></div>
+            <div class="palette-swatch" style="background:#D3CAC1;"><div class="palette-swatch-label" style="color:#352C23;">200</div></div>
+            <div class="palette-swatch" style="background:#B5A99C;"><div class="palette-swatch-label" style="color:#fff;">300</div></div>
+            <div class="palette-swatch" style="background:#8E7F72;"><div class="palette-swatch-label" style="color:#fff;">400</div></div>
+            <div class="palette-swatch" style="background:#6B5E52;"><div class="palette-swatch-label" style="color:#fff;">500</div></div>
+            <div class="palette-swatch" style="background:#4E4338;"><div class="palette-swatch-label" style="color:#fff;">600</div></div>
+            <div class="palette-swatch" style="background:#352C23;"><div class="palette-swatch-label" style="color:#fff;">700</div></div>
+            <div class="palette-swatch" style="background:#1C1510;"><div class="palette-swatch-label" style="color:#fff;">800</div></div>
+            <div class="palette-swatch" style="background:#0C0905;"><div class="palette-swatch-label" style="color:#fff;">950</div></div>
+          </div>
+
+          <hr class="divider" />
+
+          <div class="row" style="gap:var(--space-4);">
+            <div style="flex:1;">
+              <div class="ds-sub">Sucesso</div>
+              <div class="palette-row" style="height:40px;">
+                <div class="palette-swatch" style="background:#34D399;"></div>
+                <div class="palette-swatch" style="background:#10B981;"></div>
+                <div class="palette-swatch" style="background:#059669;"></div>
+                <div class="palette-swatch" style="background:#064E3B;"></div>
+              </div>
+            </div>
+            <div style="flex:1;">
+              <div class="ds-sub">Atenção</div>
+              <div class="palette-row" style="height:40px;">
+                <div class="palette-swatch" style="background:#FBBF24;"></div>
+                <div class="palette-swatch" style="background:#F59E0B;"></div>
+                <div class="palette-swatch" style="background:#D97706;"></div>
+                <div class="palette-swatch" style="background:#78350F;"></div>
+              </div>
+            </div>
+            <div style="flex:1;">
+              <div class="ds-sub">Perigo</div>
+              <div class="palette-row" style="height:40px;">
+                <div class="palette-swatch" style="background:#F87171;"></div>
+                <div class="palette-swatch" style="background:#EF4444;"></div>
+                <div class="palette-swatch" style="background:#DC2626;"></div>
+                <div class="palette-swatch" style="background:#7F1D1D;"></div>
+              </div>
+            </div>
+            <div style="flex:1;">
+              <div class="ds-sub">Informação</div>
+              <div class="palette-row" style="height:40px;">
+                <div class="palette-swatch" style="background:#60A5FA;"></div>
+                <div class="palette-swatch" style="background:#3B82F6;"></div>
+                <div class="palette-swatch" style="background:#2563EB;"></div>
+                <div class="palette-swatch" style="background:#1E3A5F;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════ 4. SIDEBAR ══════════════ -->
+    <section class="ds-section" id="sidebar">
+      <div class="ds-section-header">
+        <h2 class="ds-section-title">Sidebar</h2>
+        <span class="ds-section-badge">Navegação</span>
+      </div>
+      <p class="ds-section-desc">Âncora de identidade do cockpit. O logo dos chifres do Rancho aparece no topo. O indicador de WhatsApp e o avatar do operador ficam no rodapé.</p>
+
+      <div class="ds-preview">
+        <div class="ds-preview-label">Sidebar — estado normal com variação WA desconectado</div>
+        <div class="ds-preview-body">
+          <div class="row" style="align-items:flex-start;">
+            <!-- Sidebar normal -->
+            <div class="sidebar">
+              <div class="sidebar-logo">
+                <div class="sidebar-logo-icon">
+                  <svg viewBox="0 0 80 80" fill="none" style="width:24px;height:24px;">
+                    <path d="M16 52 C16 52 12 36 20 26 C24 21 30 20 34 24 C36 26 37 30 37 34 M64 52 C64 52 68 36 60 26 C56 21 50 20 46 24 C44 26 43 30 43 34 M37 34 C37 40 39 44 40 46 C41 44 43 40 43 34" stroke="#D4601C" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="sidebar-logo-text">Rancho<br><span style="color:var(--color-text-secondary);font-weight:var(--weight-normal);">Cockpit</span></div>
+                </div>
+              </div>
+
+              <nav class="sidebar-nav">
+                <div class="sidebar-section-label">Operação</div>
+                <a class="sidebar-item active">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="8" height="8" rx="1"/><rect x="14" y="3" width="8" height="8" rx="1"/><rect x="2" y="13" width="8" height="8" rx="1"/><rect x="14" y="13" width="8" height="8" rx="1"/></svg>
+                  Pedidos
+                  <span class="sidebar-badge">7</span>
+                </a>
+                <a class="sidebar-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                  Entregadores
+                </a>
+                <a class="sidebar-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                  WhatsApp
+                  <span class="sidebar-badge" style="background:var(--color-success);">3</span>
+                </a>
+
+                <div class="sidebar-section-label">Gestão</div>
+                <a class="sidebar-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                  Relatórios
+                </a>
+                <a class="sidebar-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 1 0 0 14.14"/></svg>
+                  Configurações
+                </a>
+              </nav>
+
+              <div class="sidebar-footer">
+                <div class="sidebar-wa-status">
+                  <div class="sidebar-wa-dot"></div>
+                  <div class="sidebar-wa-text">WhatsApp conectado</div>
+                </div>
+                <div class="sidebar-user">
+                  <div class="sidebar-avatar">MR</div>
+                  <div class="sidebar-user-info">
+                    <div class="sidebar-user-name">Marco Reis</div>
+                    <div class="sidebar-user-role">Operador</div>
+                  </div>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;color:var(--color-text-tertiary);"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                </div>
+              </div>
+            </div>
+
+            <!-- Sidebar variação WA desconectado -->
+            <div class="sidebar" style="opacity:0.85;">
+              <div class="sidebar-logo">
+                <div class="sidebar-logo-icon">
+                  <svg viewBox="0 0 80 80" fill="none" style="width:24px;height:24px;">
+                    <path d="M16 52 C16 52 12 36 20 26 C24 21 30 20 34 24 C36 26 37 30 37 34 M64 52 C64 52 68 36 60 26 C56 21 50 20 46 24 C44 26 43 30 43 34 M37 34 C37 40 39 44 40 46 C41 44 43 40 43 34" stroke="#D4601C" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+                <div>
+                  <div class="sidebar-logo-text">Rancho<br><span style="color:var(--color-text-secondary);font-weight:var(--weight-normal);">Cockpit</span></div>
+                </div>
+              </div>
+              <nav class="sidebar-nav">
+                <div class="sidebar-section-label">Operação</div>
+                <a class="sidebar-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="8" height="8" rx="1"/><rect x="14" y="3" width="8" height="8" rx="1"/><rect x="2" y="13" width="8" height="8" rx="1"/><rect x="14" y="13" width="8" height="8" rx="1"/></svg>
+                  Pedidos
+                </a>
+                <a class="sidebar-item">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+                  Entregadores
+                </a>
+              </nav>
+              <div class="sidebar-footer">
+                <div class="sidebar-wa-status disconnected">
+                  <div class="sidebar-wa-dot"></div>
+                  <div class="sidebar-wa-text">WA desconectado</div>
+                </div>
+                <div class="sidebar-user">
+                  <div class="sidebar-avatar" style="background:linear-gradient(135deg,var(--color-surface-raised),var(--color-surface-hover));">AD</div>
+                  <div class="sidebar-user-info">
+                    <div class="sidebar-user-name">Admin Rancho</div>
+                    <div class="sidebar-user-role">Administrador</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="use-when">Use a sidebar em todas as telas do cockpit. O badge vermelho em "Pedidos" aparece quando há pedidos aguardando confirmação. O badge verde no WA é para mensagens não lidas.</div>
+    </section>
+
+    <!-- ══════════════ 5. METRIC BAR ══════════════ -->
+    <section class="ds-section" id="metricbar">
+      <div class="ds-section-header">
+        <h2 class="ds-section-title">Barra de Métricas</h2>
+        <span class="ds-section-badge">Tempo Real</span>
+      </div>
+      <p class="ds-section-desc">Visão geral da operação em um único olhar. Números grandes, hierarquia clara. O botão de estado da loja tem 3 estados visuais distintos.</p>
+
+      <div class="ds-preview">
+        <div class="ds-preview-label">Loja Aberta</div>
+        <div class="ds-preview-body">
+          <div class="metric-bar">
+            <div class="metric-card" style="padding-left:0;border-left:none;">
+              <div class="metric-label">Aguard. Aprovação</div>
+              <div class="metric-value urgent">7</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Em Preparo</div>
+              <div class="metric-value">12</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Aguard. Entregador</div>
+              <div class="metric-value warning">3</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Em Rota</div>
+              <div class="metric-value">8</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Entregues Hoje</div>
+              <div class="metric-value success">54</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-label">Receita Hoje</div>
+              <div class="metric-value revenue">R$4.280</div>
+            </div>
+            <button class="store-btn open">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              Loja Aberta
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ds-preview" style="margin-top:var(--space-3);">
+        <div class="ds-preview-label">Estados do botão de loja</div>
+        <div class="ds-preview-body">
+          <div class="row">
+            <button class="store-btn open" style="min-width:120px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              Loja Aberta
+            </button>
+            <button class="store-btn paused" style="min-width:120px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+              Pausada
+            </button>
+            <button class="store-btn closed" style="min-width:120px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              Loja Fechada
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════ 6. ORDER CARDS ══════════════ -->
+    <section class="ds-section" id="ordercards">
+      <div class="ds-section-header">
+        <h2 class="ds-section-title">Cards de Pedido</h2>
+        <span class="ds-section-badge">4 estados</span>
+      </div>
+      <p class="ds-section-desc">Cada card deve comunicar o estado completo do pedido sem o operador precisar abri-lo. Timer de SLA, status de pagamento, mensagem não lida e ação principal visíveis à primeira vista.</p>
+
+      <div class="ds-preview">
+        <div class="ds-preview-label">Estados dos cards</div>
+        <div class="ds-preview-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);">
+
+            <!-- Normal -->
+            <div class="order-card">
+              <div class="order-card-top">
+                <div>
+                  <div class="order-id">#8821</div>
+                  <div class="order-name">Carlos Almeida</div>
+                  <div class="order-hood">Centro</div>
+                </div>
+                <div class="row" style="gap:var(--space-2);flex-wrap:nowrap;align-items:flex-start;">
+                  <span class="badge badge-success" style="font-size:10px;">Pago</span>
+                  <span class="badge badge-neutral" style="font-size:10px;position:relative;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                    2
+                  </span>
+                </div>
+              </div>
+              <div class="order-items">1× Frango assado, 1× Feijão tropeiro, 2× Suco de laranja</div>
+              <div class="order-card-bottom">
+                <div class="order-value">R$68,00</div>
+                <div class="sla-timer normal">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  14:23
+                </div>
+              </div>
+              <div class="order-actions">
+                <button class="btn btn-primary btn-sm" style="flex:1;">CONFIRMAR</button>
+                <button class="btn btn-ghost btn-sm">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- SLA Amarelo -->
+            <div class="order-card sla-yellow">
+              <div class="order-card-top">
+                <div>
+                  <div class="order-id">#8815</div>
+                  <div class="order-name">Fernanda Costa</div>
+                  <div class="order-hood">Jardim América</div>
+                </div>
+                <div class="row" style="gap:var(--space-2);flex-wrap:nowrap;align-items:flex-start;">
+                  <span class="badge badge-warning" style="font-size:10px;">Pendente</span>
+                </div>
+              </div>
+              <div class="order-items">2× Prato feito completo, 1× Refrigerante lata</div>
+              <div class="order-card-bottom">
+                <div class="order-value">R$52,00</div>
+                <div class="sla-timer yellow">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  28:47
+                </div>
+              </div>
+              <div class="order-actions">
+                <button class="btn btn-primary btn-sm disabled" style="flex:1;" disabled>CONFIRMAR</button>
+                <button class="btn btn-ghost btn-sm">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                </button>
+              </div>
+              <div style="font-size:var(--text-xs);color:var(--color-warning-text);margin-top:var(--space-1);display:flex;align-items:center;gap:4px;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:11px;height:11px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                Pagamento pendente — ação bloqueada
+              </div>
+            </div>
+
+            <!-- SLA Vermelho / Urgente -->
+            <div class="order-card sla-red urgent">
+              <div class="order-card-top">
+                <div>
+                  <div class="order-id">#8809</div>
+                  <div class="order-name">Roberto Maia</div>
+                  <div class="order-hood">Vila Nova</div>
+                </div>
+                <div class="row" style="gap:var(--space-2);flex-wrap:nowrap;align-items:flex-start;">
+                  <span class="badge badge-success" style="font-size:10px;">Pago</span>
+                  <span class="badge badge-danger" style="font-size:10px;">URGENTE</span>
+                </div>
+              </div>
+              <div class="order-items">3× Marmita grande, 2× Suco, 1× Sobremesa</div>
+              <div class="order-card-bottom">
+                <div class="order-value">R$127,50</div>
+                <div class="sla-timer red">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  47:12
+                </div>
+              </div>
+              <div class="order-actions">
+                <button class="btn btn-primary btn-sm" style="flex:1;box-shadow:var(--shadow-glow-accent);">AVANÇAR</button>
+                <button class="btn btn-ghost btn-sm">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Selecionado / Ativo -->
+            <div class="order-card selected">
+              <div class="order-card-top">
+                <div>
+                  <div class="order-id">#8818</div>
+                  <div class="order-name">Patricia Souza</div>
+                  <div class="order-hood">Boa Vista</div>
+                </div>
+                <div class="row" style="gap:var(--space-2);flex-wrap:nowrap;align-items:flex-start;">
+                  <span class="badge badge-success" style="font-size:10px;">Pago</span>
+                </div>
+              </div>
+              <div class="order-items">1× Frango com quiabo, 1× Arroz integral</div>
+              <div class="order-card-bottom">
+                <div class="order-value">R$38,00</div>
+                <div class="sla-timer normal">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  08:10
+                </div>
+              </div>
+              <div class="order-actions">
+                <button class="btn btn-primary btn-sm" style="flex:1;">AVANÇAR</button>
+                <button class="btn btn-ghost btn-sm">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+      <div class="use-when">O botão de ação fica bloqueado quando pagamento está pendente. O timer começa normal, fica amarelo após 25min, vermelho após 40min. Card urgente tem destaque de borda vermelha e background tintado.</div>
+    </section>
+
+    <!-- ══════════════ 7. BUTTONS ══════════════ -->
+    <section class="ds-section" id="buttons">
+      <div class="ds-section-header">
+        <h2 class="ds-section-title">Botões</h2>
+        <span class="ds-section-badge">5 variantes · 4 tamanhos</span>
+      </div>
+      <p class="ds-section-desc">O botão primário herda a brasa da marca. Destrutivo usa vermelho semântico — nunca vermelho da paleta diretamente. Todos têm estados hover, active, focus e loading.</p>
+
+      <div class="ds-preview">
+        <div class="ds-preview-label">Variantes</div>
+        <div class="ds-preview-body col">
+          <div>
+            <div class="ds-sub">Primário — ação principal</div>
+            <div class="row">
+              <button class="btn btn-primary btn-xs">Confirmar</button>
+              <button class="btn btn-primary btn-sm">Confirmar Pedido</button>
+              <button class="btn btn-primary btn-md">Confirmar Pedido</button>
+              <button class="btn btn-primary btn-lg">Confirmar Pedido</button>
+            </div>
+          </div>
+          <div>
+            <div class="ds-sub">Secundário</div>
+            <div class="row">
+              <button class="btn btn-secondary btn-sm">Ver Detalhes</button>
+              <button class="btn btn-secondary btn-md">Ver Detalhes</button>
+              <button class="btn btn-secondary btn-lg">Ver Detalhes</button>
+            </div>
+          </div>
+          <div>
+            <div class="ds-sub">Ghost</div>
+            <div class="row">
+              <button class="btn btn-ghost btn-sm">Ignorar</button>
+              <button class="btn btn-ghost btn-md">Ignorar</button>
+              <button class="btn btn-ghost btn-lg">Ignorar</button>
+            </div>
+          </div>
+          <div>
+            <div class="ds-sub">Sucesso</div>
+            <div class="row">
+              <button class="btn btn-success btn-sm">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                Entregue
+              </button>
+              <button class="btn btn-success btn-md">Marcar como Entregue</button>
+            </div>
+          </div>
+          <div>
+            <div class="ds-sub">Destrutivo — cancelamento, exclusão</div>
+            <div class="row">
+              <button class="btn btn-destructive btn-sm">Cancelar</button>
+              <button class="btn btn-destructive btn-md">Cancelar Pedido</button>
+              <button class="btn btn-destructive btn-lg">Cancelar Pedido</button>
+            </div>
+          </div>
+          <div>
+            <div class="ds-sub">Estados especiais</div>
+            <div class="row">
+              <button class="btn btn-primary btn-md disabled" disabled>Bloqueado</button>
+              <button class="btn btn-primary btn-md loading">Processando</button>
+              <button class="btn btn-secondary btn-md">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Buscar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="use-when">Primário para a ação mais importante da tela (1 por contexto). Destrutivo para ações irreversíveis — sempre com confirmação modal. Ghost para ações secundárias e de escape. Loading quando a ação dispara requisição assíncrona.</div>
+    </section>
+
+    <!-- ══════════════ 8. BADGES ══════════════ -->
+    <section class="ds-section" id="badges">
+      <div class="ds-section-header">
+        <h2 class="ds-section-title">Badges e Status</h2>
+        <span class="ds-section-badge">Status + Pagamento + Urgência</span>
+      </div>
+
+      <div class="ds-preview">
+        <div class="ds-preview-label">Badges de status de pedido</div>
+        <div class="ds-preview-body col">
+          <div>
+            <div class="ds-sub">Status do pedido</div>
+            <div class="row">
+              <span class="badge badge-warning"><span class="badge-dot" style="background:var(--color-warning);"></span>Aguard. Aprovação</span>
+              <span class="badge badge-accent"><span class="badge-dot" style="background:var(--color-accent);"></span>Em Preparo</span>
+              <span class="badge badge-info"><span class="badge-dot" style="background:var(--color-info);"></span>Aguard. Entregador</span>
+              <span class="badge badge-info" style="background:rgba(59,130,246,0.08);"><span class="badge-dot" style="background:var(--color-info);"></span>Em Rota</span>
+              <span class="badge badge-success"><span class="badge-dot" style="background:var(--color-success);"></span>Entregue</span>
+              <span class="badge badge-danger"><span class="badge-dot" style="background:var(--color-danger);"></span>Cancelado</span>
+            </div>
+          </div>
+          <div>
+            <div class="ds-sub">Pagamento</div>
+            <div class="row">
+              <span class="badge badge-success">✓ Pago</span>
+              <span class="badge badge-warning">Pendente</span>
+              <span class="badge badge-danger">Expirado</span>
+              <span class="badge badge-neutral" style="font-family:var(--font-mono);">PIX</span>
+              <span class="badge badge-neutral" style="font-family:var(--font-mono);">Dinheiro</span>
+              <span class="badge badge-neutral" style="font-family:var(--font-mono);">Cartão</span>
+            </div>
+          </div>
+          <div>
+            <div class="ds-sub">Atenção especial</div>
+            <div class="row">
+              <span class="badge badge-danger" style="letter-spacing:0.04em;font-weight:700;">⚡ URGENTE</span>
+              <span class="badge badge-warning">Sem pedir há 30 dias</span>
+              <span class="badge badge-blacklist">⛔ LISTA NEGRA</span>
+              <span class="badge badge-accent">VIP</span>
+              <span class="badge badge-neutral">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                2 não lidas
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="use-when">Badge de status sempre com dot colorido. Badge de pagamento sem dot — só texto. Lista negra é o único badge que usa fundo quase-preto para máxima atenção. Badges de atenção especial aparecem no card de pedido, nunca em múltiplos ao mesmo tempo.</div>
+    </section>
+
+    <!-- ══════════════ 9. INPUTS ══════════════ -->
+    <section class="ds-section" id="inputs">
+      <div class="ds-section-header">
+        <h2 class="ds-section-title">Inputs e Formulários</h2>
+        <span class="ds-section-badge">4 estados</span>
+      </div>
+
+      <div class="ds-preview">
+        <div class="ds-preview-label">Campos de entrada</div>
+        <div class="ds-preview-body">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-5);">
+            <div class="input-group">
+              <label class="input-label">Buscar pedido</label>
+              <div class="input-wrap">
+                <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input class="input has-icon" type="text" placeholder="Nome, nº pedido ou bairro" />
+              </div>
+              <div class="input-hint">Busca em tempo real</div>
+            </div>
+
+            <div class="input-group">
+              <label class="input-label">Motivo de cancelamento</label>
+              <div class="input-wrap">
+                <select class="input select">
+                  <option>Selecionar motivo...</option>
+                  <option>Pedido duplicado</option>
+                  <option>Produto indisponível</option>
+                  <option>Solicitado pelo cliente</option>
+                  <option>Endereço inválido</option>
+                  <option>Outro</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label class="input-label">Foco ativo</label>
+              <input class="input" type="text" value="Rancho Comida Caseira" style="border-color:var(--color-border-focus);box-shadow:0 0 0 3px var(--color-accent-subtle);" />
+              <div class="input-hint">Estado de foco</div>
+            </div>
+
+            <div class="input-group">
+              <label class="input-label">Campo com erro</label>
+              <input class="input error" type="text" value="abc" />
+              <div class="input-error-msg">CPF inválido — verifique o formato</div>
+            </div>
+
+            <div class="input-group">
+              <label class="input-label">Campo desabilitado</label>
+              <input class="input" type="text" value="R$4.280,00" disabled />
+              <div class="input-hint">Valor calculado automaticamente</div>
+            </div>
+
+            <div class="input-group">
+              <label class="input-label">Observações do pedido</label>
+              <textarea class="input" style="resize:vertical;min-height:72px;" placeholder="Sem cebola, sem alho..."></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="use-when">Use o estado de erro apenas após tentativa de envio ou validação. Nunca valide enquanto o usuário ainda digita — isso quebra o fluxo em momentos de alta pressão operacional.</div>
+    </section>
+
+    <!-- ══════════════ 10. BANNERS ══════════════ -->
+    <section class="ds-section" id="banners">
+      <div class="ds-section-header">
+        <h2 class="ds-section-title">Banners e Alertas</h2>
+        <span class="ds-section-badge">8 padrões</span>
+      </div>
+
+      <div class="ds-preview">
+        <div class="ds-preview-label">Todos os banners</div>
+        <div class="ds-preview-body col">
+          <div class="banner banner-info">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <div class="banner-content">
+              <div class="banner-title">Informativo</div>
+              <div class="banner-desc">Entregador sem mototaxi disponível no momento. Usando bicicleta.</div>
+            </div>
+          </div>
+          <div class="banner banner-success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            <div class="banner-content">
+              <div class="banner-title">Entregue com sucesso</div>
+              <div class="banner-desc">Pedido #8821 entregue às 20:14 — 4 min antes do prazo.</div>
+            </div>
+          </div>
+          <div class="banner banner-warning">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div class="banner-content">
+              <div class="banner-title">SLA em risco</div>
+              <div class="banner-desc">3 pedidos ultrapassando 35 minutos. Verificar preparo imediatamente.</div>
+            </div>
+          </div>
+          <div class="banner banner-danger">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+            <div class="banner-content">
+              <div class="banner-title">Crítico — SLA estourado</div>
+              <div class="banner-desc">Pedido #8809 com 47 minutos sem atualização. Ação imediata necessária.</div>
+            </div>
+          </div>
+          <div class="banner banner-estorno">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <div class="banner-content">
+              <div class="banner-title">Estorno necessário</div>
+              <div class="banner-desc">Pedido cancelado após pagamento PIX confirmado. Initiar estorno de R$68,00 manualmente via app do banco.</div>
+            </div>
+            <button class="btn btn-secondary btn-sm" style="flex-shrink:0;">Registrar</button>
+          </div>
+          <div class="banner banner-blacklist">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <div class="banner-content">
+              <div class="banner-title">Cliente em lista negra</div>
+              <div class="banner-desc">Este cliente foi bloqueado em 12/03/2024. Motivo: 3 cancelamentos sem pagamento.</div>
+            </div>
+            <button class="btn btn-destructive btn-sm" style="flex-shrink:0;">Ver histórico</button>
+          </div>
+          <div class="banner banner-drinks">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2h8l1 7H7L8 2z"/><path d="M7 9c0 6 2 11 5 11s5-5 5-11"/></svg>
+            <div class="banner-content">
+              <div class="banner-title">Bebidas no pedido</div>
+              <div class="banner-desc">2× Refrigerante lata · 1× Suco de laranja — verificar temperatura e estoque antes de fechar a embalagem.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="use-when">Banners de estorno e lista negra são padrões exclusivos do Cockpit — nunca aparecem fora do painel de pedido. Banners informativos e de sucesso somem após 5s. Banners críticos e de estorno exigem ação explícita para fechar.</div>
+    </section>
+
+    <!-- ══════════════ 11. TABS + TIMELINE ══════════════ -->
+    <section class="ds-section" id="tabs">
+      <div class="ds-section-header">
+        <h2 class="ds-section-title">Abas e Timeline de Status</h2>
+        <span class="ds-section-badge">6 abas · 5 etapas</span>
+      </div>
+
+      <div class="ds-preview">
+        <div class="ds-preview-label">Painel de detalhe — abas</div>
+        <div class="ds-preview-body">
+          <div class="tabs">
+            <div class="tab">Pedido</div>
+            <div class="tab active">Entrega</div>
+            <div class="tab">Cliente</div>
+            <div class="tab">WhatsApp</div>
+            <div class="tab">Timeline</div>
+            <div class="tab disabled">IA <span class="tab-coming-soon">em breve</span></div>
+          </div>
+
+          <div style="padding:var(--space-5) 0;">
+            <div class="ds-sub">Linha do tempo do pedido</div>
+            <div class="timeline-steps">
+              <div class="timeline-step done">
+                <div class="timeline-dot">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="width:13px;height:13px;"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="timeline-label">Recebido</div>
+              </div>
+              <div class="timeline-step done">
+                <div class="timeline-dot">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="width:13px;height:13px;"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="timeline-label">Confirmado</div>
+              </div>
+              <div class="timeline-step current">
+                <div class="timeline-dot">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:13px;height:13px;color:var(--color-accent);"><circle cx="12" cy="12" r="3" fill="currentColor"/></svg>
+                </div>
+                <div class="timeline-label">Em Preparo</div>
+              </div>
+              <div class="timeline-step">
+                <div class="timeline-dot"></div>
+                <div class="timeline-label">Em Rota</div>
+              </div>
+              <div class="timeline-step">
+                <div class="timeline-dot"></div>
+                <div class="timeline-label">Entregue</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="use-when">A aba IA usa visual cinza + badge "em breve" para sinalizar feature futura sem confundir o operador. As etapas da timeline são clicáveis para avançar o status manualmente — confirmar com modal em etapas irreversíveis.</div>
+    </section>
+
+    <!-- ══════════════ 12. WHATSAPP ══════════════ -->
+    <section class="ds-section" id="chat">
+      <div class="ds-section-header">
+        <h2 class="ds-section-title">Aba WhatsApp</h2>
+        <span class="ds-section-badge">Chat · Auto-msg</span>
+      </div>
+
+      <div class="ds-preview">
+        <div class="ds-preview-label">Conversa com tags automáticas</div>
+        <div class="ds-preview-body">
+          <div class="chat-area">
+            <div class="chat-date-divider">30 abr 2026</div>
+
+            <div class="chat-bubble outgoing">
+              <div class="bubble-body">Olá! Seu pedido foi recebido e está sendo preparado. 🍽️</div>
+              <div class="bubble-meta">
+                <span class="auto-tag">[AUTO]</span>
+                <span>19:42</span>
+              </div>
+            </div>
+
+            <div class="chat-bubble incoming">
+              <div class="bubble-body">Boa tarde! Quanto tempo vai demorar?</div>
+              <div class="bubble-meta"><span>19:44</span></div>
+            </div>
+
+            <div class="chat-bubble outgoing">
+              <div class="bubble-body">Previsão de entrega: 40 a 50 minutos a partir de agora. Você receberá uma notificação quando o entregador sair.</div>
+              <div class="bubble-meta">
+                <span class="auto-tag">[AUTO]</span>
+                <span>19:44</span>
+              </div>
+            </div>
+
+            <div class="chat-bubble incoming">
+              <div class="bubble-body">Pode tirar a cebola do frango por favor?</div>
+              <div class="bubble-meta"><span>19:46</span></div>
+            </div>
+
+            <div class="chat-bubble outgoing">
+              <div class="bubble-body">Combinado! Anotamos a observação para a cozinha. 👍</div>
+              <div class="bubble-meta">
+                <span>19:47 · Marco</span>
+              </div>
+            </div>
+
+            <div class="chat-bubble outgoing">
+              <div class="bubble-body">Seu pedido acabou de sair para entrega! O entregador está a caminho. 🛵</div>
+              <div class="bubble-meta">
+                <span class="auto-tag">[AUTO]</span>
+                <span>20:10</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:var(--space-2);margin-top:var(--space-3);">
+            <div class="input-wrap" style="flex:1;">
+              <input class="input" placeholder="Responder como Marco..." />
+            </div>
+            <button class="btn btn-primary btn-md">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="width:16px;height:16px;"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="use-when">Mensagens automáticas sempre marcadas com [AUTO] em amarelo para o operador saber o que foi enviado pelo sistema. Mensagens manuais mostram o nome do operador. Bolhas da esquerda = cliente. Bolhas da direita = restaurante.</div>
+    </section>
+
+    <!-- ══════════════ 13. LOG TIMELINE ══════════════ -->
+    <section class="ds-section" id="logs">
+      <div class="ds-section-header">
+        <h2 class="ds-section-title">Aba Timeline / Log</h2>
+        <span class="ds-section-badge">Mono · Cockpit</span>
+      </div>
+      <p class="ds-section-desc">Estilo de log técnico com fonte mono. Inspiração: terminais de missão, painéis de voo. Cada linha tem timestamp, nível e mensagem — sempre scannable.</p>
+
+      <div class="ds-preview">
+        <div class="ds-preview-label">Log de pedido #8821</div>
+        <div class="ds-preview-body" style="padding:0;">
+          <div class="log-container" style="border:none;">
+            <div class="log-header">PEDIDO #8821 · LOG COMPLETO · UTC-3</div>
+            <div class="log-entries">
+              <div class="log-entry">
+                <div class="log-ts">19:31:04</div>
+                <div class="log-level info">INFO</div>
+                <div class="log-msg">Pedido criado via <span class="log-tag">iFood</span> — R$68,00</div>
+              </div>
+              <div class="log-entry">
+                <div class="log-ts">19:31:05</div>
+                <div class="log-level ok">OK</div>
+                <div class="log-msg">Pagamento <strong>PIX confirmado</strong> — R$68,00</div>
+              </div>
+              <div class="log-entry">
+                <div class="log-ts">19:31:07</div>
+                <div class="log-level info">AUTO</div>
+                <div class="log-msg">WhatsApp enviado → cliente: "Pedido recebido"</div>
+              </div>
+              <div class="log-entry">
+                <div class="log-ts">19:42:11</div>
+                <div class="log-level ok">OK</div>
+                <div class="log-msg">Status avançado: <strong>Aguard. Aprovação → Em Preparo</strong> · operador: Marco</div>
+              </div>
+              <div class="log-entry">
+                <div class="log-ts">19:46:33</div>
+                <div class="log-level info">MSG</div>
+                <div class="log-msg">Cliente enviou mensagem — "Pode tirar a cebola?"</div>
+              </div>
+              <div class="log-entry">
+                <div class="log-ts">19:47:02</div>
+                <div class="log-level info">MSG</div>
+                <div class="log-msg">Marco respondeu — "Combinado! Anotamos..."</div>
+              </div>
+              <div class="log-entry">
+                <div class="log-ts">20:07:55</div>
+                <div class="log-level warn">WARN</div>
+                <div class="log-msg">SLA em <strong>36 minutos</strong> — limite: 40min</div>
+              </div>
+              <div class="log-entry">
+                <div class="log-ts">20:10:18</div>
+                <div class="log-level ok">OK</div>
+                <div class="log-msg">Status avançado: <strong>Em Preparo → Em Rota</strong> · entregador: João Silva</div>
+              </div>
+              <div class="log-entry">
+                <div class="log-ts">20:10:19</div>
+                <div class="log-level info">AUTO</div>
+                <div class="log-msg">WhatsApp enviado → cliente: "Pedido saiu para entrega"</div>
+              </div>
+              <div class="log-entry">
+                <div class="log-ts">20:14:42</div>
+                <div class="log-level ok">OK</div>
+                <div class="log-msg"><strong>Entregue</strong> — tempo total: 43min · dentro do SLA</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════ 14. SLA TIMERS ══════════════ -->
+    <section class="ds-section" id="sla">
+      <div class="ds-section-header">
+        <h2 class="ds-section-title">Indicadores de SLA</h2>
+        <span class="ds-section-badge">3 estados</span>
+      </div>
+
+      <div class="ds-preview">
+        <div class="ds-preview-label">Timer em 3 estados + escala</div>
+        <div class="ds-preview-body col">
+          <div>
+            <div class="ds-sub">Timers inline (usados nos cards)</div>
+            <div class="row">
+              <div class="sla-timer normal">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                08:12
+              </div>
+              <span class="text-xs text-tertiary">Normal · &lt; 25min</span>
+            </div>
+            <div class="row" style="margin-top:var(--space-2);">
+              <div class="sla-timer yellow">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                28:47
+              </div>
+              <span class="text-xs text-tertiary">Atenção · 25–40min</span>
+            </div>
+            <div class="row" style="margin-top:var(--space-2);">
+              <div class="sla-timer red">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                47:03
+              </div>
+              <span class="text-xs text-tertiary">Crítico · &gt; 40min · pulsante</span>
+            </div>
+          </div>
+
+          <hr class="divider" />
+
+          <div>
+            <div class="ds-sub">Timer grande — no painel de detalhe</div>
+            <div class="row" style="gap:var(--space-6);align-items:flex-end;">
+              <div style="text-align:center;">
+                <div style="font-family:var(--font-mono);font-size:var(--text-3xl);font-weight:var(--weight-bold);color:var(--color-text-secondary);letter-spacing:var(--tracking-tight);">08:12</div>
+                <div class="text-xs text-tertiary" style="margin-top:4px;">Normal</div>
+              </div>
+              <div style="text-align:center;">
+                <div style="font-family:var(--font-mono);font-size:var(--text-3xl);font-weight:var(--weight-bold);color:var(--color-warning-text);letter-spacing:var(--tracking-tight);">28:47</div>
+                <div class="text-xs" style="color:var(--color-warning-text);margin-top:4px;">Atenção</div>
+              </div>
+              <div style="text-align:center;animation:pulse-danger 1.5s ease-in-out infinite;">
+                <div style="font-family:var(--font-mono);font-size:var(--text-3xl);font-weight:var(--weight-bold);color:var(--color-danger-text);letter-spacing:var(--tracking-tight);">47:03</div>
+                <div class="text-xs" style="color:var(--color-danger-text);margin-top:4px;">CRÍTICO — pulsante</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════ 15. MODAL ══════════════ -->
+    <section class="ds-section" id="modal">
+      <div class="ds-section-header">
+        <h2 class="ds-section-title">Modal de Cancelamento</h2>
+        <span class="ds-section-badge">Fluxo destrutivo</span>
+      </div>
+
+      <div class="ds-preview">
+        <div class="ds-preview-label">Modal — com pagamento confirmado (exige estorno)</div>
+        <div class="ds-preview-body" style="background:rgba(0,0,0,0.4);border-radius:var(--radius-lg);padding:var(--space-8);display:flex;justify-content:center;">
+          <div class="modal" style="position:relative;max-width:420px;width:100%;">
+            <div class="modal-header">
+              <div>
+                <div class="modal-title">Cancelar pedido #8821</div>
+                <div class="modal-subtitle">Esta ação não pode ser desfeita.</div>
+              </div>
+              <button class="modal-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="payment-notice confirmed">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                <div>
+                  <strong>Pagamento PIX confirmado — R$68,00</strong><br>
+                  <span style="font-weight:400;">O estorno deverá ser feito manualmente via app do banco após o cancelamento.</span>
+                </div>
+              </div>
+              <div class="input-group">
+                <label class="input-label">Motivo do cancelamento <span style="color:var(--color-danger);">*</span></label>
+                <select class="input select">
+                  <option value="">Selecionar motivo obrigatório...</option>
+                  <option>Produto indisponível</option>
+                  <option>Pedido duplicado pelo cliente</option>
+                  <option>Solicitado pelo cliente</option>
+                  <option>Endereço de entrega inválido</option>
+                  <option>Problema na cozinha</option>
+                  <option>Outro (descrever abaixo)</option>
+                </select>
+              </div>
+              <div class="input-group">
+                <label class="input-label">Observação interna</label>
+                <textarea class="input" style="min-height:60px;resize:none;" placeholder="Detalhes para registro interno..."></textarea>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-ghost btn-md">Voltar</button>
+              <button class="btn btn-destructive btn-md">Cancelar pedido</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="ds-preview-label" style="border-top:1px solid var(--color-border);">Modal — sem pagamento (cancelamento simples)</div>
+        <div class="ds-preview-body" style="background:rgba(0,0,0,0.4);border-radius:var(--radius-lg);padding:var(--space-8);display:flex;justify-content:center;">
+          <div class="modal" style="position:relative;max-width:420px;width:100%;">
+            <div class="modal-header">
+              <div>
+                <div class="modal-title">Cancelar pedido #8815</div>
+                <div class="modal-subtitle">Esta ação não pode ser desfeita.</div>
+              </div>
+              <button class="modal-close">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="payment-notice pending">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;flex-shrink:0;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <div>Pagamento ainda não confirmado — nenhum estorno necessário.</div>
+              </div>
+              <div class="input-group">
+                <label class="input-label">Motivo do cancelamento <span style="color:var(--color-danger);">*</span></label>
+                <select class="input select">
+                  <option value="">Selecionar motivo obrigatório...</option>
+                  <option>Produto indisponível</option>
+                  <option>Solicitado pelo cliente</option>
+                  <option>Outro</option>
+                </select>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-ghost btn-md">Voltar</button>
+              <button class="btn btn-destructive btn-md">Cancelar pedido</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="use-when">Modal de cancelamento sempre mostra o contexto de pagamento primeiro. O botão de confirmação nunca é primário (brasa) — sempre destrutivo (vermelho) para deixar claro o peso da ação. Motivo é sempre obrigatório para rastreabilidade.</div>
+    </section>
+
+    <!-- ══════════════ 16. COCKPIT PREVIEW ══════════════ -->
+    <section class="ds-section" id="cockpit">
+      <div class="ds-section-header">
+        <h2 class="ds-section-title">Cockpit — Prévia Completa</h2>
+        <span class="ds-section-badge">Layout real · 3 colunas</span>
+      </div>
+      <p class="ds-section-desc">Visão condensada do layout completo do cockpit em operação. Sidebar + Lista de pedidos + Painel de detalhe com abas.</p>
+
+      <div class="cockpit-preview">
+        <!-- Sidebar -->
+        <div class="sidebar" style="border-radius:0;height:auto;">
+          <div class="sidebar-logo">
+            <div class="sidebar-logo-icon">
+              <svg viewBox="0 0 80 80" fill="none" style="width:22px;height:22px;">
+                <path d="M16 52 C16 52 12 36 20 26 C24 21 30 20 34 24 C36 26 37 30 37 34 M64 52 C64 52 68 36 60 26 C56 21 50 20 46 24 C44 26 43 30 43 34 M37 34 C37 40 39 44 40 46 C41 44 43 40 43 34" stroke="#D4601C" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </div>
+            <div class="sidebar-logo-text" style="font-size:12px;">Rancho<br><span style="color:var(--color-text-secondary);font-weight:normal;">Cockpit</span></div>
+          </div>
+          <nav class="sidebar-nav">
+            <div class="sidebar-section-label">Operação</div>
+            <a class="sidebar-item active" style="font-size:12px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><rect x="2" y="3" width="8" height="8" rx="1"/><rect x="14" y="3" width="8" height="8" rx="1"/><rect x="2" y="13" width="8" height="8" rx="1"/><rect x="14" y="13" width="8" height="8" rx="1"/></svg>
+              Pedidos
+              <span class="sidebar-badge">7</span>
+            </a>
+            <a class="sidebar-item" style="font-size:12px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              Entregadores
+            </a>
+            <a class="sidebar-item" style="font-size:12px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+              WhatsApp
+            </a>
+            <div class="sidebar-section-label">Gestão</div>
+            <a class="sidebar-item" style="font-size:12px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+              Relatórios
+            </a>
+            <a class="sidebar-item" style="font-size:12px;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 1 0 0 14.14"/></svg>
+              Config.
+            </a>
+          </nav>
+          <div class="sidebar-footer">
+            <div class="sidebar-wa-status" style="padding:var(--space-1-5) var(--space-2);">
+              <div class="sidebar-wa-dot"></div>
+              <div class="sidebar-wa-text" style="font-size:10px;">WA conectado</div>
+            </div>
+            <div class="sidebar-user" style="padding:var(--space-1-5) var(--space-2);">
+              <div class="sidebar-avatar" style="width:26px;height:26px;font-size:10px;">MR</div>
+              <div class="sidebar-user-info">
+                <div class="sidebar-user-name" style="font-size:11px;">Marco Reis</div>
+                <div class="sidebar-user-role">Operador</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Order list -->
+        <div class="cockpit-orders">
+          <!-- Topbar mini metric strip -->
+          <div style="display:flex;gap:var(--space-2);flex-wrap:wrap;padding-bottom:var(--space-2);border-bottom:1px solid var(--color-border);margin-bottom:var(--space-1);">
+            <span class="badge badge-danger">7 aguardando</span>
+            <span class="badge badge-accent">12 preparo</span>
+            <span class="badge badge-success">54 entregues</span>
+          </div>
+          <!-- Order cards mini -->
+          <div class="order-card sla-red urgent" style="padding:var(--space-2) var(--space-3);">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div class="order-id" style="font-size:10px;">#8809</div>
+                <div class="order-name" style="font-size:12px;">Roberto Maia</div>
+                <div class="order-hood" style="font-size:10px;">Vila Nova</div>
+              </div>
+              <div class="sla-timer red" style="font-size:10px;">47:03</div>
+            </div>
+            <div class="order-items" style="font-size:10px;margin:4px 0;">3× Marmita grande, 2× Suco</div>
+            <div style="display:flex;gap:4px;">
+              <button class="btn btn-primary btn-xs" style="flex:1;font-size:10px;">AVANÇAR</button>
+            </div>
+          </div>
+
+          <div class="order-card selected" style="padding:var(--space-2) var(--space-3);">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div class="order-id" style="font-size:10px;">#8818</div>
+                <div class="order-name" style="font-size:12px;">Patricia Souza</div>
+                <div class="order-hood" style="font-size:10px;">Boa Vista</div>
+              </div>
+              <div class="sla-timer normal" style="font-size:10px;">08:10</div>
+            </div>
+            <div class="order-items" style="font-size:10px;margin:4px 0;">1× Frango, 1× Arroz</div>
+            <div style="display:flex;gap:4px;">
+              <button class="btn btn-primary btn-xs" style="flex:1;font-size:10px;">AVANÇAR</button>
+            </div>
+          </div>
+
+          <div class="order-card sla-yellow" style="padding:var(--space-2) var(--space-3);">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div class="order-id" style="font-size:10px;">#8815</div>
+                <div class="order-name" style="font-size:12px;">Fernanda Costa</div>
+                <div class="order-hood" style="font-size:10px;">Jardim América</div>
+              </div>
+              <div class="sla-timer yellow" style="font-size:10px;">28:47</div>
+            </div>
+            <div class="order-items" style="font-size:10px;margin:4px 0;">2× Prato feito</div>
+            <div style="display:flex;gap:4px;">
+              <button class="btn btn-primary btn-xs disabled" style="flex:1;font-size:10px;" disabled>BLOQUEADO</button>
+            </div>
+          </div>
+
+          <div class="order-card" style="padding:var(--space-2) var(--space-3);">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <div>
+                <div class="order-id" style="font-size:10px;">#8821</div>
+                <div class="order-name" style="font-size:12px;">Carlos Almeida</div>
+                <div class="order-hood" style="font-size:10px;">Centro</div>
+              </div>
+              <div class="sla-timer normal" style="font-size:10px;">14:23</div>
+            </div>
+            <div class="order-items" style="font-size:10px;margin:4px 0;">1× Frango assado</div>
+            <div style="display:flex;gap:4px;">
+              <button class="btn btn-primary btn-xs" style="flex:1;font-size:10px;">CONFIRMAR</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main panel -->
+        <div class="cockpit-main">
+          <!-- topbar -->
+          <div class="cockpit-topbar">
+            <div style="flex:1;">
+              <div style="font-family:var(--font-display);font-size:var(--text-sm);font-weight:var(--weight-bold);color:var(--color-text-primary);">Patricia Souza — #8818</div>
+              <div style="font-size:var(--text-xs);color:var(--color-text-secondary);">Em Preparo · Boa Vista</div>
+            </div>
+            <div class="row" style="gap:var(--space-2);">
+              <span class="badge badge-accent" style="font-size:10px;">Em Preparo</span>
+              <span class="badge badge-success" style="font-size:10px;">Pago</span>
+              <div class="sla-timer normal" style="font-size:10px;">08:10</div>
+            </div>
+          </div>
+
+          <!-- detail content -->
+          <div class="cockpit-detail">
+            <div class="tabs" style="margin-bottom:var(--space-4);">
+              <div class="tab" style="padding:var(--space-2) var(--space-3);font-size:12px;">Pedido</div>
+              <div class="tab active" style="padding:var(--space-2) var(--space-3);font-size:12px;">Entrega</div>
+              <div class="tab" style="padding:var(--space-2) var(--space-3);font-size:12px;">Cliente</div>
+              <div class="tab" style="padding:var(--space-2) var(--space-3);font-size:12px;">WA</div>
+              <div class="tab" style="padding:var(--space-2) var(--space-3);font-size:12px;">Log</div>
+              <div class="tab disabled" style="padding:var(--space-2) var(--space-3);font-size:12px;">IA <span class="tab-coming-soon">em breve</span></div>
+            </div>
+
+            <div class="timeline-steps" style="margin-bottom:var(--space-5);">
+              <div class="timeline-step done">
+                <div class="timeline-dot" style="width:24px;height:24px;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="width:11px;height:11px;"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="timeline-label" style="font-size:10px;">Recebido</div>
+              </div>
+              <div class="timeline-step done">
+                <div class="timeline-dot" style="width:24px;height:24px;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" style="width:11px;height:11px;"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div class="timeline-label" style="font-size:10px;">Confirmado</div>
+              </div>
+              <div class="timeline-step current">
+                <div class="timeline-dot" style="width:24px;height:24px;">
+                  <svg viewBox="0 0 24 24" fill="currentColor" stroke="none" style="width:8px;height:8px;color:var(--color-accent);"><circle cx="12" cy="12" r="12"/></svg>
+                </div>
+                <div class="timeline-label" style="font-size:10px;">Em Preparo</div>
+              </div>
+              <div class="timeline-step">
+                <div class="timeline-dot" style="width:24px;height:24px;"></div>
+                <div class="timeline-label" style="font-size:10px;">Em Rota</div>
+              </div>
+              <div class="timeline-step">
+                <div class="timeline-dot" style="width:24px;height:24px;"></div>
+                <div class="timeline-label" style="font-size:10px;">Entregue</div>
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin-bottom:var(--space-4);">
+              <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:var(--space-3);">
+                <div class="ds-sub" style="margin-bottom:var(--space-2);">Itens do pedido</div>
+                <div style="display:flex;flex-direction:column;gap:var(--space-1-5);">
+                  <div style="display:flex;justify-content:space-between;font-size:12px;">
+                    <span style="color:var(--color-text-secondary);">1× Frango com quiabo</span>
+                    <span style="font-weight:600;">R$29,00</span>
+                  </div>
+                  <div style="display:flex;justify-content:space-between;font-size:12px;">
+                    <span style="color:var(--color-text-secondary);">1× Arroz integral</span>
+                    <span style="font-weight:600;">R$9,00</span>
+                  </div>
+                  <div style="border-top:1px solid var(--color-border);padding-top:var(--space-1-5);display:flex;justify-content:space-between;font-size:var(--text-sm);font-weight:700;">
+                    <span>Total</span>
+                    <span style="color:var(--color-accent);">R$38,00</span>
+                  </div>
+                </div>
+              </div>
+              <div style="background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:var(--radius-lg);padding:var(--space-3);">
+                <div class="ds-sub" style="margin-bottom:var(--space-2);">Endereço</div>
+                <div style="font-size:12px;color:var(--color-text-secondary);line-height:1.5;">
+                  Rua das Orquídeas, 88<br>
+                  Boa Vista, CEP 30150-110<br>
+                  <span style="color:var(--color-text-tertiary);">Ref: próximo ao posto</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="display:flex;gap:var(--space-2);">
+              <button class="btn btn-primary btn-sm" style="flex:1;">AVANÇAR → Em Rota</button>
+              <button class="btn btn-ghost btn-sm">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                WA
+              </button>
+              <button class="btn btn-destructive btn-sm">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════ SPACING ══════════════ -->
+    <section class="ds-section" id="spacing">
+      <div class="ds-section-header">
+        <h2 class="ds-section-title">Espaçamento e Raios</h2>
+        <span class="ds-section-badge">4px base</span>
+      </div>
+      <p class="ds-section-desc">Todos os valores são múltiplos de 4px. Use os tokens de espaçamento — nunca valores arbitrários no produto.</p>
+
+      <div class="ds-preview">
+        <div class="ds-preview-label">Escala de espaçamento</div>
+        <div class="ds-preview-body">
+          <div style="display:flex;align-items:flex-end;gap:var(--space-3);flex-wrap:wrap;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-2);">
+              <div style="width:4px;background:var(--color-accent);height:4px;border-radius:1px;"></div>
+              <div class="font-mono text-xs text-tertiary">1 · 4px</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-2);">
+              <div style="width:8px;background:var(--color-accent);height:8px;border-radius:1px;"></div>
+              <div class="font-mono text-xs text-tertiary">2 · 8px</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-2);">
+              <div style="width:12px;background:var(--color-accent);height:12px;border-radius:1px;"></div>
+              <div class="font-mono text-xs text-tertiary">3 · 12px</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-2);">
+              <div style="width:16px;background:var(--color-accent);height:16px;border-radius:2px;"></div>
+              <div class="font-mono text-xs text-tertiary">4 · 16px</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-2);">
+              <div style="width:24px;background:var(--color-accent);height:24px;border-radius:3px;"></div>
+              <div class="font-mono text-xs text-tertiary">6 · 24px</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-2);">
+              <div style="width:32px;background:var(--color-accent);height:32px;border-radius:4px;"></div>
+              <div class="font-mono text-xs text-tertiary">8 · 32px</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-2);">
+              <div style="width:40px;background:var(--color-accent);height:40px;border-radius:6px;"></div>
+              <div class="font-mono text-xs text-tertiary">10 · 40px</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-2);">
+              <div style="width:48px;background:var(--color-accent);height:48px;border-radius:8px;"></div>
+              <div class="font-mono text-xs text-tertiary">12 · 48px</div>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-2);">
+              <div style="width:64px;background:var(--color-accent);height:64px;border-radius:10px;"></div>
+              <div class="font-mono text-xs text-tertiary">16 · 64px</div>
+            </div>
+          </div>
+
+          <hr class="divider" />
+
+          <div class="ds-sub">Border Radius</div>
+          <div class="row" style="align-items:flex-end;flex-wrap:wrap;">
+            <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:var(--space-2);">
+              <div style="width:48px;height:48px;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:var(--radius-xs);"></div>
+              <div class="font-mono text-xs text-tertiary">xs · 2px</div>
+            </div>
+            <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:var(--space-2);">
+              <div style="width:48px;height:48px;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:var(--radius-sm);"></div>
+              <div class="font-mono text-xs text-tertiary">sm · 4px</div>
+            </div>
+            <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:var(--space-2);">
+              <div style="width:48px;height:48px;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:var(--radius-md);"></div>
+              <div class="font-mono text-xs text-tertiary">md · 6px</div>
+            </div>
+            <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:var(--space-2);">
+              <div style="width:48px;height:48px;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:var(--radius-lg);"></div>
+              <div class="font-mono text-xs text-tertiary">lg · 8px</div>
+            </div>
+            <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:var(--space-2);">
+              <div style="width:48px;height:48px;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:var(--radius-xl);"></div>
+              <div class="font-mono text-xs text-tertiary">xl · 12px</div>
+            </div>
+            <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:var(--space-2);">
+              <div style="width:48px;height:48px;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:var(--radius-2xl);"></div>
+              <div class="font-mono text-xs text-tertiary">2xl · 16px</div>
+            </div>
+            <div style="text-align:center;display:flex;flex-direction:column;align-items:center;gap:var(--space-2);">
+              <div style="width:80px;height:32px;background:var(--color-surface-raised);border:1px solid var(--color-border);border-radius:var(--radius-pill);"></div>
+              <div class="font-mono text-xs text-tertiary">pill · ∞</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <div style="border-top:1px solid var(--color-border);padding-top:var(--space-8);margin-top:var(--space-8);display:flex;align-items:center;justify-content:space-between;">
+      <div>
+        <div style="font-family:var(--font-display);font-size:var(--text-sm);font-weight:var(--weight-bold);color:var(--color-text-primary);">Rancho Cockpit Design System</div>
+        <div class="text-xs text-tertiary" style="margin-top:4px;font-family:var(--font-mono);">v1.0.0 · Clareza sob pressão · Born Dark</div>
+      </div>
+      <div class="row" style="gap:var(--space-3);">
+        <span class="badge badge-accent">Brasa #D4601C</span>
+        <span class="badge badge-neutral" style="font-family:var(--font-mono);">Sora + DM Sans + JetBrains</span>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  function toggleMode() {
+    const html = document.documentElement;
+    const isDark = html.classList.contains('dark-mode');
+    const btn = document.getElementById('mode-btn');
+    const label = document.getElementById('mode-label');
+    const icon = document.getElementById('mode-icon');
+
+    if (isDark) {
+      html.classList.remove('dark-mode');
+      html.classList.add('light-mode');
+      label.textContent = 'Dark mode';
+      icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+    } else {
+      html.classList.remove('light-mode');
+      html.classList.add('dark-mode');
+      label.textContent = 'Light mode';
+      icon.innerHTML = '<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>';
+    }
+  }
+
+  // Nav scroll behavior
+  function scrollTo(id) {
+    const el = document.querySelector(id);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // update active nav
+      document.querySelectorAll('.ds-nav-link').forEach(l => l.classList.remove('active'));
+      event.target.classList.add('active');
+    }
+  }
+
+  // Live SLA timers (demo)
+  let secs = { 809: 47*60+3, 818: 8*60+10, 815: 28*60+47, 821: 14*60+23 };
+
+  function fmt(s) {
+    const m = Math.floor(s/60), sec = s%60;
+    return String(m).padStart(2,'0') + ':' + String(sec).padStart(2,'0');
+  }
+
+  setInterval(() => {
+    Object.keys(secs).forEach(k => { secs[k]++; });
+  }, 1000);
+</script>
+</body>
+</html>
