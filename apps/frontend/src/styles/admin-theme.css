@@ -1,0 +1,8 @@
+@import '../../../../packages/shared/styles/tokens.crm.css';
+
+.crm-mode {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+}

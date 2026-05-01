@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
+import '@/styles/admin-theme.css';
 
 const NAV_ITEMS = [
   {
@@ -57,18 +58,39 @@ const NAV_ITEMS = [
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const [mode, setMode] = useState<'dark-mode' | 'light-mode'>('dark-mode');
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem('rancho:admin:theme');
+    if (saved === 'dark-mode' || saved === 'light-mode') {
+      setMode(saved);
+      return;
+    }
+    window.localStorage.setItem('rancho:admin:theme', 'dark-mode');
+  }, []);
+
+  useEffect(() => {
+    const html = document.documentElement;
+    html.classList.remove('dark-mode', 'light-mode');
+    html.classList.add(mode);
+    window.localStorage.setItem('rancho:admin:theme', mode);
+  }, [mode]);
+
+  const toggleMode = () => {
+    setMode((prev) => (prev === 'dark-mode' ? 'light-mode' : 'dark-mode'));
+  };
 
   return (
-    <div className="min-h-screen bg-neutral-50 flex">
+    <div className={cn('crm-mode min-h-screen flex', mode)}>
       {/* Sidebar */}
-      <aside className="w-64 bg-neutral-900 flex flex-col flex-shrink-0 min-h-screen">
+      <aside className="w-64 bg-[var(--color-surface)] border-r border-[var(--color-border)] flex flex-col flex-shrink-0 min-h-screen">
         {/* Logo */}
-        <div className="px-6 py-5 border-b border-neutral-800">
+        <div className="px-6 py-5 border-b border-[var(--color-border)]">
           <Link href="/" className="flex items-center gap-2">
-            <span className="font-brand text-xl font-black uppercase text-red-500">Rancho</span>
-            <span className="font-brand text-xl font-black uppercase text-yellow-500">Comida Caseira</span>
+            <span className="font-brand text-xl font-black uppercase text-[var(--color-accent)]">Rancho</span>
+            <span className="font-brand text-xl font-black uppercase text-[var(--color-text-primary)]">Comida Caseira</span>
           </Link>
-          <p className="text-xs text-neutral-500 mt-1 font-semibold uppercase tracking-wider">Painel Admin</p>
+          <p className="text-xs text-[var(--color-text-secondary)] mt-1 font-semibold uppercase tracking-wider">Painel Admin</p>
         </div>
 
         {/* Nav */}
@@ -84,8 +106,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 className={cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200',
                   isActive
-                    ? 'bg-red-500 text-white'
-                    : 'text-neutral-400 hover:bg-neutral-800 hover:text-neutral-100'
+                    ? 'bg-[var(--color-accent)] text-[var(--color-text-on-accent)]'
+                    : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]'
                 )}
               >
                 {item.icon}
@@ -96,10 +118,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </nav>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-neutral-800">
+        <div className="px-6 py-4 border-t border-[var(--color-border)]">
+          <button
+            type="button"
+            onClick={toggleMode}
+            className="mb-3 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 text-xs font-semibold text-[var(--color-text-secondary)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text-primary)]"
+          >
+            {mode === 'dark-mode' ? 'Modo Claro' : 'Modo Escuro'}
+          </button>
           <Link
             href="/"
-            className="flex items-center gap-2 text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+            className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -110,7 +139,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Main */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto bg-[var(--color-bg)] text-[var(--color-text-primary)]">
         {children}
       </main>
     </div>

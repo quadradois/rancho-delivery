@@ -1,0 +1,126 @@
+@font-face {
+  font-family: 'Rustic Printed';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('https://fonts.cdnfonts.com/s/99883/Rustic%20Printed.woff') format('woff');
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Nunito:wght@400;600;700;800;900&display=swap');
+
+.site-mode {
+  --madeira-fundo: #1a0d06;
+  --madeira-media: #251208;
+  --madeira-clara: #3e2214;
+  --couro-escuro: #5c3418;
+  --brasa-viva: #d4601c;
+  --brasa-quente: #e87830;
+  --mel-campo: #e8a040;
+  --bege-fumaca: #e8d4b0;
+  --bege-claro: #f4e8cc;
+  --cinza-couro: #9a7b5c;
+  --verde-campo: #4a7840;
+  --fuligem: #0d0603;
+
+  --color-primary: var(--brasa-viva);
+  --color-primary-hover: var(--brasa-quente);
+  --color-primary-press: #b8501a;
+  --color-accent: var(--mel-campo);
+  --color-accent-hover: #d49030;
+  --color-surface: var(--madeira-media);
+  --color-surface-alt: var(--madeira-fundo);
+  --color-surface-raised: var(--madeira-clara);
+  --color-border: var(--madeira-clara);
+  --color-border-strong: var(--couro-escuro);
+  --color-text-primary: var(--bege-claro);
+  --color-text-secondary: var(--cinza-couro);
+  --color-text-disabled: var(--couro-escuro);
+  --color-text-on-primary: #ffffff;
+  --color-text-on-accent: var(--madeira-fundo);
+  --color-success: var(--verde-campo);
+  --color-warning: var(--mel-campo);
+  --color-error: var(--brasa-viva);
+
+  --font-display: 'Rustic Printed', serif;
+  --font-brand: 'Rustic Printed', serif;
+  --font-body: 'Nunito', sans-serif;
+  --font-corpo: 'Nunito', sans-serif;
+  --font-script: 'Nunito', sans-serif;
+  --font-produto: 'Alfa Slab One', serif;
+
+  --text-xs: 11px;
+  --text-sm: 13px;
+  --text-base: 15px;
+  --text-md: 17px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+  --text-3xl: 44px;
+  --text-4xl: 56px;
+  --text-5xl: 72px;
+
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+  --font-extrabold: 800;
+  --font-black: 900;
+
+  --leading-none: 1;
+  --leading-tight: 1.05;
+  --leading-snug: 1.1;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.6;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+  --radius-full: 999px;
+
+  --shadow-sm: 0 2px 12px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.7);
+  --shadow-xl: 0 24px 56px rgba(0, 0, 0, 0.8);
+  --shadow-card: 0 8px 40px rgba(0, 0, 0, 0.7);
+  --sombra-suave: 0 2px 12px rgba(0, 0, 0, 0.5);
+  --sombra-card: 0 8px 40px rgba(0, 0, 0, 0.7);
+  --sombra-brasa: 0 4px 24px rgba(212, 96, 28, 0.5);
+  --sombra-brasa-forte: 0 8px 36px rgba(212, 96, 28, 0.65);
+  --sombra-mel: 0 4px 20px rgba(232, 160, 64, 0.4);
+  --shadow-glow-brasa: 0 0 0 3px rgba(212, 96, 28, 0.35);
+  --shadow-glow-mel: 0 0 0 3px rgba(232, 160, 64, 0.35);
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 350ms;
+
+  --z-base: 0;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-fixed: 300;
+  --z-modal-backdrop: 400;
+  --z-modal: 500;
+  --z-popover: 600;
+  --z-tooltip: 700;
+  --z-toast: 800;
+
+  --header-height: 64px;
+  --tabbar-height: 72px;
+  --container-max-width: 1160px;
+  --card-max-width: 400px;
+}
