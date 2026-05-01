@@ -17,12 +17,12 @@ const Badge = React.forwardRef<HTMLSpanElement, BadgeProps>(
     `;
 
     const variants = {
-      brand:   'bg-[#D4601C] text-white',
-      red:     'bg-[#D4601C]/20 text-[#E87830]',
-      gold:    'bg-[#E8A040]/20 text-[#E8A040]',
-      dark:    'bg-[#1A0D06] text-[#F4E8CC]',
-      green:   'bg-[#4A7840]/20 text-[#4A7840]',
-      outline: 'bg-transparent border-[1.5px] border-[#D4601C] text-[#D4601C]',
+      brand:   'bg-[var(--color-accent)] text-[var(--color-text-on-accent)]',
+      red:     'bg-[var(--color-danger-subtle)] text-[var(--color-danger-text)]',
+      gold:    'bg-[var(--color-warning-subtle)] text-[var(--color-warning-text)]',
+      dark:    'bg-[var(--color-surface-overlay)] text-[var(--color-text-primary)]',
+      green:   'bg-[var(--color-success-subtle)] text-[var(--color-success-text)]',
+      outline: 'bg-transparent border-[1.5px] border-[var(--color-accent)] text-[var(--color-accent)]',
     };
 
     const sizes = {

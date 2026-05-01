@@ -18,6 +18,7 @@ const produtoSchema = z.object({
   midia: z.string().url('URL inválida').optional().or(z.literal('')),
   disponivel: z.boolean(),
   ordem: z.number().int().min(0),
+  tempoPreparo: z.number().int().min(1, 'Tempo mínimo é 1 minuto'),
 });
 
 type ProdutoForm = {
@@ -92,6 +93,7 @@ export default function FormularioProdutoPage() {
       midia: form.midia || undefined,
       disponivel: form.disponivel,
       ordem: parseInt(form.ordem) || 0,
+      tempoPreparo: parseInt(form.tempoPreparo) || 0,
     });
     if (!result.success) {
       const erros: ProdutoErrors = {};
@@ -109,7 +111,6 @@ export default function FormularioProdutoPage() {
   const handleSalvar = async () => {
     if (!validar()) return;
     setSalvando(true);
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
     const payload = {
       nome: form.nome,
       descricao: form.descricao,
@@ -122,28 +123,13 @@ export default function FormularioProdutoPage() {
     };
     try {
       if (isEdicao) {
-        const response = await fetch(`${baseUrl}/api/produtos/${params.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        if (!response.ok) {
-          const error = await response.json().catch(() => null);
-          throw new Error(error?.error?.message || 'Erro ao atualizar produto');
-        }
+        await api.produtos.atualizar(params.id as string, payload);
         showSuccess('Produto atualizado com sucesso!');
       } else {
-        const response = await fetch(`${baseUrl}/api/produtos`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-        if (!response.ok) {
-          const error = await response.json().catch(() => null);
-          throw new Error(error?.error?.message || 'Erro ao cadastrar produto');
-        }
+        await api.produtos.criar(payload);
         showSuccess('Produto cadastrado com sucesso!');
       }
+      router.refresh();
       router.push('/admin/produtos');
     } catch (err) {
       showError('Erro ao salvar produto', err instanceof Error ? err.message : 'Tente novamente');
@@ -156,8 +142,8 @@ export default function FormularioProdutoPage() {
     return (
       <div className="p-8 flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-neutral-500 text-sm">Carregando produto...</p>
+          <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-[var(--color-accent)] border-t-transparent" />
+          <p className="text-sm text-[var(--color-text-secondary)]">Carregando produto...</p>
         </div>
       </div>
     );
@@ -169,7 +155,7 @@ export default function FormularioProdutoPage() {
       <div className="flex items-center gap-4 mb-8">
         <button
           onClick={() => router.push('/admin/produtos')}
-          className="p-2 text-neutral-400 hover:text-neutral-700 hover:bg-neutral-100 rounded-xl transition-all"
+          className="rounded-xl p-2 text-[var(--color-text-tertiary)] transition-all hover:bg-[var(--color-surface-raised)] hover:text-[var(--color-text-primary)]"
           aria-label="Voltar"
         >
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -177,17 +163,17 @@ export default function FormularioProdutoPage() {
           </svg>
         </button>
         <div>
-          <h1 className="font-brand text-3xl font-black uppercase text-neutral-900">
+          <h1 className="font-brand text-3xl font-black uppercase text-[var(--color-text-primary)]">
             {isEdicao ? 'Editar Produto' : 'Novo Produto'}
           </h1>
-          <p className="text-neutral-500 mt-1">
+          <p className="mt-1 text-[var(--color-text-secondary)]">
             {isEdicao ? 'Atualize as informações do produto' : 'Preencha os dados do novo produto'}
           </p>
         </div>
       </div>
 
       {/* Formulário */}
-      <div className="bg-white rounded-2xl shadow-sm p-6 space-y-5">
+      <div className="space-y-5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
         <Input
           label="Nome do produto *"
           value={form.nome}
@@ -197,17 +183,17 @@ export default function FormularioProdutoPage() {
         />
 
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-semibold text-neutral-700">Descrição *</label>
+          <label className="text-sm font-semibold text-[var(--color-text-primary)]">Descrição *</label>
           <textarea
             value={form.descricao}
             onChange={(e) => setForm({ ...form, descricao: e.target.value })}
             placeholder="Descreva o produto com detalhes..."
             rows={3}
-            className={`w-full px-4 py-3 text-sm border rounded-xl outline-none resize-none transition-colors focus:border-red-500 ${
-              errors.descricao ? 'border-red-400' : 'border-neutral-200'
+            className={`w-full resize-none rounded-xl border px-4 py-3 text-sm outline-none transition-colors focus:border-[var(--color-accent)] ${
+              errors.descricao ? 'border-[var(--color-danger)]' : 'border-[var(--color-border)]'
             }`}
           />
-          {errors.descricao && <span className="text-xs text-red-500 font-semibold">{errors.descricao}</span>}
+          {errors.descricao && <span className="text-xs font-semibold text-[var(--color-danger-text)]">{errors.descricao}</span>}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -228,6 +214,7 @@ export default function FormularioProdutoPage() {
             step="1"
             value={form.tempoPreparo}
             onChange={(e) => setForm({ ...form, tempoPreparo: e.target.value })}
+            error={errors.tempoPreparo}
             placeholder="15"
             hint="Tempo médio de preparo em minutos"
           />
@@ -247,7 +234,7 @@ export default function FormularioProdutoPage() {
 
         {/* Categoria */}
         <div className="flex flex-col gap-1">
-          <label className="text-sm font-semibold text-neutral-700">Categoria *</label>
+          <label className="text-sm font-semibold text-[var(--color-text-primary)]">Categoria *</label>
           <div className="flex flex-wrap gap-2">
             {CATEGORIAS.map((cat) => (
               <button
@@ -256,15 +243,15 @@ export default function FormularioProdutoPage() {
                 onClick={() => setForm({ ...form, categoria: cat })}
                 className={`px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wider transition-all ${
                   form.categoria === cat
-                    ? 'bg-red-500 text-white'
-                    : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
+                    ? 'bg-[var(--color-accent)] text-[var(--color-text-on-accent)]'
+                    : 'bg-[var(--color-surface-raised)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]'
                 }`}
               >
                 {cat}
               </button>
             ))}
           </div>
-          {errors.categoria && <span className="text-xs text-red-500 font-semibold">{errors.categoria}</span>}
+          {errors.categoria && <span className="text-xs font-semibold text-[var(--color-danger-text)]">{errors.categoria}</span>}
         </div>
 
         {/* URL da mídia */}
@@ -280,7 +267,7 @@ export default function FormularioProdutoPage() {
 
         {/* Preview da imagem */}
         {form.midia && !errors.midia && (
-          <div className="rounded-xl overflow-hidden border border-neutral-200 aspect-video bg-neutral-100">
+          <div className="aspect-video overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={form.midia}
@@ -299,9 +286,9 @@ export default function FormularioProdutoPage() {
             type="checkbox"
             checked={form.disponivel}
             onChange={(e) => setForm({ ...form, disponivel: e.target.checked })}
-            className="w-4 h-4 accent-red-500"
+            className="h-4 w-4 accent-[var(--color-accent)]"
           />
-          <span className="text-sm font-semibold text-neutral-700">Produto disponível no cardápio</span>
+          <span className="text-sm font-semibold text-[var(--color-text-primary)]">Produto disponível no cardápio</span>
         </label>
 
         {/* Ações */}

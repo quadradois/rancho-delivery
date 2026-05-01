@@ -39,15 +39,7 @@ export default function AdminProdutosPage() {
 
   const handleDelete = async (id: string) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/produtos/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => null);
-        throw new Error(error?.error?.message || 'Erro ao excluir produto');
-      }
-
+      await api.produtos.excluir(id);
       showSuccess('Produto excluído com sucesso!');
       setProdutos((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
@@ -72,8 +64,8 @@ export default function AdminProdutosPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="font-brand text-3xl font-black uppercase text-neutral-900">Produtos</h1>
-          <p className="text-neutral-500 mt-1">{produtos.length} produto{produtos.length !== 1 ? 's' : ''} cadastrado{produtos.length !== 1 ? 's' : ''}</p>
+          <h1 className="font-brand text-3xl font-black uppercase text-[var(--color-text-primary)]">Produtos</h1>
+          <p className="text-[var(--color-text-secondary)] mt-1">{produtos.length} produto{produtos.length !== 1 ? 's' : ''} cadastrado{produtos.length !== 1 ? 's' : ''}</p>
         </div>
         <Link href="/admin/produtos/novo">
           <Button size="md">
@@ -87,10 +79,10 @@ export default function AdminProdutosPage() {
       </div>
 
       {/* Filtros */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm mb-6 flex flex-col md:flex-row gap-4">
+      <div className="mb-6 flex flex-col gap-4 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-sm md:flex-row">
         {/* Busca */}
         <div className="relative flex-1">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-tertiary)]">
             <circle cx="11" cy="11" r="8" />
             <path d="m21 21-4.35-4.35" />
           </svg>
@@ -99,7 +91,7 @@ export default function AdminProdutosPage() {
             placeholder="Buscar por nome ou descrição..."
             value={busca}
             onChange={(e) => { setBusca(e.target.value); setPagina(1); }}
-            className="w-full h-10 pl-9 pr-4 text-sm border border-neutral-200 rounded-xl outline-none focus:border-red-500 transition-colors"
+            className="w-full h-10 pl-9 pr-4 text-sm border border-[var(--color-border)] rounded-xl outline-none focus:border-[var(--color-accent)] transition-colors"
           />
         </div>
 
@@ -111,8 +103,8 @@ export default function AdminProdutosPage() {
               onClick={() => { setCategoriaFiltro(cat); setPagina(1); }}
               className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
                 categoriaFiltro === cat
-                  ? 'bg-red-500 text-white'
-                  : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
+                  ? 'bg-[var(--color-accent)] text-[var(--color-text-on-accent)]'
+                  : 'bg-[var(--color-surface-raised)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]'
               }`}
             >
               {cat}
@@ -122,35 +114,35 @@ export default function AdminProdutosPage() {
       </div>
 
       {/* Tabela */}
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+      <div className="overflow-hidden rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm">
         {loading ? (
           <div className="p-12 text-center">
-            <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-neutral-500 text-sm">Carregando produtos...</p>
+            <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-[var(--color-accent)] border-t-transparent" />
+            <p className="text-[var(--color-text-secondary)] text-sm">Carregando produtos...</p>
           </div>
         ) : produtosPagina.length === 0 ? (
           <div className="p-12 text-center">
-            <p className="text-neutral-400 font-semibold">Nenhum produto encontrado</p>
-            <p className="text-neutral-400 text-sm mt-1">Tente ajustar os filtros ou cadastre um novo produto</p>
+            <p className="text-[var(--color-text-tertiary)] font-semibold">Nenhum produto encontrado</p>
+            <p className="text-[var(--color-text-tertiary)] text-sm mt-1">Tente ajustar os filtros ou cadastre um novo produto</p>
           </div>
         ) : (
           <table className="w-full">
             <thead>
-              <tr className="border-b border-neutral-100">
-                <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Produto</th>
-                <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Categoria</th>
-                <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Preço</th>
-                <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Status</th>
-                <th className="text-right px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Ações</th>
+              <tr className="border-b border-[var(--color-border)]">
+                <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-[var(--color-text-tertiary)]">Produto</th>
+                <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-[var(--color-text-tertiary)]">Categoria</th>
+                <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-[var(--color-text-tertiary)]">Preço</th>
+                <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-[var(--color-text-tertiary)]">Status</th>
+                <th className="text-right px-6 py-4 text-xs font-bold uppercase tracking-wider text-[var(--color-text-tertiary)]">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-neutral-50">
+            <tbody className="divide-y divide-[var(--color-border)]">
               {produtosPagina.map((produto) => (
-                <tr key={produto.id} className="hover:bg-neutral-50 transition-colors">
+                <tr key={produto.id} className="hover:bg-[var(--color-surface-raised)] transition-colors">
                   {/* Produto */}
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-neutral-100 rounded-xl overflow-hidden flex-shrink-0">
+                      <div className="w-12 h-12 bg-[var(--color-surface-raised)] rounded-xl overflow-hidden flex-shrink-0">
                         {produto.midia || produto.imagemUrl ? (
                           <Image
                             src={produto.midia || produto.imagemUrl || ''}
@@ -161,7 +153,7 @@ export default function AdminProdutosPage() {
                             unoptimized
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-neutral-300">
+                          <div className="w-full h-full flex items-center justify-center text-[var(--color-text-disabled)]">
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                               <rect x="3" y="3" width="18" height="18" rx="2" />
                               <circle cx="8.5" cy="8.5" r="1.5" />
@@ -171,8 +163,8 @@ export default function AdminProdutosPage() {
                         )}
                       </div>
                       <div>
-                        <p className="font-semibold text-neutral-900 text-sm">{produto.nome}</p>
-                        <p className="text-xs text-neutral-400 line-clamp-1 max-w-[200px]">{produto.descricao}</p>
+                        <p className="font-semibold text-[var(--color-text-primary)] text-sm">{produto.nome}</p>
+                        <p className="text-xs text-[var(--color-text-tertiary)] line-clamp-1 max-w-[200px]">{produto.descricao}</p>
                       </div>
                     </div>
                   </td>
@@ -184,7 +176,7 @@ export default function AdminProdutosPage() {
 
                   {/* Preço */}
                   <td className="px-6 py-4">
-                    <span className="font-brand font-black text-red-500">{formatCurrency(produto.preco)}</span>
+                    <span className="font-brand font-black text-[var(--color-accent)]">{formatCurrency(produto.preco)}</span>
                   </td>
 
                   {/* Status */}
@@ -198,7 +190,7 @@ export default function AdminProdutosPage() {
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
                       <Link href={`/admin/produtos/${produto.id}`}>
-                        <button className="p-2 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all" aria-label="Editar produto">
+                        <button className="p-2 text-[var(--color-text-tertiary)] hover:bg-[var(--color-info-subtle)] hover:text-[var(--color-info-text)] rounded-lg transition-all" aria-label="Editar produto">
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
@@ -209,13 +201,13 @@ export default function AdminProdutosPage() {
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => handleDelete(produto.id)}
-                            className="px-2 py-1 text-xs font-bold text-white bg-red-500 rounded-lg hover:bg-red-600 transition-colors"
+                            className="px-2 py-1 text-xs font-bold text-[var(--color-text-on-accent)] bg-[var(--color-danger)] rounded-lg hover:bg-[var(--color-danger-hover)] transition-colors"
                           >
                             Confirmar
                           </button>
                           <button
                             onClick={() => setConfirmDelete(null)}
-                            className="px-2 py-1 text-xs font-bold text-neutral-500 bg-neutral-100 rounded-lg hover:bg-neutral-200 transition-colors"
+                            className="px-2 py-1 text-xs font-bold text-[var(--color-text-secondary)] bg-[var(--color-surface-raised)] rounded-lg hover:bg-[var(--color-surface-hover)] transition-colors"
                           >
                             Cancelar
                           </button>
@@ -223,7 +215,7 @@ export default function AdminProdutosPage() {
                       ) : (
                         <button
                           onClick={() => setConfirmDelete(produto.id)}
-                          className="p-2 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                          className="p-2 text-[var(--color-text-tertiary)] hover:text-[var(--color-danger-text)] hover:bg-[var(--color-danger-subtle)] rounded-lg transition-all"
                           aria-label="Excluir produto"
                         >
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -244,15 +236,15 @@ export default function AdminProdutosPage() {
 
         {/* Paginação */}
         {totalPaginas > 1 && (
-          <div className="px-6 py-4 border-t border-neutral-100 flex items-center justify-between">
-            <p className="text-sm text-neutral-500">
+          <div className="px-6 py-4 border-t border-[var(--color-border)] flex items-center justify-between">
+            <p className="text-sm text-[var(--color-text-secondary)]">
               Mostrando {(pagina - 1) * POR_PAGINA + 1}–{Math.min(pagina * POR_PAGINA, produtosFiltrados.length)} de {produtosFiltrados.length}
             </p>
             <div className="flex gap-2">
               <button
                 onClick={() => setPagina((p) => Math.max(1, p - 1))}
                 disabled={pagina === 1}
-                className="px-3 py-1.5 text-sm font-semibold rounded-lg border border-neutral-200 disabled:opacity-40 hover:bg-neutral-50 transition-colors"
+                className="px-3 py-1.5 text-sm font-semibold rounded-lg border border-[var(--color-border)] disabled:opacity-40 hover:bg-[var(--color-surface-raised)] transition-colors"
               >
                 Anterior
               </button>
@@ -261,7 +253,7 @@ export default function AdminProdutosPage() {
                   key={p}
                   onClick={() => setPagina(p)}
                   className={`w-8 h-8 text-sm font-semibold rounded-lg transition-colors ${
-                    p === pagina ? 'bg-red-500 text-white' : 'border border-neutral-200 hover:bg-neutral-50'
+                    p === pagina ? 'bg-[var(--color-accent)] text-[var(--color-text-on-accent)]' : 'border border-[var(--color-border)] hover:bg-[var(--color-surface-raised)]'
                   }`}
                 >
                   {p}
@@ -270,7 +262,7 @@ export default function AdminProdutosPage() {
               <button
                 onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
                 disabled={pagina === totalPaginas}
-                className="px-3 py-1.5 text-sm font-semibold rounded-lg border border-neutral-200 disabled:opacity-40 hover:bg-neutral-50 transition-colors"
+                className="px-3 py-1.5 text-sm font-semibold rounded-lg border border-[var(--color-border)] disabled:opacity-40 hover:bg-[var(--color-surface-raised)] transition-colors"
               >
                 Próxima
               </button>

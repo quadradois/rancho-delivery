@@ -229,11 +229,45 @@ export interface AdminMetricas {
 export interface Bairro {
   id: string;
   nome: string;
+  cep?: string;
   taxa: number;
   taxaEntrega: number;
   tempoEntregaMin: number;
+  tempoEntrega?: number;
   ativo: boolean;
+  linkIfood?: string | null;
+  link99food?: string | null;
+  linkOutro?: string | null;
+  nomeOutro?: string | null;
 }
+
+export interface AdminLoginResponse {
+  token: string;
+  expiresIn: number;
+}
+
+export type ProdutoPayload = {
+  nome: string;
+  descricao: string;
+  preco: number;
+  categoria: string;
+  midia?: string;
+  disponivel?: boolean;
+  ordem?: number;
+  tempoPreparo?: number;
+};
+
+export type BairroPayload = {
+  nome: string;
+  cep?: string;
+  taxa: number;
+  tempoEntrega?: number;
+  ativo?: boolean;
+  linkIfood?: string;
+  link99food?: string;
+  linkOutro?: string;
+  nomeOutro?: string;
+};
 
 /**
  * Serviço de Produtos
@@ -253,6 +287,18 @@ export const produtoService = {
    */
   async buscarPorId(id: string): Promise<Produto> {
     return apiClient.get<Produto>(`/produtos/${id}`);
+  },
+
+  async criar(payload: ProdutoPayload): Promise<Produto> {
+    return apiClient.post<Produto>('/produtos', payload);
+  },
+
+  async atualizar(id: string, payload: ProdutoPayload): Promise<Produto> {
+    return apiClient.put<Produto>(`/produtos/${id}`, payload);
+  },
+
+  async excluir(id: string): Promise<Produto> {
+    return apiClient.delete<Produto>(`/produtos/${id}`);
   },
 };
 
@@ -393,11 +439,37 @@ export const bairroService = {
     return apiClient.get<Bairro[]>('/bairros');
   },
 
+  async listarTodos(): Promise<Bairro[]> {
+    return apiClient.get<Bairro[]>('/bairros/todos');
+  },
+
+  async consultarViaCep(cep: string): Promise<{ bairro: string; logradouro: string; localidade: string; uf: string; cep: string }> {
+    return apiClient.get(`/bairros/viacep/${cep}`);
+  },
+
   /**
    * Valida bairro e retorna taxa oficial do backend
    */
   async validar(nome: string): Promise<{ valido: boolean; taxa: number }> {
     return apiClient.post<{ valido: boolean; taxa: number }>('/bairros/validar', { nome });
+  },
+
+  async criar(payload: BairroPayload): Promise<Bairro> {
+    return apiClient.post<Bairro>('/bairros', payload);
+  },
+
+  async atualizar(id: string, payload: Partial<BairroPayload>): Promise<Bairro> {
+    return apiClient.put<Bairro>(`/bairros/${id}`, payload);
+  },
+
+  async excluir(id: string): Promise<Bairro> {
+    return apiClient.delete<Bairro>(`/bairros/${id}`);
+  },
+};
+
+export const adminAuthService = {
+  async login(username: string, password: string): Promise<AdminLoginResponse> {
+    return apiClient.post<AdminLoginResponse>('/admin/auth/login', { username, password });
   },
 };
 
@@ -410,6 +482,7 @@ const api = {
   loja: lojaService,
   adminPedidos: adminPedidoService,
   adminClientes: adminClienteService,
+  adminAuth: adminAuthService,
   bairros: bairroService,
 };
 

@@ -20,11 +20,13 @@ class ApiClient {
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
+    const token = typeof window !== 'undefined' ? window.localStorage.getItem('rancho:admin:token') : null;
     
     const config: RequestInit = {
       ...options,
       headers: {
         'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options.headers,
       },
     };
@@ -35,6 +37,10 @@ class ApiClient {
       if (!response.ok) {
         const errorBody = await response.json().catch(() => null);
         const apiError = errorBody?.error;
+        if (response.status === 401 && typeof window !== 'undefined') {
+          window.localStorage.removeItem('rancho:admin:token');
+          window.dispatchEvent(new Event('rancho:admin:unauthorized'));
+        }
         throw new ApiException(
           apiError?.message || errorBody?.message || `HTTP ${response.status}`,
           apiError?.code,

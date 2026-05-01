@@ -162,8 +162,8 @@ export default function AdminPedidosPage() {
     observacao: '',
   });
 
-  const carregarLista = useCallback(async () => {
-    setLoadingList(true);
+  const carregarLista = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoadingList(true);
     try {
       const response = await api.adminPedidos.listar({
         status: statusFiltro !== 'todos' ? statusFiltro : undefined,
@@ -178,12 +178,12 @@ export default function AdminPedidosPage() {
     } catch (error: any) {
       showError('Falha ao carregar pedidos', error?.message || 'Tente novamente.');
     } finally {
-      setLoadingList(false);
+      if (!opts?.silent) setLoadingList(false);
     }
   }, [statusFiltro, buscaDebounced, page, pageSize, selectedId, showError]);
 
-  const carregarDetalhe = useCallback(async (id: string) => {
-    setLoadingDetail(true);
+  const carregarDetalhe = useCallback(async (id: string, opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoadingDetail(true);
     try {
       const data = await api.adminPedidos.buscarPorId(id);
       setPedidoDetalhe(data);
@@ -194,7 +194,7 @@ export default function AdminPedidosPage() {
     } catch (error: any) {
       showError('Falha ao carregar detalhe', error?.message || 'Tente novamente.');
     } finally {
-      setLoadingDetail(false);
+      if (!opts?.silent) setLoadingDetail(false);
     }
   }, [showError]);
 
@@ -289,21 +289,21 @@ export default function AdminPedidosPage() {
 
   useCockpitSocket({
     onPedidoNovo: () => {
-      void carregarLista();
+      void carregarLista({ silent: true });
       void carregarMetricas();
     },
     onPedidoAtualizado: (payload) => {
-      void carregarLista();
+      void carregarLista({ silent: true });
       void carregarMetricas();
       if (selectedId && payload?.id === selectedId) {
-        void carregarDetalhe(selectedId);
+        void carregarDetalhe(selectedId, { silent: true });
       }
     },
     onMensagemNova: async (payload) => {
       if (pedidoDetalhe?.cliente?.telefone && payload?.telefone === pedidoDetalhe.cliente.telefone) {
         await carregarMensagens(pedidoDetalhe.cliente.telefone, false);
       }
-      void carregarLista();
+      void carregarLista({ silent: true });
       void carregarMetricas();
     },
     onMetricasAtualizadas: (payload) => {
@@ -313,10 +313,10 @@ export default function AdminPedidosPage() {
       setLojaStatus(payload as LojaStatusAdmin);
     },
     onFallbackPoll: () => {
-      void carregarLista();
+      void carregarLista({ silent: true });
       void carregarMetricas();
       if (selectedId) {
-        void carregarDetalhe(selectedId);
+        void carregarDetalhe(selectedId, { silent: true });
       }
     },
   });

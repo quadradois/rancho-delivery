@@ -46,7 +46,9 @@ export function useCockpitSocket(options: UseCockpitSocketOptions) {
     const connect = () => {
       if (closedByCleanup || fallbackStarted) return;
       // Usa mesma origem do frontend (nginx/proxy) para evitar falhas de CORS/DNS no SSE.
-      source = new EventSource('/api/admin/events');
+      const token = window.localStorage.getItem('rancho:admin:token');
+      const eventsUrl = token ? `/api/admin/events?token=${encodeURIComponent(token)}` : '/api/admin/events';
+      source = new EventSource(eventsUrl);
 
       const onEvent = (eventName: CockpitEventName, handler?: (payload: any) => void) => {
         source?.addEventListener(eventName, (event: MessageEvent) => {

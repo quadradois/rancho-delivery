@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { ReactNode, useEffect, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useState } from 'react';
 import '@/styles/admin-theme.css';
 import api from '@/lib/api';
+import { useToast } from '@/contexts/ToastContext';
 
 const NAV_ITEMS = [
   {
@@ -59,7 +60,12 @@ const NAV_ITEMS = [
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { showError } = useToast();
   const [mode, setMode] = useState<'dark-mode' | 'light-mode'>('dark-mode');
+  const [authReady, setAuthReady] = useState(false);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [loginLoading, setLoginLoading] = useState(false);
   const [whatsConnected, setWhatsConnected] = useState(false);
   const [whatsInstanceName, setWhatsInstanceName] = useState<string>('');
   const [showWhatsModal, setShowWhatsModal] = useState(false);
@@ -76,6 +82,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    setAuthToken(window.localStorage.getItem('rancho:admin:token'));
+    setAuthReady(true);
+
+    const onUnauthorized = () => {
+      setAuthToken(null);
+    };
+    window.addEventListener('rancho:admin:unauthorized', onUnauthorized);
+    return () => window.removeEventListener('rancho:admin:unauthorized', onUnauthorized);
+  }, []);
+
+  useEffect(() => {
+    if (!authToken) return;
     if (!showWhatsModal) return;
 
     let active = true;
@@ -106,7 +124,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       active = false;
       window.clearInterval(id);
     };
-  }, [showWhatsModal]);
+  }, [authToken, showWhatsModal]);
 
   useEffect(() => {
     const html = document.documentElement;
@@ -116,9 +134,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }, [mode]);
 
   useEffect(() => {
+    if (!authToken) return;
     let mounted = true;
+    let intervalId: number | null = null;
 
     const loadStatus = async () => {
+      if (document.visibilityState === 'hidden') return;
       try {
         const data = await api.adminClientes.statusWhatsApp();
         if (mounted) {
@@ -134,15 +155,21 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     };
 
     void loadStatus();
-    const id = window.setInterval(() => {
+    intervalId = window.setInterval(() => {
       void loadStatus();
     }, 30000);
 
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void loadStatus();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
     return () => {
       mounted = false;
-      window.clearInterval(id);
+      if (intervalId) window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, []);
+  }, [authToken]);
 
   const toggleMode = () => {
     setMode((prev) => (prev === 'dark-mode' ? 'light-mode' : 'dark-mode'));
@@ -157,6 +184,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       setWhatsInstanceName(data.instanceName || '');
       setWhatsQrCode(data.qrCodeBase64 || null);
       setShowWhatsModal(!conectado);
+    } catch (err) {
+      showError(
+        'Falha ao conectar WhatsApp',
+        err instanceof Error ? err.message : 'Verifique se a Evolution API está acessível'
+      );
     } finally {
       setWhatsLoading(false);
     }
@@ -169,10 +201,78 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       setWhatsConnected(Boolean(data.conectado));
       setWhatsInstanceName(data.instanceName || '');
       setWhatsQrCode(data.qrCodeBase64 || null);
+    } catch (err) {
+      showError(
+        'Falha ao atualizar QR Code',
+        err instanceof Error ? err.message : 'Verifique se a Evolution API está acessível'
+      );
     } finally {
       setWhatsLoading(false);
     }
   };
+
+  const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setLoginLoading(true);
+    try {
+      const data = await api.adminAuth.login(loginForm.username, loginForm.password);
+      window.localStorage.setItem('rancho:admin:token', data.token);
+      setAuthToken(data.token);
+      setLoginForm({ username: '', password: '' });
+    } catch (err) {
+      showError('Falha no login', err instanceof Error ? err.message : 'Confira usuário e senha.');
+    } finally {
+      setLoginLoading(false);
+    }
+  };
+
+  if (!authReady) {
+    return (
+      <div className={cn('crm-mode min-h-screen bg-[var(--color-bg)]', mode)} />
+    );
+  }
+
+  if (!authToken) {
+    return (
+      <div className={cn('crm-mode min-h-screen bg-[var(--color-bg)] text-[var(--color-text-primary)]', mode)}>
+        <div className="flex min-h-screen items-center justify-center p-6">
+          <form
+            onSubmit={handleLogin}
+            className="w-full max-w-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm"
+          >
+            <div className="mb-5">
+              <h1 className="font-sora text-xl font-bold text-[var(--color-text-primary)]">Admin Rancho</h1>
+              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Entre para acessar o painel operacional.</p>
+            </div>
+            <div className="space-y-3">
+              <input
+                value={loginForm.username}
+                onChange={(event) => setLoginForm((state) => ({ ...state, username: event.target.value }))}
+                placeholder="Usuário"
+                autoComplete="username"
+                className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm outline-none focus:border-[var(--color-accent)]"
+              />
+              <input
+                value={loginForm.password}
+                onChange={(event) => setLoginForm((state) => ({ ...state, password: event.target.value }))}
+                placeholder="Senha"
+                type="password"
+                autoComplete="current-password"
+                className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm outline-none focus:border-[var(--color-accent)]"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={loginLoading}
+              className="mt-4 h-10 w-full rounded-md bg-[var(--color-accent)] px-3 text-sm font-semibold text-[var(--color-text-on-accent)] disabled:opacity-60"
+            >
+              {loginLoading ? 'Entrando...' : 'Entrar'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn('crm-mode min-h-screen flex', mode)}>
@@ -239,6 +339,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </button>
           <Link
             href="/"
+            target="_blank"
+            rel="noopener noreferrer"
             className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -266,7 +368,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={whatsQrCode} alt="QR Code do WhatsApp" className="h-64 w-64" />
               ) : (
-                <span className="text-sm text-slate-500">Sem QR no momento. Atualize.</span>
+                <span className="text-sm text-[var(--color-text-secondary)]">Sem QR no momento. Atualize.</span>
               )}
             </div>
             <div className="mt-4 flex gap-2">
