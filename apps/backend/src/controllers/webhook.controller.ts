@@ -23,12 +23,24 @@ export class WebhookController {
       // Validar assinatura do webhook
       const token = (
         req.headers['x-infinitepay-signature'] ||
-        req.headers['authorization'] ||
-        req.headers['x-webhook-secret']
+        req.headers['x-infinitepay-webhook-signature'] ||
+        req.headers['x-webhook-secret'] ||
+        req.headers['x-webhook-token'] ||
+        req.headers['x-signature'] ||
+        req.headers['signature'] ||
+        req.headers['authorization']
       ) as string;
 
       if (!infinitePayService.validarWebhook(token)) {
-        logger.warn('Webhook InfinitePay rejeitado: token inválido');
+        logger.warn('Webhook InfinitePay rejeitado: token inválido', {
+          hasXInfinitepaySignature: Boolean(req.headers['x-infinitepay-signature']),
+          hasXInfinitepayWebhookSignature: Boolean(req.headers['x-infinitepay-webhook-signature']),
+          hasXWebhookSecret: Boolean(req.headers['x-webhook-secret']),
+          hasXWebhookToken: Boolean(req.headers['x-webhook-token']),
+          hasXSignature: Boolean(req.headers['x-signature']),
+          hasSignature: Boolean(req.headers['signature']),
+          hasAuthorization: Boolean(req.headers['authorization']),
+        });
         return res.status(401).json({
           success: false,
           error: { message: 'Token inválido', code: 'UNAUTHORIZED' },
