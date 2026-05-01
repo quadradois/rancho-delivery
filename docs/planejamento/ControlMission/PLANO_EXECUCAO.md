@@ -224,28 +224,28 @@
 
 ### Backend
 
-- [ ] **B5a** `GET /api/admin/clientes/:telefone/mensagens` — histórico completo
-- [ ] **B5b** `POST /api/admin/clientes/:telefone/mensagens` — envio pelo operador
+- [x] **B5a** `GET /api/admin/clientes/:telefone/mensagens` — histórico completo
+- [x] **B5b** `POST /api/admin/clientes/:telefone/mensagens` — envio pelo operador
   - Registra com `origem: HUMANO`
   - Envia via Evolution API
-- [ ] **B5c** Campo `origem: HUMANO | SISTEMA | IA` em todas as mensagens no banco
-- [ ] **B5d** `GET /api/admin/whatsapp/status` — retorna se Evolution API está conectada
+- [x] **B5c** Campo `origem: HUMANO | SISTEMA | IA` em todas as mensagens no banco
+- [x] **B5d** `GET /api/admin/whatsapp/status` — retorna se Evolution API está conectada
 
-- [ ] **B6a** `GET /api/admin/clientes/:telefone`
+- [x] **B6a** `GET /api/admin/clientes/:telefone`
   - Dados + estatísticas: total pedidos, valor gasto, frequência, dia favorito, top 3 produtos, `diasSemPedir`
-- [ ] **B6b** `POST /api/admin/clientes/:telefone/lista-negra` — motivo obrigatório
-- [ ] **B6c** `DELETE /api/admin/clientes/:telefone/lista-negra`
+- [x] **B6b** `POST /api/admin/clientes/:telefone/lista-negra` — motivo obrigatório
+- [x] **B6c** `DELETE /api/admin/clientes/:telefone/lista-negra`
 
 ### Frontend
 
-- [ ] **F7** Aba WhatsApp
+- [x] **F7** Aba WhatsApp
   - Bolhas de mensagem com timestamp e remetente
   - Tag `[AUTO]` em cinza nas mensagens com `origem: SISTEMA`
   - Campo de digitação + enviar
   - Badge de não lida some ao abrir aba
   - Aba **IA** como tab desativada: "Agente IA — em breve"
 
-- [ ] **F6** Aba Cliente
+- [x] **F6** Aba Cliente
   - Dados + estatísticas
   - Badge "Sem pedir há X dias" condicional
   - Botão "Chamar no WhatsApp" → abre aba WhatsApp com texto pré-pronto
@@ -253,7 +253,7 @@
   - Banner vermelho se cliente na lista negra
   - Alerta antes de confirmar pedido de cliente na lista negra
 
-- [ ] Indicador WhatsApp na Top Bar (verde/vermelho) consumindo B5d
+- [x] Indicador WhatsApp na Top Bar (verde/vermelho) consumindo B5d
 
 ---
 
@@ -332,7 +332,7 @@
 
 ## Critério de Pronto (aceite final)
 
-- [ ] Pedido novo aparece na lista em tempo real sem recarregar a página
+- [x] Pedido novo aparece na lista em tempo real sem recarregar a página
 - [ ] Botão CONFIRMAR bloqueado para pedidos com pagamento pendente
 - [ ] Mudar para Confirmado dispara mensagem automática no WhatsApp
 - [ ] Mudar para Em Rota dispara mensagem automática no WhatsApp
@@ -341,15 +341,15 @@
 - [ ] SLA muda cor do timer conforme tabela de tempos
 - [ ] Som toca quando chega pedido novo (funciona com aba em background)
 - [ ] Som toca quando chega mensagem WhatsApp
-- [ ] Operador responde WhatsApp sem sair do cockpit
+- [x] Operador responde WhatsApp sem sair do cockpit
 - [ ] Pedido manual funciona nos dois fluxos (Pix e dinheiro)
 - [ ] Timeline registra todas as ações com timestamp e ator
 - [ ] Botão Abrir/Fechar/Pausar loja reflete no site em tempo real
-- [ ] Lista negra alerta operador antes de confirmar pedido
-- [ ] Aba IA visível e desativada com label "em breve"
-- [ ] Campo `origem: HUMANO | SISTEMA | IA` em todas as mensagens no banco
-- [ ] Site de pedidos e Cockpit sem contaminação de tokens entre si
-- [ ] Toggle dark/light no cockpit funcional e persistindo
+- [x] Lista negra alerta operador antes de confirmar pedido
+- [x] Aba IA visível e desativada com label "em breve"
+- [x] Campo `origem: HUMANO | SISTEMA | IA` em todas as mensagens no banco
+- [x] Site de pedidos e Cockpit sem contaminação de tokens entre si
+- [x] Toggle dark/light no cockpit funcional e persistindo
 
 ---
 
