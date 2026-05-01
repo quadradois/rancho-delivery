@@ -19,8 +19,8 @@ export function useCockpitSocket(options: UseCockpitSocketOptions) {
     let reconnectTimer: number | null = null;
 
     const connect = () => {
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      source = new EventSource(`${baseUrl}/api/admin/events`);
+      // Usa mesma origem do frontend (nginx/proxy) para evitar falhas de CORS/DNS no SSE.
+      source = new EventSource('/api/admin/events');
 
       const onEvent = (eventName: CockpitEventName, handler?: (payload: any) => void) => {
         source?.addEventListener(eventName, (event: MessageEvent) => {
