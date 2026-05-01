@@ -2,11 +2,15 @@ import { Router, type Router as ExpressRouter } from 'express';
 import adminPedidoRoutes from './admin.pedido.routes';
 import adminRealtimeRoutes from './admin.realtime.routes';
 import adminClienteRoutes from './admin.cliente.routes';
+import adminPedidoController from '../controllers/admin.pedido.controller';
 
 const router: ExpressRouter = Router();
 
 router.use('/pedidos', adminPedidoRoutes);
 router.use('/', adminRealtimeRoutes);
 router.use('/', adminClienteRoutes);
+router.get('/motoboys', adminPedidoController.listarMotoboys.bind(adminPedidoController));
+router.get('/loja/status', adminPedidoController.obterStatusLoja.bind(adminPedidoController));
+router.patch('/loja/status', adminPedidoController.atualizarStatusLoja.bind(adminPedidoController));
 
 export default router;

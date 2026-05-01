@@ -142,7 +142,16 @@ export interface AdminPedidoDetalhe {
       preco: number;
     } | null;
   }>;
-  motoboy: null;
+  observacaoEntrega?: string | null;
+  canceladoMotivo?: string | null;
+  estornoNecessario?: boolean;
+  estornoRealizadoEm?: string | null;
+  motoboy: {
+    id: string;
+    nome: string;
+    telefone: string;
+    status: 'DISPONIVEL' | 'EM_ENTREGA' | 'INATIVO';
+  } | null;
   timeline: Array<{
     timestamp: string;
     ator: string;
@@ -185,6 +194,19 @@ export interface WhatsAppStatusAdmin {
 
 export interface WhatsAppSetupAdmin extends WhatsAppStatusAdmin {
   qrCodeBase64: string | null;
+}
+
+export interface MotoboyAdmin {
+  id: string;
+  nome: string;
+  telefone: string;
+  status: 'DISPONIVEL' | 'EM_ENTREGA' | 'INATIVO';
+}
+
+export interface LojaStatusAdmin {
+  status: 'ABERTO' | 'FECHADO' | 'PAUSADO';
+  mensagem?: string | null;
+  atualizadoEm: string;
 }
 
 export interface Bairro {
@@ -258,6 +280,38 @@ export const adminPedidoService = {
 
   async atualizarStatus(id: string, status: string): Promise<{ id: string; status: string; atualizadoEm: string }> {
     return apiClient.patch<{ id: string; status: string; atualizadoEm: string }>(`/admin/pedidos/${id}/status`, { status });
+  },
+
+  async listarMotoboys(): Promise<MotoboyAdmin[]> {
+    return apiClient.get<MotoboyAdmin[]>('/admin/motoboys');
+  },
+
+  async atribuirMotoboy(id: string, motoboyId: string | null, observacaoEntrega?: string): Promise<any> {
+    return apiClient.patch(`/admin/pedidos/${id}/motoboy`, { motoboyId, observacaoEntrega });
+  },
+
+  async atualizarEnderecoEntrega(id: string, endereco: string, bairro: string): Promise<any> {
+    return apiClient.patch(`/admin/pedidos/${id}/endereco`, { endereco, bairro });
+  },
+
+  async criarManual(payload: any): Promise<any> {
+    return apiClient.post('/admin/pedidos/manual', payload);
+  },
+
+  async cancelar(id: string, motivo: string): Promise<any> {
+    return apiClient.post(`/admin/pedidos/${id}/cancelar`, { motivo });
+  },
+
+  async marcarEstorno(id: string): Promise<any> {
+    return apiClient.patch(`/admin/pedidos/${id}/estorno`, {});
+  },
+
+  async obterStatusLoja(): Promise<LojaStatusAdmin> {
+    return apiClient.get<LojaStatusAdmin>('/admin/loja/status');
+  },
+
+  async atualizarStatusLoja(status: 'ABERTO' | 'FECHADO' | 'PAUSADO', mensagem?: string): Promise<LojaStatusAdmin> {
+    return apiClient.patch<LojaStatusAdmin>('/admin/loja/status', { status, mensagem });
   },
 };
 

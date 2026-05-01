@@ -261,44 +261,44 @@
 
 ### Backend
 
-- [ ] **B7a** Modelo `Motoboy` no banco: nome, telefone, status
-- [ ] **B7b** `GET /api/admin/motoboys`
-- [ ] **B7c** `PATCH /api/admin/pedidos/:id/motoboy`
+- [x] **B7a** Modelo `Motoboy` no banco: nome, telefone, status
+- [x] **B7b** `GET /api/admin/motoboys`
+- [x] **B7c** `PATCH /api/admin/pedidos/:id/motoboy`
 
-- [ ] **B8** `POST /api/admin/pedidos/manual`
+- [x] **B8** `POST /api/admin/pedidos/manual`
   - Fluxo Pix: gera link InfinitePay, status `AGUARDANDO_PAGAMENTO`
   - Fluxo Dinheiro: status `CONFIRMADO`, pagamento `DINHEIRO_ENTREGA`
 
-- [ ] **B9a** `POST /api/admin/pedidos/:id/cancelar`
+- [x] **B9a** `POST /api/admin/pedidos/:id/cancelar`
   - Motivo obrigatório
   - Se pagamento CONFIRMADO: `estorno_necessario = true` + registra na timeline
   - Regra absoluta: nunca deleta o pedido
-- [ ] **B9b** `PATCH /api/admin/pedidos/:id/estorno` — apenas admin
+- [x] **B9b** `PATCH /api/admin/pedidos/:id/estorno` — apenas admin
 
-- [ ] **B3a** `GET /api/admin/loja/status`
-- [ ] **B3b** `PATCH /api/admin/loja/status` — ABERTO / FECHADO / PAUSADO (PAUSADO exige `mensagem`)
+- [x] **B3a** `GET /api/admin/loja/status`
+- [x] **B3b** `PATCH /api/admin/loja/status` — ABERTO / FECHADO / PAUSADO (PAUSADO exige `mensagem`)
 
 ### Frontend
 
-- [ ] **F5** Aba Entrega
+- [x] **F5** Aba Entrega
   - Endereço com edição rápida inline
   - Alerta de endereço diferente do histórico
   - Seleção de motoboy (busca, status visual)
   - Observação de entrega
 
-- [ ] **F10** Modal de Pedido Manual
+- [x] **F10** Modal de Pedido Manual
   - Formulário: nome, telefone, bairro, endereço, itens, observação
   - Cálculo automático da taxa pelo bairro
   - Toggle Pix / Dinheiro
   - Pix: exibe link para copiar
   - Dinheiro: campo "Valor em dinheiro"
 
-- [ ] **F11** Modal de Cancelamento
+- [x] **F11** Modal de Cancelamento
   - Dropdown com 6 motivos obrigatórios
   - Banner de estorno quando `statusPagamento === CONFIRMADO`
   - Botão "Marcar estorno realizado" apenas para admin
 
-- [ ] **F2 — Botão Abrir/Fechar/Pausar**
+- [x] **F2 — Botão Abrir/Fechar/Pausar**
   - 3 estados visuais distintos na top bar
   - Campo de mensagem configurável quando PAUSADO
   - Persiste estado consumindo B3
@@ -337,12 +337,12 @@
 - [ ] Mudar para Confirmado dispara mensagem automática no WhatsApp
 - [ ] Mudar para Em Rota dispara mensagem automática no WhatsApp
 - [ ] Mudar para Entregue dispara mensagem automática no WhatsApp
-- [ ] Cancelamento com pagamento confirmado exibe alerta de estorno
+- [x] Cancelamento com pagamento confirmado exibe alerta de estorno
 - [ ] SLA muda cor do timer conforme tabela de tempos
 - [ ] Som toca quando chega pedido novo (funciona com aba em background)
 - [ ] Som toca quando chega mensagem WhatsApp
 - [x] Operador responde WhatsApp sem sair do cockpit
-- [ ] Pedido manual funciona nos dois fluxos (Pix e dinheiro)
+- [x] Pedido manual funciona nos dois fluxos (Pix e dinheiro)
 - [ ] Timeline registra todas as ações com timestamp e ator
 - [ ] Botão Abrir/Fechar/Pausar loja reflete no site em tempo real
 - [x] Lista negra alerta operador antes de confirmar pedido

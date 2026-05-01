@@ -5,7 +5,7 @@ import bairroService from './bairro.service';
 import produtoService from './produto.service';
 import infinitePayService from './infinitepay.service';
 import evolutionService from './evolution.service';
-import { Origem, StatusPedido } from '@prisma/client';
+import { Origem, StatusLoja, StatusPedido } from '@prisma/client';
 
 interface ItemPedidoInput {
   produtoId: string;
@@ -285,6 +285,14 @@ export class PedidoService {
             },
           },
         },
+        motoboy: {
+          select: {
+            id: true,
+            nome: true,
+            telefone: true,
+            status: true,
+          },
+        },
       },
     });
 
@@ -298,6 +306,10 @@ export class PedidoService {
       statusPagamento: this.resolverStatusPagamento(pedido.status),
       pagamentoId: pedido.pagamentoId,
       observacao: pedido.observacao,
+      observacaoEntrega: pedido.observacaoEntrega,
+      canceladoMotivo: pedido.canceladoMotivo,
+      estornoNecessario: pedido.estornoNecessario,
+      estornoRealizadoEm: pedido.estornoRealizadoEm?.toISOString() || null,
       subtotal: Number(pedido.subtotal),
       taxaEntrega: Number(pedido.taxaEntrega),
       total: Number(pedido.total),
@@ -325,7 +337,14 @@ export class PedidoService {
             }
           : null,
       })),
-      motoboy: null,
+      motoboy: pedido.motoboy
+        ? {
+            id: pedido.motoboy.id,
+            nome: pedido.motoboy.nome,
+            telefone: pedido.motoboy.telefone,
+            status: pedido.motoboy.status,
+          }
+        : null,
       timeline: [
         {
           timestamp: pedido.criadoEm.toISOString(),
@@ -598,7 +617,12 @@ export class PedidoService {
 
     const atualizado = await prisma.pedido.update({
       where: { id },
-      data: { status: novoStatus },
+      data: {
+        status: novoStatus,
+        ...(novoStatus === StatusPedido.CANCELADO && motivoCancelamento
+          ? { canceladoMotivo: motivoCancelamento }
+          : {}),
+      },
       select: { id: true, status: true, atualizadoEm: true },
     });
 
@@ -634,6 +658,192 @@ export class PedidoService {
     }
 
     return atualizado;
+  }
+
+  async listarMotoboys() {
+    const motoboys = await prisma.motoboy.findMany({
+      orderBy: [{ status: 'asc' }, { nome: 'asc' }],
+    });
+    return motoboys.map((m) => ({
+      id: m.id,
+      nome: m.nome,
+      telefone: m.telefone,
+      status: m.status,
+    }));
+  }
+
+  async atribuirMotoboy(pedidoId: string, motoboyId: string | null, observacaoEntrega?: string) {
+    const pedido = await prisma.pedido.findUnique({ where: { id: pedidoId }, select: { id: true } });
+    if (!pedido) throw new Error('PEDIDO_NAO_ENCONTRADO');
+
+    if (motoboyId) {
+      const motoboy = await prisma.motoboy.findUnique({ where: { id: motoboyId }, select: { id: true } });
+      if (!motoboy) throw new Error('MOTOBOY_NAO_ENCONTRADO');
+    }
+
+    const atualizado = await prisma.pedido.update({
+      where: { id: pedidoId },
+      data: {
+        motoboyId,
+        observacaoEntrega: observacaoEntrega?.trim() || null,
+      },
+      include: {
+        motoboy: { select: { id: true, nome: true, telefone: true, status: true } },
+      },
+    });
+
+    return {
+      id: atualizado.id,
+      motoboy: atualizado.motoboy,
+      observacaoEntrega: atualizado.observacaoEntrega,
+      atualizadoEm: atualizado.atualizadoEm.toISOString(),
+    };
+  }
+
+  async atualizarEnderecoEntrega(pedidoId: string, endereco: string, bairro: string) {
+    const pedido = await prisma.pedido.findUnique({
+      where: { id: pedidoId },
+      select: { id: true, clienteTelefone: true },
+    });
+    if (!pedido) throw new Error('PEDIDO_NAO_ENCONTRADO');
+
+    await prisma.cliente.update({
+      where: { telefone: pedido.clienteTelefone },
+      data: {
+        endereco: endereco.trim(),
+        bairro: bairro.trim(),
+      },
+    });
+
+    const atualizado = await this.buscarPedidoAdminPorId(pedidoId);
+    return atualizado;
+  }
+
+  async criarPedidoManual(dados: CriarPedidoInput & { pagamentoMetodo: 'PIX' | 'DINHEIRO'; valorDinheiro?: number }) {
+    const pedido = await this.criarPedido(dados);
+
+    if (dados.pagamentoMetodo === 'DINHEIRO') {
+      const atualizado = await prisma.pedido.update({
+        where: { id: pedido.id },
+        data: {
+          status: StatusPedido.CONFIRMADO,
+        },
+      });
+      return {
+        ...pedido,
+        status: atualizado.status,
+        formaPagamento: 'DINHEIRO_ENTREGA',
+        valorDinheiro: dados.valorDinheiro ?? null,
+      };
+    }
+
+    return {
+      ...pedido,
+      formaPagamento: 'PIX',
+    };
+  }
+
+  async cancelarPedidoAdmin(id: string, motivo: string) {
+    const pedido = await prisma.pedido.findUnique({
+      where: { id },
+      select: { id: true, status: true },
+    });
+    if (!pedido) throw new Error('PEDIDO_NAO_ENCONTRADO');
+
+    const statusPagamento = this.resolverStatusPagamento(pedido.status);
+    const estornoNecessario = statusPagamento === 'CONFIRMADO';
+
+    const atualizado = await prisma.pedido.update({
+      where: { id },
+      data: {
+        status: StatusPedido.CANCELADO,
+        canceladoMotivo: motivo.trim(),
+        estornoNecessario,
+      },
+      select: {
+        id: true,
+        status: true,
+        canceladoMotivo: true,
+        estornoNecessario: true,
+        estornoRealizadoEm: true,
+        atualizadoEm: true,
+      },
+    });
+
+    return {
+      ...atualizado,
+      atualizadoEm: atualizado.atualizadoEm.toISOString(),
+      estornoRealizadoEm: atualizado.estornoRealizadoEm?.toISOString() || null,
+    };
+  }
+
+  async marcarEstornoAdmin(id: string) {
+    const pedido = await prisma.pedido.findUnique({
+      where: { id },
+      select: { id: true, status: true, estornoNecessario: true },
+    });
+    if (!pedido) throw new Error('PEDIDO_NAO_ENCONTRADO');
+    if (pedido.status !== StatusPedido.CANCELADO) throw new Error('ESTORNO_STATUS_INVALIDO');
+    if (!pedido.estornoNecessario) throw new Error('ESTORNO_NAO_NECESSARIO');
+
+    const atualizado = await prisma.pedido.update({
+      where: { id },
+      data: {
+        estornoRealizadoEm: new Date(),
+        estornoNecessario: false,
+      },
+      select: {
+        id: true,
+        estornoNecessario: true,
+        estornoRealizadoEm: true,
+        atualizadoEm: true,
+      },
+    });
+
+    return {
+      ...atualizado,
+      estornoRealizadoEm: atualizado.estornoRealizadoEm?.toISOString() || null,
+      atualizadoEm: atualizado.atualizadoEm.toISOString(),
+    };
+  }
+
+  async obterStatusLoja() {
+    const loja = await prisma.lojaConfiguracao.upsert({
+      where: { id: 'loja_principal' },
+      update: {},
+      create: { id: 'loja_principal', status: StatusLoja.ABERTO },
+    });
+
+    return {
+      status: loja.status,
+      mensagem: loja.mensagemPausado,
+      atualizadoEm: loja.atualizadoEm.toISOString(),
+    };
+  }
+
+  async atualizarStatusLoja(status: StatusLoja, mensagem?: string) {
+    if (status === StatusLoja.PAUSADO && !mensagem?.trim()) {
+      throw new Error('MENSAGEM_PAUSADO_OBRIGATORIA');
+    }
+
+    const loja = await prisma.lojaConfiguracao.upsert({
+      where: { id: 'loja_principal' },
+      update: {
+        status,
+        mensagemPausado: status === StatusLoja.PAUSADO ? mensagem!.trim() : null,
+      },
+      create: {
+        id: 'loja_principal',
+        status,
+        mensagemPausado: status === StatusLoja.PAUSADO ? mensagem!.trim() : null,
+      },
+    });
+
+    return {
+      status: loja.status,
+      mensagem: loja.mensagemPausado,
+      atualizadoEm: loja.atualizadoEm.toISOString(),
+    };
   }
 
   /**

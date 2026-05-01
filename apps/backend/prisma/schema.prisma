@@ -92,6 +92,11 @@ model Pedido {
   total           Decimal       @db.Decimal(10, 2)
   status          StatusPedido  @default(PENDENTE)
   pagamentoId     String?       @map("pagamento_id") @db.VarChar(255) // ID do Asaas
+  motoboyId       String?       @map("motoboy_id")
+  observacaoEntrega String?     @map("observacao_entrega") @db.Text
+  canceladoMotivo String?       @map("cancelado_motivo") @db.Text
+  estornoNecessario Boolean     @default(false) @map("estorno_necessario")
+  estornoRealizadoEm DateTime?  @map("estorno_realizado_em")
   pagamentoExpiraEm DateTime?   @map("pagamento_expira_em")
   abandonadoEm    DateTime?     @map("abandonado_em")
   recuperadoEm    DateTime?     @map("recuperado_em")
@@ -102,12 +107,14 @@ model Pedido {
   
   // Relações
   cliente Cliente      @relation(fields: [clienteTelefone], references: [telefone])
+  motoboy Motoboy?     @relation(fields: [motoboyId], references: [id], onDelete: SetNull)
   itens   ItemPedido[]
   mensagens MensagemCliente[]
   
   @@map("pedidos")
   @@index([clienteTelefone])
   @@index([status])
+  @@index([motoboyId])
   @@index([criadoEm])
 }
 
@@ -259,4 +266,39 @@ model ListaNegraCliente {
 
   @@map("lista_negra_clientes")
   @@index([criadoEm])
+}
+
+enum StatusMotoboy {
+  DISPONIVEL
+  EM_ENTREGA
+  INATIVO
+}
+
+model Motoboy {
+  id          String        @id @default(cuid())
+  nome        String        @db.VarChar(255)
+  telefone    String        @unique @db.VarChar(20)
+  status      StatusMotoboy @default(DISPONIVEL)
+  criadoEm    DateTime      @default(now()) @map("criado_em")
+  atualizadoEm DateTime     @updatedAt @map("atualizado_em")
+
+  pedidos     Pedido[]
+
+  @@map("motoboys")
+  @@index([status])
+}
+
+enum StatusLoja {
+  ABERTO
+  FECHADO
+  PAUSADO
+}
+
+model LojaConfiguracao {
+  id               String     @id @default("loja_principal")
+  status           StatusLoja @default(ABERTO)
+  mensagemPausado  String?    @map("mensagem_pausado") @db.Text
+  atualizadoEm     DateTime   @updatedAt @map("atualizado_em")
+
+  @@map("loja_configuracao")
 }
