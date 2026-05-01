@@ -8,6 +8,8 @@ interface UseCockpitSocketOptions {
   onPedidoNovo?: (payload: any) => void;
   onPedidoAtualizado?: (payload: any) => void;
   onMensagemNova?: (payload: any) => void;
+  onFallbackPoll?: () => void;
+  fallbackIntervalMs?: number;
 }
 
 export function useCockpitSocket(options: UseCockpitSocketOptions) {
@@ -16,7 +18,23 @@ export function useCockpitSocket(options: UseCockpitSocketOptions) {
 
   useEffect(() => {
     let source: EventSource | null = null;
-    let reconnectTimer: number | null = null;
+    let fallbackTimer: number | null = null;
+
+    const startFallbackPolling = () => {
+      if (fallbackTimer) return;
+      const interval = optionsRef.current.fallbackIntervalMs ?? 8000;
+      fallbackTimer = window.setInterval(() => {
+        optionsRef.current.onFallbackPoll?.();
+      }, interval);
+    };
+
+    const isFirefox = typeof navigator !== 'undefined' && /Firefox/i.test(navigator.userAgent);
+    if (isFirefox) {
+      startFallbackPolling();
+      return () => {
+        if (fallbackTimer) window.clearInterval(fallbackTimer);
+      };
+    }
 
     const connect = () => {
       // Usa mesma origem do frontend (nginx/proxy) para evitar falhas de CORS/DNS no SSE.
@@ -39,15 +57,14 @@ export function useCockpitSocket(options: UseCockpitSocketOptions) {
 
       source.onerror = () => {
         source?.close();
-        if (reconnectTimer) window.clearTimeout(reconnectTimer);
-        reconnectTimer = window.setTimeout(connect, 2000);
+        startFallbackPolling();
       };
     };
 
     connect();
 
     return () => {
-      if (reconnectTimer) window.clearTimeout(reconnectTimer);
+      if (fallbackTimer) window.clearInterval(fallbackTimer);
       source?.close();
     };
   }, []);

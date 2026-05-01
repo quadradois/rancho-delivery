@@ -208,6 +208,12 @@ export default function AdminPedidosPage() {
       }
       void carregarLista();
     },
+    onFallbackPoll: () => {
+      void carregarLista();
+      if (selectedId) {
+        void carregarDetalhe(selectedId);
+      }
+    },
   });
 
   const resumo = useMemo(
