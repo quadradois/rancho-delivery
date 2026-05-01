@@ -87,6 +87,8 @@ model Bairro {
 model Pedido {
   id              String        @id @default(cuid())
   clienteTelefone String        @map("cliente_telefone") @db.VarChar(20)
+  enderecoEntrega String?       @map("endereco_entrega") @db.Text
+  bairroEntrega   String?       @map("bairro_entrega") @db.VarChar(100)
   subtotal        Decimal       @db.Decimal(10, 2)
   taxaEntrega     Decimal       @map("taxa_entrega") @db.Decimal(10, 2)
   total           Decimal       @db.Decimal(10, 2)

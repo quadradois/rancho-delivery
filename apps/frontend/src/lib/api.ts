@@ -289,12 +289,14 @@ export const lojaService = {
 };
 
 export const adminPedidoService = {
-  async listar(params?: { status?: string; busca?: string }): Promise<AdminPedidoListaItem[]> {
+  async listar(params?: { status?: string; busca?: string; page?: number; limit?: number }): Promise<{ data: AdminPedidoListaItem[]; pagination: { page: number; limit: number; total: number } }> {
     const query = new URLSearchParams();
     if (params?.status) query.set('status', params.status);
     if (params?.busca) query.set('busca', params.busca);
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.limit) query.set('limit', String(params.limit));
     const suffix = query.toString() ? `?${query.toString()}` : '';
-    return apiClient.get<AdminPedidoListaItem[]>(`/admin/pedidos${suffix}`);
+    return apiClient.get<{ data: AdminPedidoListaItem[]; pagination: { page: number; limit: number; total: number } }>(`/admin/pedidos${suffix}`);
   },
 
   async buscarPorId(id: string): Promise<AdminPedidoDetalhe> {

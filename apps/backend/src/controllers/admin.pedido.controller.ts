@@ -35,10 +35,12 @@ export class AdminPedidoController {
    */
   async listar(req: Request, res: Response) {
     try {
-      const { status, busca } = req.query;
+      const { status, busca, page, limit } = req.query;
       const data = await pedidoService.listarPedidosAdmin({
         status: typeof status === 'string' ? status : undefined,
         busca: typeof busca === 'string' ? busca : undefined,
+        page: typeof page === 'string' ? Number(page) : undefined,
+        limit: typeof limit === 'string' ? Number(limit) : undefined,
       });
 
       return res.json({ success: true, data });

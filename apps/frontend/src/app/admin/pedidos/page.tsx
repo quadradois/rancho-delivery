@@ -121,6 +121,10 @@ export default function AdminPedidosPage() {
   const [savingStatus, setSavingStatus] = useState(false);
   const [statusFiltro, setStatusFiltro] = useState('todos');
   const [busca, setBusca] = useState('');
+  const [buscaDebounced, setBuscaDebounced] = useState('');
+  const [page, setPage] = useState(1);
+  const [totalPedidos, setTotalPedidos] = useState(0);
+  const [pageSize] = useState(50);
   const [mensagens, setMensagens] = useState<MensagemClienteAdmin[]>([]);
   const [clienteResumo, setClienteResumo] = useState<ClienteResumoAdmin | null>(null);
   const [textoMensagem, setTextoMensagem] = useState('');
@@ -152,16 +156,22 @@ export default function AdminPedidosPage() {
   const carregarLista = useCallback(async () => {
     setLoadingList(true);
     try {
-      const data = await api.adminPedidos.listar({
+      const response = await api.adminPedidos.listar({
         status: statusFiltro !== 'todos' ? statusFiltro : undefined,
-        busca: busca || undefined,
+        busca: buscaDebounced || undefined,
+        page,
+        limit: pageSize,
       });
+      const data = response.data;
       setPedidos(data);
+      setTotalPedidos(response.pagination.total);
       if (!selectedId && data[0]) setSelectedId(data[0].id);
+    } catch (error: any) {
+      showError('Falha ao carregar pedidos', error?.message || 'Tente novamente.');
     } finally {
       setLoadingList(false);
     }
-  }, [statusFiltro, busca, selectedId]);
+  }, [statusFiltro, buscaDebounced, page, pageSize, selectedId, showError]);
 
   const carregarDetalhe = useCallback(async (id: string) => {
     setLoadingDetail(true);
@@ -172,36 +182,70 @@ export default function AdminPedidosPage() {
       setObservacaoEntrega(data.observacaoEntrega || '');
       setEnderecoEntrega(data.cliente.endereco || '');
       setBairroEntrega(data.cliente.bairro || '');
+    } catch (error: any) {
+      showError('Falha ao carregar detalhe', error?.message || 'Tente novamente.');
     } finally {
       setLoadingDetail(false);
     }
-  }, []);
+  }, [showError]);
 
   const carregarResumoCliente = useCallback(async (telefone: string) => {
-    const data = await api.adminClientes.obterResumo(telefone);
-    setClienteResumo(data);
-  }, []);
+    try {
+      const data = await api.adminClientes.obterResumo(telefone);
+      setClienteResumo(data);
+    } catch (error: any) {
+      showError('Falha ao carregar cliente', error?.message || 'Tente novamente.');
+    }
+  }, [showError]);
 
   const carregarMensagens = useCallback(async (telefone: string, marcarComoLida = false) => {
-    const data = await api.adminClientes.listarMensagens(telefone, marcarComoLida);
-    setMensagens(data);
-  }, []);
+    try {
+      const data = await api.adminClientes.listarMensagens(telefone, marcarComoLida);
+      setMensagens(data);
+    } catch (error: any) {
+      showError('Falha ao carregar mensagens', error?.message || 'Tente novamente.');
+    }
+  }, [showError]);
 
   const carregarMotoboys = useCallback(async () => {
-    const data = await api.adminPedidos.listarMotoboys();
-    setMotoboys(data);
-  }, []);
+    try {
+      const data = await api.adminPedidos.listarMotoboys();
+      setMotoboys(data);
+    } catch (error: any) {
+      showError('Falha ao carregar motoboys', error?.message || 'Tente novamente.');
+    }
+  }, [showError]);
 
   const carregarStatusLoja = useCallback(async () => {
-    const data = await api.adminPedidos.obterStatusLoja();
-    setLojaStatus(data);
-    setMensagemPausa(data.mensagem || '');
-  }, []);
+    try {
+      const data = await api.adminPedidos.obterStatusLoja();
+      setLojaStatus(data);
+      setMensagemPausa(data.mensagem || '');
+    } catch (error: any) {
+      showError('Falha ao carregar status da loja', error?.message || 'Tente novamente.');
+    }
+  }, [showError]);
 
   const carregarMetricas = useCallback(async () => {
-    const data = await api.adminPedidos.obterMetricas();
-    setMetricas(data);
-  }, []);
+    try {
+      const data = await api.adminPedidos.obterMetricas();
+      setMetricas(data);
+    } catch (error: any) {
+      showError('Falha ao carregar métricas', error?.message || 'Tente novamente.');
+    }
+  }, [showError]);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      setBuscaDebounced(busca.trim());
+      setPage(1);
+    }, 350);
+    return () => window.clearTimeout(id);
+  }, [busca]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [statusFiltro]);
 
   useEffect(() => {
     void carregarLista();
@@ -221,7 +265,6 @@ export default function AdminPedidosPage() {
 
   useCockpitSocket({
     onPedidoNovo: () => {
-      playNewOrder();
       void carregarLista();
       void carregarMetricas();
     },
@@ -233,8 +276,7 @@ export default function AdminPedidosPage() {
       }
     },
     onMensagemNova: async (payload) => {
-      playMessage();
-      if (pedidoDetalhe?.cliente?.telefone && payload?.telefone?.includes(pedidoDetalhe.cliente.telefone)) {
+      if (pedidoDetalhe?.cliente?.telefone && payload?.telefone === pedidoDetalhe.cliente.telefone) {
         await carregarMensagens(pedidoDetalhe.cliente.telefone, false);
       }
       void carregarLista();
@@ -242,6 +284,9 @@ export default function AdminPedidosPage() {
     },
     onMetricasAtualizadas: (payload) => {
       setMetricas(payload as AdminMetricas);
+    },
+    onLojaStatus: (payload) => {
+      setLojaStatus(payload as LojaStatusAdmin);
     },
     onFallbackPoll: () => {
       void carregarLista();
@@ -423,6 +468,16 @@ export default function AdminPedidosPage() {
     }
   }, [pedidoDetalhe, motivoCancelamento, carregarLista, carregarDetalhe, showSuccess, showError]);
 
+  const confirmarPedido = useCallback(async (id: string) => {
+    try {
+      await api.adminPedidos.atualizarStatus(id, 'CONFIRMADO');
+      await Promise.all([carregarLista(), selectedId === id ? carregarDetalhe(id) : Promise.resolve()]);
+      showSuccess('Pedido confirmado');
+    } catch (error: any) {
+      showError('Falha ao confirmar pedido', error?.message || 'Tente novamente.');
+    }
+  }, [carregarLista, carregarDetalhe, selectedId, showSuccess, showError]);
+
   const criarPedidoManual = useCallback(async () => {
     try {
       const data = await api.adminPedidos.criarManual({
@@ -463,7 +518,7 @@ export default function AdminPedidosPage() {
         <div>
           <h1 className="font-sora text-2xl font-bold text-[var(--color-text-primary)]">Cockpit de Pedidos</h1>
           <p className="text-sm text-[var(--color-text-secondary)]">
-            {resumo.total} pedidos · {resumo.aprovacao} aguardando aprovação · {resumo.preparo} em preparo
+            {totalPedidos} pedidos · {resumo.aprovacao} aguardando aprovação · {resumo.preparo} em preparo
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -550,7 +605,17 @@ export default function AdminPedidosPage() {
                       <div className="mt-2"><CrmBadge variant="waiting">{pedido.mensagensNaoLidas} msg</CrmBadge></div>
                     )}
                     <div className="mt-2">
-                      <CrmButton size="sm" className="w-full" disabled={pedido.statusPagamento !== 'CONFIRMADO'} title={pedido.statusPagamento !== 'CONFIRMADO' ? 'Aguardando pagamento' : 'Confirmar pedido'}>
+                      <CrmButton
+                        size="sm"
+                        className="w-full"
+                        disabled={pedido.statusPagamento !== 'CONFIRMADO' || pedido.status !== 'AGUARDANDO_PAGAMENTO'}
+                        title={pedido.statusPagamento !== 'CONFIRMADO' ? 'Aguardando pagamento' : 'Confirmar pedido'}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          void confirmarPedido(pedido.id);
+                        }}
+                      >
                         Confirmar
                       </CrmButton>
                     </div>
@@ -660,9 +725,7 @@ export default function AdminPedidosPage() {
 
                 <CrmTabPanel value="timeline">
                   <div className="space-y-2">
-                    {[...pedidoDetalhe.timeline]
-                      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-                      .map((item, index) => (
+                    {pedidoDetalhe.timeline.map((item, index) => (
                       <div key={`${item.timestamp}-${index}`} className={`rounded-md border p-3 ${actorClass(item.ator)}`}>
                         <p className="text-xs font-semibold uppercase tracking-wide">
                           {formatTime(item.timestamp)} · {item.ator} · {item.acao}
@@ -739,6 +802,19 @@ export default function AdminPedidosPage() {
             </>
           )}
         </CrmCard>
+      </div>
+      <div className="mt-3 flex items-center justify-between">
+        <p className="text-xs text-[var(--color-text-secondary)]">
+          Página {page} · {pedidos.length} de {totalPedidos}
+        </p>
+        <div className="flex gap-2">
+          <CrmButton size="sm" variant="ghost" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            Anterior
+          </CrmButton>
+          <CrmButton size="sm" variant="ghost" disabled={page * pageSize >= totalPedidos} onClick={() => setPage((p) => p + 1)}>
+            Próxima
+          </CrmButton>
+        </div>
       </div>
 
       <CrmModal open={showCancelModal} onClose={() => setShowCancelModal(false)} title="Cancelar pedido">

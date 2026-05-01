@@ -70,6 +70,37 @@ export class PedidoService {
     return ordem[status] ?? 99;
   }
 
+  private async notificarMudancaStatus(
+    pedidoId: string,
+    novoStatus: StatusPedido,
+    motivoCancelamento?: string
+  ) {
+    const deveNotificarCliente =
+      novoStatus === StatusPedido.CONFIRMADO ||
+      novoStatus === StatusPedido.SAIU_ENTREGA ||
+      novoStatus === StatusPedido.ENTREGUE ||
+      novoStatus === StatusPedido.CANCELADO;
+
+    if (!deveNotificarCliente) return;
+
+    try {
+      const pedidoCompleto = await this.buscarPedidoPorId(pedidoId);
+      if (!pedidoCompleto) return;
+
+      const texto = evolutionService.formatarMensagemStatusPedido(pedidoCompleto, novoStatus, motivoCancelamento);
+      const enviado = await evolutionService.notificarClienteStatusPedido(pedidoCompleto, novoStatus, motivoCancelamento);
+      if (enviado && texto) {
+        await clienteService.registrarMensagemSistema(
+          pedidoCompleto.cliente.telefone,
+          texto,
+          pedidoCompleto.id
+        );
+      }
+    } catch (error) {
+      logger.error('Erro ao enviar mensagem automática de status ao cliente:', error);
+    }
+  }
+
   private getCheckoutTtlMinutes() {
     const ttl = Number(process.env.CHECKOUT_TTL_MINUTES || 20);
     return Number.isFinite(ttl) && ttl > 0 ? ttl : 20;
@@ -240,8 +271,11 @@ export class PedidoService {
     }
   }
 
-  async listarPedidosAdmin(filtros?: { status?: string; busca?: string }) {
+  async listarPedidosAdmin(filtros?: { status?: string; busca?: string; page?: number; limit?: number }) {
     const busca = filtros?.busca?.trim();
+    const page = Math.max(1, filtros?.page || 1);
+    const limit = Math.min(100, Math.max(1, filtros?.limit || 50));
+    const skip = (page - 1) * limit;
 
     const where: any = {};
     if (filtros?.status && filtros.status !== 'todos') {
@@ -259,6 +293,9 @@ export class PedidoService {
 
     const pedidos = await prisma.pedido.findMany({
       where,
+      orderBy: { criadoEm: 'desc' },
+      skip,
+      take: limit,
       include: {
         cliente: {
           select: {
@@ -278,6 +315,7 @@ export class PedidoService {
         },
       },
     });
+    const total = await prisma.pedido.count({ where });
 
     const telefones = [...new Set(pedidos.map((p) => p.cliente?.telefone).filter(Boolean))] as string[];
     const unreadGrouped = telefones.length
@@ -305,7 +343,7 @@ export class PedidoService {
         statusPagamento: this.resolverStatusPagamento(pedido.status),
         clienteNome: pedido.cliente?.nome || 'Cliente',
         clienteTelefone: pedido.cliente?.telefone || '',
-        bairro: pedido.cliente?.bairro || '',
+        bairro: pedido.bairroEntrega || pedido.cliente?.bairro || '',
         itensResumo: pedido.itens.slice(0, 3).map((item) => item.produto?.nome || 'Produto'),
         mensagensNaoLidas: unreadMap.get(pedido.cliente?.telefone || '') || 0,
         total: Number(pedido.total),
@@ -322,7 +360,10 @@ export class PedidoService {
       return a.createdAt.localeCompare(b.createdAt);
     });
 
-    return data;
+    return {
+      data,
+      pagination: { page, limit, total },
+    };
   }
 
   async buscarPedidoAdminPorId(id: string) {
@@ -393,8 +434,8 @@ export class PedidoService {
       cliente: {
         nome: pedido.cliente?.nome || 'Cliente',
         telefone: pedido.cliente?.telefone || '',
-        endereco: pedido.cliente?.endereco || '',
-        bairro: pedido.cliente?.bairro || '',
+        endereco: pedido.enderecoEntrega || pedido.cliente?.endereco || '',
+        bairro: pedido.bairroEntrega || pedido.cliente?.bairro || '',
       },
       itens: pedido.itens.map((item) => ({
         id: item.id,
@@ -487,6 +528,8 @@ export class PedidoService {
       const pedido = await prisma.pedido.create({
         data: {
           clienteTelefone: cliente.telefone,
+          enderecoEntrega: dadosCliente.endereco,
+          bairroEntrega: dadosCliente.bairro,
           subtotal,
           taxaEntrega,
           total,
@@ -658,29 +701,7 @@ export class PedidoService {
       await this.registrarTimeline(id, 'SISTEMA', `Status -> ${status}`);
 
       const novoStatus = status as StatusPedido;
-      const deveNotificarCliente =
-        novoStatus === StatusPedido.CONFIRMADO ||
-        novoStatus === StatusPedido.SAIU_ENTREGA ||
-        novoStatus === StatusPedido.ENTREGUE;
-
-      if (deveNotificarCliente) {
-        try {
-          const pedidoCompleto = await this.buscarPedidoPorId(id);
-          if (pedidoCompleto) {
-            const texto = evolutionService.formatarMensagemStatusPedido(pedidoCompleto, novoStatus);
-            const enviado = await evolutionService.notificarClienteStatusPedido(pedidoCompleto, novoStatus);
-            if (enviado && texto) {
-              await clienteService.registrarMensagemSistema(
-                pedidoCompleto.cliente.telefone,
-                texto,
-                pedidoCompleto.id
-              );
-            }
-          }
-        } catch (error) {
-          logger.error('Erro ao enviar mensagem automática de status ao cliente:', error);
-        }
-      }
+      await this.notificarMudancaStatus(id, novoStatus);
 
       logger.info(`Status do pedido ${id} atualizado para: ${status}`);
       return pedido;
@@ -728,30 +749,7 @@ export class PedidoService {
 
     await this.registrarTimeline(id, 'OPERADOR', `Status -> ${novoStatus}`);
 
-    const deveNotificarCliente =
-      novoStatus === StatusPedido.CONFIRMADO ||
-      novoStatus === StatusPedido.SAIU_ENTREGA ||
-      novoStatus === StatusPedido.ENTREGUE ||
-      novoStatus === StatusPedido.CANCELADO;
-
-    if (deveNotificarCliente) {
-      try {
-        const pedidoCompleto = await this.buscarPedidoPorId(id);
-        if (pedidoCompleto) {
-          const texto = evolutionService.formatarMensagemStatusPedido(pedidoCompleto, novoStatus, motivoCancelamento);
-          const enviado = await evolutionService.notificarClienteStatusPedido(pedidoCompleto, novoStatus, motivoCancelamento);
-          if (enviado && texto) {
-            await clienteService.registrarMensagemSistema(
-              pedidoCompleto.cliente.telefone,
-              texto,
-              pedidoCompleto.id
-            );
-          }
-        }
-      } catch (error) {
-        logger.error('Erro ao enviar mensagem automática de status ao cliente:', error);
-      }
-    }
+    await this.notificarMudancaStatus(id, novoStatus, motivoCancelamento);
 
     return atualizado;
   }
@@ -805,15 +803,15 @@ export class PedidoService {
   async atualizarEnderecoEntrega(pedidoId: string, endereco: string, bairro: string) {
     const pedido = await prisma.pedido.findUnique({
       where: { id: pedidoId },
-      select: { id: true, clienteTelefone: true },
+      select: { id: true },
     });
     if (!pedido) throw new Error('PEDIDO_NAO_ENCONTRADO');
 
-    await prisma.cliente.update({
-      where: { telefone: pedido.clienteTelefone },
+    await prisma.pedido.update({
+      where: { id: pedidoId },
       data: {
-        endereco: endereco.trim(),
-        bairro: bairro.trim(),
+        enderecoEntrega: endereco.trim(),
+        bairroEntrega: bairro.trim(),
       },
     });
 
