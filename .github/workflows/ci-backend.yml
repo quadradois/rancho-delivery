@@ -43,7 +43,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
       
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -59,16 +59,16 @@ jobs:
       - name: Instalar dependências
         run: pnpm install --frozen-lockfile
       
+      - name: Gerar Prisma Client
+        run: pnpm --filter @rancho-delivery/backend db:generate
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rancho_delivery_test
+
       - name: Verificar tipos TypeScript
         run: pnpm --filter @rancho-delivery/backend typecheck
       
       - name: Executar linter
         run: pnpm --filter @rancho-delivery/backend lint
-      
-      - name: Gerar Prisma Client
-        run: pnpm --filter @rancho-delivery/backend db:generate
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rancho_delivery_test
       
       - name: Executar migrações
         run: pnpm --filter @rancho-delivery/backend db:migrate:deploy
