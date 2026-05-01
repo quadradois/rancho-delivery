@@ -226,70 +226,6 @@ export interface AdminMetricas {
   atualizadoEm: string;
 }
 
-export type TipoAlertaOperacional =
-  | 'PEDIDO_PAGO_SEM_CONFIRMACAO'
-  | 'CLIENTE_SEM_RESPOSTA'
-  | 'PREPARO_ATRASADO'
-  | 'PEDIDO_SEM_ENTREGADOR'
-  | 'ESTORNO_NECESSARIO'
-  | 'WHATSAPP_INDISPONIVEL'
-  | 'FALHA_ENVIO_WHATSAPP'
-  | 'ENDERECO_DUVIDOSO';
-
-export type SeveridadeAlerta = 'INFO' | 'ATENCAO' | 'CRITICO';
-export type StatusAlerta = 'ABERTO' | 'EM_TRATAMENTO' | 'RESOLVIDO' | 'IGNORADO';
-export type AcaoRecomendada =
-  | 'CONFIRMAR_PEDIDO'
-  | 'RESPONDER_CLIENTE'
-  | 'VERIFICAR_COZINHA'
-  | 'ATRIBUIR_ENTREGADOR'
-  | 'MARCAR_ESTORNO'
-  | 'RECONECTAR_WHATSAPP'
-  | 'REVISAR_ENDERECO'
-  | 'ACOMPANHAR';
-
-export interface AdminDecisaoPedidoResumo {
-  id: string;
-  numero: string;
-  status: string;
-  statusPagamento: 'PENDENTE' | 'CONFIRMADO' | 'EXPIRADO';
-  clienteNome: string;
-  clienteTelefone: string;
-  bairro: string;
-  total: number;
-  tempoNoEstagio: number;
-}
-
-export interface AdminDecisaoItem {
-  id: string;
-  tipo: TipoAlertaOperacional;
-  severidade: SeveridadeAlerta;
-  status: StatusAlerta;
-  titulo: string;
-  descricao: string;
-  motivo: string;
-  proximaAcao: AcaoRecomendada;
-  acaoPayload?: unknown;
-  tempoPendenteSegundos: number;
-  detectadoEm: string;
-  atualizadoEm: string;
-  resolvidoEm?: string | null;
-  pedido: AdminDecisaoPedidoResumo | null;
-  clienteTelefone?: string | null;
-}
-
-export interface AdminDecisaoMetricas {
-  abertos: number;
-  criticos: number;
-  atencao: number;
-  clientesSemResposta: number;
-  pagosSemConfirmacao: number;
-  preparoAtrasado: number;
-  estornosPendentes: number;
-  whatsappDisponivel: boolean | null;
-  atualizadoEm: string;
-}
-
 export interface Bairro {
   id: string;
   nome: string;
@@ -454,43 +390,6 @@ export const adminPedidoService = {
   },
 };
 
-export const adminDecisaoService = {
-  async listar(params?: {
-    status?: StatusAlerta;
-    severidade?: SeveridadeAlerta;
-    tipo?: TipoAlertaOperacional;
-    busca?: string;
-    page?: number;
-    limit?: number;
-  }): Promise<{ items: AdminDecisaoItem[]; pagination: { page: number; limit: number; total: number } }> {
-    const query = new URLSearchParams();
-    if (params?.status) query.set('status', params.status);
-    if (params?.severidade) query.set('severidade', params.severidade);
-    if (params?.tipo) query.set('tipo', params.tipo);
-    if (params?.busca) query.set('busca', params.busca);
-    if (params?.page) query.set('page', String(params.page));
-    if (params?.limit) query.set('limit', String(params.limit));
-    const suffix = query.toString() ? `?${query.toString()}` : '';
-    return apiClient.get(`/admin/decisoes${suffix}`);
-  },
-
-  async obterMetricas(): Promise<AdminDecisaoMetricas> {
-    return apiClient.get<AdminDecisaoMetricas>('/admin/decisoes/metricas');
-  },
-
-  async atualizarStatus(id: string, status: StatusAlerta): Promise<AdminDecisaoItem> {
-    return apiClient.patch<AdminDecisaoItem>(`/admin/decisoes/${id}/status`, { status });
-  },
-
-  async resolver(id: string, status: 'RESOLVIDO' | 'IGNORADO' = 'RESOLVIDO', motivo?: string): Promise<AdminDecisaoItem> {
-    return apiClient.patch<AdminDecisaoItem>(`/admin/decisoes/${id}/resolver`, { status, motivo });
-  },
-
-  async recalcular(payload: { escopo?: 'ABERTOS' | 'TODOS_ATIVOS' | 'PEDIDO'; pedidoId?: string } = {}): Promise<{ avaliados: number; criados: number; atualizados: number; resolvidos: number }> {
-    return apiClient.post('/admin/decisoes/recalcular', payload);
-  },
-};
-
 export const adminClienteService = {
   async statusWhatsApp(): Promise<WhatsAppStatusAdmin> {
     return apiClient.get<WhatsAppStatusAdmin>('/admin/whatsapp/status');
@@ -582,7 +481,6 @@ const api = {
   pedidos: pedidoService,
   loja: lojaService,
   adminPedidos: adminPedidoService,
-  adminDecisoes: adminDecisaoService,
   adminClientes: adminClienteService,
   adminAuth: adminAuthService,
   bairros: bairroService,

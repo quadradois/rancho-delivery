@@ -39,13 +39,6 @@ vi.mock('../config/database', () => ({
       updateMany: vi.fn(),
       create: vi.fn(),
     },
-    alertaOperacional: {
-      findUnique: vi.fn(),
-      findFirst: vi.fn(),
-      findMany: vi.fn(),
-      create: vi.fn(),
-      update: vi.fn(),
-    },
     $transaction: vi.fn((callback) => callback({
       pedido: {
         create: vi.fn(),

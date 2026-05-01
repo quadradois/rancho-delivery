@@ -5,7 +5,6 @@ import bairroService from './bairro.service';
 import produtoService from './produto.service';
 import infinitePayService from './infinitepay.service';
 import evolutionService from './evolution.service';
-import decisaoService from './decisao.service';
 import { Origem, StatusLoja, StatusPagamento, StatusPedido } from '@prisma/client';
 
 interface ItemPedidoInput {
@@ -693,7 +692,6 @@ export class PedidoService {
 
       const novoStatus = status as StatusPedido;
       await this.notificarMudancaStatus(id, novoStatus);
-      void decisaoService.avaliarPedidoSeguro(id);
 
       logger.info(`Status do pedido ${id} atualizado para: ${status}`);
       return pedido;
@@ -751,7 +749,6 @@ export class PedidoService {
     await this.registrarTimeline(id, 'OPERADOR', `Status -> ${novoStatus}`);
 
     await this.notificarMudancaStatus(id, novoStatus, motivoCancelamento);
-    void decisaoService.avaliarPedidoSeguro(id);
 
     return atualizado;
   }
@@ -793,7 +790,6 @@ export class PedidoService {
       'OPERADOR',
       atualizado.motoboy ? `Motoboy atribuido: ${atualizado.motoboy.nome}` : 'Motoboy removido'
     );
-    void decisaoService.avaliarPedidoSeguro(pedidoId);
 
     return {
       id: atualizado.id,
@@ -837,7 +833,6 @@ export class PedidoService {
         },
       });
       await this.registrarTimeline(pedido.id, 'OPERADOR', 'Pedido manual em dinheiro confirmado');
-      void decisaoService.avaliarPedidoSeguro(pedido.id);
       return {
         ...pedido,
         status: atualizado.status,
@@ -884,7 +879,6 @@ export class PedidoService {
     if (estornoNecessario) {
       await this.registrarTimeline(id, 'SISTEMA', 'Estorno necessario');
     }
-    void decisaoService.avaliarPedidoSeguro(id);
 
     return {
       ...atualizado,
@@ -917,7 +911,6 @@ export class PedidoService {
     });
 
     await this.registrarTimeline(id, 'OPERADOR', 'Estorno marcado como realizado');
-    void decisaoService.avaliarPedidoSeguro(id);
 
     return {
       ...atualizado,
