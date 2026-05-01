@@ -10,6 +10,10 @@ export class AdminRealtimeController {
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache, no-transform');
     res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
+    req.socket.setTimeout(0);
+    res.flushHeaders?.();
 
     res.write(`event: ready\n`);
     res.write(`data: ${JSON.stringify({ ok: true, timestamp: new Date().toISOString() })}\n\n`);
