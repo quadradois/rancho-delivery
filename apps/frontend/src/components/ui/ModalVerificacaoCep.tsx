@@ -27,10 +27,27 @@ interface ValidacaoCep {
 
 const CEP_VALIDADO_KEY = 'rancho:cep_validado';
 
+function readStorage(key: string) {
+  if (typeof window === 'undefined') return null;
+  return sessionStorage.getItem(key) || localStorage.getItem(key);
+}
+
+function writeStorage(key: string, value: string) {
+  if (typeof window === 'undefined') return;
+  sessionStorage.setItem(key, value);
+  localStorage.setItem(key, value);
+}
+
+function removeStorage(key: string) {
+  if (typeof window === 'undefined') return;
+  sessionStorage.removeItem(key);
+  localStorage.removeItem(key);
+}
+
 export function getCepValidado() {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = sessionStorage.getItem(CEP_VALIDADO_KEY);
+    const raw = readStorage(CEP_VALIDADO_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -51,11 +68,11 @@ export function salvarCepValidado(dados: {
   taxa: number;
   tempoEntrega: number;
 }) {
-  sessionStorage.setItem(CEP_VALIDADO_KEY, JSON.stringify(dados));
+  writeStorage(CEP_VALIDADO_KEY, JSON.stringify(dados));
 }
 
 export function limparCepValidado() {
-  sessionStorage.removeItem(CEP_VALIDADO_KEY);
+  removeStorage(CEP_VALIDADO_KEY);
 }
 
 interface ModalVerificacaoCepProps {

@@ -23,6 +23,7 @@ export default function OrderPage({ params }: OrderPageProps) {
   const [loading, setLoading] = useState(true);
 
   const statusNormalizado = (pedido?.status || '').toString().toLowerCase();
+  const formaPagamentoTexto = (pedido?.formaPagamento || 'pix').toString().replace('_', ' ');
   const enderecoTexto = pedido?.cliente?.endereco || '';
   const bairroTexto = pedido?.cliente?.bairro || '';
   const criadoEm = pedido?.createdAt || pedido?.criadoEm || '';
@@ -207,7 +208,7 @@ export default function OrderPage({ params }: OrderPageProps) {
                     <span className="text-xl">🍽️</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-[#F4E8CC]">{item.produto.nome}</p>
+                    <p className="font-semibold text-[#F4E8CC]">{item.produto?.nome || 'Produto'}</p>
                     <p className="text-xs text-[#9A7B5C]">Quantidade: {item.quantidade}</p>
                     {(item.observacoes || item.observacao) && (
                       <p className="text-xs text-[#9A7B5C] mt-1">Obs: {item.observacoes || item.observacao}</p>
@@ -243,7 +244,7 @@ export default function OrderPage({ params }: OrderPageProps) {
               <div className="pt-3" style={{ borderTop: '1px solid #3E2214' }}>
                 <div className="flex justify-between text-sm">
                   <span className="text-[#9A7B5C]">Forma de pagamento:</span>
-                  <span className="font-semibold text-[#F4E8CC] capitalize">{pedido.formaPagamento.replace('_', ' ')}</span>
+                  <span className="font-semibold text-[#F4E8CC] capitalize">{formaPagamentoTexto}</span>
                 </div>
                 {pedido.trocoParaValor && (
                   <div className="flex justify-between text-sm mt-1">

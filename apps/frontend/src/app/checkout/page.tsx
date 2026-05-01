@@ -17,6 +17,20 @@ const CHECKOUT_DRAFT_KEY = 'rancho:checkout_draft';
 const CHECKOUT_LAST_ATTEMPT_KEY = 'rancho:checkout_last_attempt';
 const RECOVERY_TTL_MS = 30 * 60 * 1000; // 30 minutos
 
+function readStorage(key: string) {
+  return sessionStorage.getItem(key) || localStorage.getItem(key);
+}
+
+function writeStorage(key: string, value: string) {
+  sessionStorage.setItem(key, value);
+  localStorage.setItem(key, value);
+}
+
+function removeStorage(key: string) {
+  sessionStorage.removeItem(key);
+  localStorage.removeItem(key);
+}
+
 type CheckoutStep = 'address' | 'payment' | 'review' | 'return';
 
 interface AddressForm {
@@ -62,16 +76,20 @@ function salvarRecovery(data: {
       ...data,
       timestamp: Date.now(),
     }));
+    writeStorage(CHECKOUT_RECOVERY_KEY, JSON.stringify({
+      ...data,
+      timestamp: Date.now(),
+    }));
   } catch { /* ignora erros de storage */ }
 }
 
 function lerRecovery() {
   try {
-    const raw = sessionStorage.getItem(CHECKOUT_RECOVERY_KEY);
+    const raw = readStorage(CHECKOUT_RECOVERY_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (Date.now() - parsed.timestamp > RECOVERY_TTL_MS) {
-      sessionStorage.removeItem(CHECKOUT_RECOVERY_KEY);
+      removeStorage(CHECKOUT_RECOVERY_KEY);
       return null;
     }
     return parsed as {
@@ -87,7 +105,7 @@ function lerRecovery() {
 }
 
 function limparRecovery() {
-  try { sessionStorage.removeItem(CHECKOUT_RECOVERY_KEY); } catch { /* noop */ }
+  try { removeStorage(CHECKOUT_RECOVERY_KEY); } catch { /* noop */ }
 }
 
 function salvarDraft(data: {
@@ -97,17 +115,17 @@ function salvarDraft(data: {
   cepAtendido: boolean;
 }) {
   try {
-    sessionStorage.setItem(CHECKOUT_DRAFT_KEY, JSON.stringify({ ...data, timestamp: Date.now() }));
+    writeStorage(CHECKOUT_DRAFT_KEY, JSON.stringify({ ...data, timestamp: Date.now() }));
   } catch { /* noop */ }
 }
 
 function lerDraft() {
   try {
-    const raw = sessionStorage.getItem(CHECKOUT_DRAFT_KEY);
+    const raw = readStorage(CHECKOUT_DRAFT_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (Date.now() - parsed.timestamp > RECOVERY_TTL_MS) {
-      sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);
+      removeStorage(CHECKOUT_DRAFT_KEY);
       return null;
     }
     return parsed as {
@@ -123,7 +141,7 @@ function lerDraft() {
 }
 
 function limparDraft() {
-  try { sessionStorage.removeItem(CHECKOUT_DRAFT_KEY); } catch { /* noop */ }
+  try { removeStorage(CHECKOUT_DRAFT_KEY); } catch { /* noop */ }
 }
 
 function fingerprintPedido(addressForm: AddressForm, items: Array<{ id: string; quantity: number }>) {
@@ -310,7 +328,7 @@ export default function CheckoutPage() {
     setLoading(true);
     try {
       const finger = fingerprintPedido(addressForm, items.map((item) => ({ id: item.id, quantity: item.quantity })));
-      const ultimoRaw = sessionStorage.getItem(CHECKOUT_LAST_ATTEMPT_KEY);
+      const ultimoRaw = readStorage(CHECKOUT_LAST_ATTEMPT_KEY);
       if (ultimoRaw) {
         const ultimo = JSON.parse(ultimoRaw);
         if (ultimo?.fingerprint === finger && Date.now() - Number(ultimo.timestamp || 0) < RECOVERY_TTL_MS) {
@@ -348,7 +366,7 @@ export default function CheckoutPage() {
       showSuccess('Pedido realizado!', `Pedido #${pedido.id.slice(-8)}`);
 
       if (pedido.linkPagamento) {
-        sessionStorage.setItem(CHECKOUT_LAST_ATTEMPT_KEY, JSON.stringify({
+        writeStorage(CHECKOUT_LAST_ATTEMPT_KEY, JSON.stringify({
           fingerprint: finger,
           pedidoId: pedido.id,
           linkPagamento: pedido.linkPagamento,
