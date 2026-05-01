@@ -19,6 +19,7 @@ interface CriarPedidoInput {
     nome: string;
     endereco: string;
     bairro: string;
+    cep?: string;
   };
   itens: ItemPedidoInput[];
   observacao?: string;
@@ -448,6 +449,7 @@ export class PedidoService {
           phone_number: telefoneFormatado,
         };
         const address = {
+          cep: dadosCliente.cep?.replace(/\D/g, '') || undefined,
           street: pedido.cliente?.endereco || undefined,
           neighborhood: pedido.cliente?.bairro || undefined,
         };

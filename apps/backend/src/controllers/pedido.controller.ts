@@ -10,6 +10,7 @@ const criarPedidoSchema = z.object({
     nome: z.string().min(3),
     endereco: z.string().min(10),
     bairro: z.string().min(3),
+    cep: z.string().min(8).optional(),
   }),
   itens: z.array(z.object({
     produtoId: z.string(),

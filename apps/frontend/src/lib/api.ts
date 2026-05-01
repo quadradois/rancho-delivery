@@ -30,6 +30,7 @@ export interface CriarPedidoDTO {
     telefone: string;
     endereco: string;
     bairro: string;
+    cep?: string;
   };
   itens: ItemPedido[];
   observacao?: string;

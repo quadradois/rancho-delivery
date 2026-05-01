@@ -334,6 +334,7 @@ export default function CheckoutPage() {
           telefone: addressForm.telefone.replace(/\D/g, ''),
           endereco: enderecoCompleto,
           bairro: addressForm.bairro,
+          cep: addressForm.cep.replace(/\D/g, ''),
         },
         itens: items.map(item => ({
           produtoId: item.id,
