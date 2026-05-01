@@ -45,7 +45,9 @@ describe('ProdutoService', () => {
           midia: true,
           descricao: true,
           categoria: true,
+          disponivel: true,
           ordem: true,
+          tempoPreparo: true,
         },
       });
     });
@@ -94,6 +96,7 @@ describe('ProdutoService', () => {
           categoria: true,
           disponivel: true,
           ordem: true,
+          tempoPreparo: true,
         },
       });
     });
@@ -145,7 +148,9 @@ describe('ProdutoService', () => {
           midia: true,
           descricao: true,
           categoria: true,
+          disponivel: true,
           ordem: true,
+          tempoPreparo: true,
         },
       });
     });

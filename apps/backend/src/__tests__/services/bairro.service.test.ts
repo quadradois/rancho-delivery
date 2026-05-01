@@ -27,6 +27,7 @@ describe('BairroService', () => {
           nome: true,
           cep: true,
           taxa: true,
+          tempoEntrega: true,
           linkIfood: true,
           link99food: true,
           linkOutro: true,
