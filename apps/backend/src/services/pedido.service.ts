@@ -214,6 +214,22 @@ export class PedidoService {
       },
     });
 
+    const telefones = [...new Set(pedidos.map((p) => p.cliente?.telefone).filter(Boolean))] as string[];
+    const unreadGrouped = telefones.length
+      ? await prisma.mensagemCliente.groupBy({
+          by: ['clienteTelefone'],
+          where: {
+            clienteTelefone: { in: telefones },
+            origem: 'HUMANO',
+            lida: false,
+          },
+          _count: {
+            _all: true,
+          },
+        })
+      : [];
+    const unreadMap = new Map(unreadGrouped.map((g) => [g.clienteTelefone, g._count._all]));
+
     const agora = Date.now();
     const data = pedidos.map((pedido) => {
       const tempoNoEstagio = Math.max(0, Math.floor((agora - pedido.atualizadoEm.getTime()) / 1000));
@@ -226,6 +242,7 @@ export class PedidoService {
         clienteTelefone: pedido.cliente?.telefone || '',
         bairro: pedido.cliente?.bairro || '',
         itensResumo: pedido.itens.slice(0, 3).map((item) => item.produto?.nome || 'Produto'),
+        mensagensNaoLidas: unreadMap.get(pedido.cliente?.telefone || '') || 0,
         total: Number(pedido.total),
         createdAt: pedido.criadoEm.toISOString(),
         tempoNoEstagio,
@@ -599,7 +616,15 @@ export class PedidoService {
       try {
         const pedidoCompleto = await this.buscarPedidoPorId(id);
         if (pedidoCompleto) {
-          await evolutionService.notificarClienteStatusPedido(pedidoCompleto, novoStatus, motivoCancelamento);
+          const texto = evolutionService.formatarMensagemStatusPedido(pedidoCompleto, novoStatus, motivoCancelamento);
+          const enviado = await evolutionService.notificarClienteStatusPedido(pedidoCompleto, novoStatus, motivoCancelamento);
+          if (enviado && texto) {
+            await clienteService.registrarMensagemSistema(
+              pedidoCompleto.cliente.telefone,
+              texto,
+              pedidoCompleto.id
+            );
+          }
         }
       } catch (error) {
         logger.error('Erro ao enviar mensagem automática de status ao cliente:', error);

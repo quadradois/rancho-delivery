@@ -22,6 +22,8 @@ model Cliente {
   
   // Relações
   pedidos    Pedido[]
+  mensagens  MensagemCliente[]
+  listaNegra ListaNegraCliente?
   indicacoes Indicacao[] @relation("Indicador")
   indicadoPor Indicacao? @relation("Indicado")
   
@@ -101,6 +103,7 @@ model Pedido {
   // Relações
   cliente Cliente      @relation(fields: [clienteTelefone], references: [telefone])
   itens   ItemPedido[]
+  mensagens MensagemCliente[]
   
   @@map("pedidos")
   @@index([clienteTelefone])
@@ -119,6 +122,12 @@ enum StatusPedido {
   EXPIRADO
   ABANDONADO
   CANCELADO
+}
+
+enum OrigemMensagem {
+  HUMANO
+  SISTEMA
+  IA
 }
 
 // Itens do pedido
@@ -219,4 +228,35 @@ model ContatoMinerado {
   @@map("contatos_minerados")
   @@index([abordado])
   @@index([convertido])
+}
+
+model MensagemCliente {
+  id              String         @id @default(cuid())
+  clienteTelefone String         @map("cliente_telefone") @db.VarChar(20)
+  pedidoId        String?        @map("pedido_id")
+  origem          OrigemMensagem
+  texto           String         @db.Text
+  lida            Boolean        @default(false)
+  criadoEm        DateTime       @default(now()) @map("criado_em")
+
+  cliente         Cliente        @relation(fields: [clienteTelefone], references: [telefone], onDelete: Cascade)
+  pedido          Pedido?        @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
+
+  @@map("mensagens_cliente")
+  @@index([clienteTelefone])
+  @@index([origem])
+  @@index([lida])
+  @@index([criadoEm])
+}
+
+model ListaNegraCliente {
+  id              String   @id @default(cuid())
+  clienteTelefone String   @unique @map("cliente_telefone") @db.VarChar(20)
+  motivo          String   @db.Text
+  criadoEm        DateTime @default(now()) @map("criado_em")
+
+  cliente         Cliente  @relation(fields: [clienteTelefone], references: [telefone], onDelete: Cascade)
+
+  @@map("lista_negra_clientes")
+  @@index([criadoEm])
 }

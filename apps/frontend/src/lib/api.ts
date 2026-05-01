@@ -103,6 +103,7 @@ export interface AdminPedidoListaItem {
   clienteTelefone: string;
   bairro: string;
   itensResumo: string[];
+  mensagensNaoLidas: number;
   total: number;
   createdAt: string;
   tempoNoEstagio: number;
@@ -146,6 +147,33 @@ export interface AdminPedidoDetalhe {
     ator: string;
     acao: string;
   }>;
+}
+
+export interface MensagemClienteAdmin {
+  id: string;
+  clienteTelefone: string;
+  pedidoId?: string | null;
+  origem: 'HUMANO' | 'SISTEMA' | 'IA';
+  texto: string;
+  lida: boolean;
+  criadoEm: string;
+}
+
+export interface ClienteResumoAdmin {
+  telefone: string;
+  nome: string;
+  endereco: string;
+  bairro: string;
+  origem: string;
+  totalPedidos: number;
+  valorGasto: number;
+  primeiroPedido: string | null;
+  ultimoPedido: string | null;
+  diaFavorito: string | null;
+  topProdutos: Array<{ nome: string; quantidade: number }>;
+  diasSemPedir: number | null;
+  emListaNegra: boolean;
+  motivoListaNegra: string | null;
 }
 
 export interface Bairro {
@@ -222,6 +250,36 @@ export const adminPedidoService = {
   },
 };
 
+export const adminClienteService = {
+  async statusWhatsApp(): Promise<{ conectado: boolean }> {
+    return apiClient.get<{ conectado: boolean }>('/admin/whatsapp/status');
+  },
+
+  async listarMensagens(telefone: string, marcarComoLida = false): Promise<MensagemClienteAdmin[]> {
+    const query = marcarComoLida ? '?marcarComoLida=true' : '';
+    return apiClient.get<MensagemClienteAdmin[]>(`/admin/clientes/${telefone}/mensagens${query}`);
+  },
+
+  async enviarMensagem(telefone: string, texto: string, pedidoId?: string): Promise<MensagemClienteAdmin> {
+    return apiClient.post<MensagemClienteAdmin>(`/admin/clientes/${telefone}/mensagens`, {
+      texto,
+      pedidoId,
+    });
+  },
+
+  async obterResumo(telefone: string): Promise<ClienteResumoAdmin> {
+    return apiClient.get<ClienteResumoAdmin>(`/admin/clientes/${telefone}`);
+  },
+
+  async adicionarListaNegra(telefone: string, motivo: string): Promise<any> {
+    return apiClient.post(`/admin/clientes/${telefone}/lista-negra`, { motivo });
+  },
+
+  async removerListaNegra(telefone: string): Promise<any> {
+    return apiClient.delete(`/admin/clientes/${telefone}/lista-negra`);
+  },
+};
+
 /**
  * Serviço de Bairros
  */
@@ -248,6 +306,7 @@ const api = {
   produtos: produtoService,
   pedidos: pedidoService,
   adminPedidos: adminPedidoService,
+  adminClientes: adminClienteService,
   bairros: bairroService,
 };
 

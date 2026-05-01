@@ -1,6 +1,7 @@
 import prisma from '../config/database';
 import { logger } from '../config/logger';
-import { Origem } from '@prisma/client';
+import { Origem, OrigemMensagem } from '@prisma/client';
+import evolutionService from './evolution.service';
 
 export class ClienteService {
   /**
@@ -89,6 +90,167 @@ export class ClienteService {
       logger.error('Erro ao listar clientes:', error);
       throw new Error('Erro ao buscar clientes');
     }
+  }
+
+  async listarMensagens(telefone: string, marcarComoLida = false) {
+    if (marcarComoLida) {
+      await prisma.mensagemCliente.updateMany({
+        where: {
+          clienteTelefone: telefone,
+          lida: false,
+          origem: OrigemMensagem.HUMANO,
+        },
+        data: { lida: true },
+      });
+    }
+
+    return prisma.mensagemCliente.findMany({
+      where: { clienteTelefone: telefone },
+      orderBy: { criadoEm: 'asc' },
+    });
+  }
+
+  async registrarMensagemSistema(telefone: string, texto: string, pedidoId?: string | null) {
+    return prisma.mensagemCliente.create({
+      data: {
+        clienteTelefone: telefone,
+        pedidoId: pedidoId || null,
+        origem: OrigemMensagem.SISTEMA,
+        texto,
+        lida: true,
+      },
+    });
+  }
+
+  async registrarMensagemRecebida(telefone: string, texto: string, pedidoId?: string | null) {
+    const cliente = await prisma.cliente.findUnique({ where: { telefone } });
+    if (!cliente) return null;
+
+    return prisma.mensagemCliente.create({
+      data: {
+        clienteTelefone: telefone,
+        pedidoId: pedidoId || null,
+        origem: OrigemMensagem.HUMANO,
+        texto,
+        lida: false,
+      },
+    });
+  }
+
+  async enviarMensagemHumana(telefone: string, texto: string, pedidoId?: string | null) {
+    const cliente = await prisma.cliente.findUnique({ where: { telefone } });
+    if (!cliente) throw new Error('CLIENTE_NAO_ENCONTRADO');
+
+    const enviado = await evolutionService.enviarMensagem({
+      numero: telefone,
+      mensagem: texto,
+    });
+
+    if (!enviado) throw new Error('FALHA_ENVIO_WHATSAPP');
+
+    return prisma.mensagemCliente.create({
+      data: {
+        clienteTelefone: telefone,
+        pedidoId: pedidoId || null,
+        origem: OrigemMensagem.HUMANO,
+        texto,
+        lida: true,
+      },
+    });
+  }
+
+  async obterStatusWhatsApp() {
+    const conectado = await evolutionService.verificarConexao();
+    return { conectado };
+  }
+
+  async obterResumoCliente(telefone: string) {
+    const cliente = await prisma.cliente.findUnique({
+      where: { telefone },
+      include: {
+        pedidos: {
+          include: {
+            itens: {
+              include: {
+                produto: {
+                  select: { nome: true },
+                },
+              },
+            },
+          },
+          orderBy: { criadoEm: 'asc' },
+        },
+        listaNegra: true,
+      },
+    });
+
+    if (!cliente) return null;
+
+    const totalPedidos = cliente.pedidos.length;
+    const valorGasto = cliente.pedidos.reduce((acc, p) => acc + Number(p.total), 0);
+    const primeiroPedido = cliente.pedidos[0]?.criadoEm || null;
+    const ultimoPedido = cliente.pedidos[cliente.pedidos.length - 1]?.criadoEm || null;
+    const diasSemPedir = ultimoPedido
+      ? Math.floor((Date.now() - ultimoPedido.getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+
+    const weekdayCount: Record<string, number> = {};
+    for (const pedido of cliente.pedidos) {
+      const dia = pedido.criadoEm.toLocaleDateString('pt-BR', { weekday: 'long' });
+      weekdayCount[dia] = (weekdayCount[dia] || 0) + 1;
+    }
+    const diaFavorito = Object.entries(weekdayCount).sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+    const produtosCount: Record<string, number> = {};
+    for (const pedido of cliente.pedidos) {
+      for (const item of pedido.itens) {
+        const nome = item.produto?.nome || 'Produto';
+        produtosCount[nome] = (produtosCount[nome] || 0) + item.quantidade;
+      }
+    }
+    const topProdutos = Object.entries(produtosCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 3)
+      .map(([nome, quantidade]) => ({ nome, quantidade }));
+
+    return {
+      telefone: cliente.telefone,
+      nome: cliente.nome,
+      endereco: cliente.endereco,
+      bairro: cliente.bairro,
+      origem: cliente.origem,
+      totalPedidos,
+      valorGasto,
+      primeiroPedido: primeiroPedido?.toISOString() || null,
+      ultimoPedido: ultimoPedido?.toISOString() || null,
+      diaFavorito,
+      topProdutos,
+      diasSemPedir,
+      emListaNegra: Boolean(cliente.listaNegra),
+      motivoListaNegra: cliente.listaNegra?.motivo || null,
+    };
+  }
+
+  async adicionarListaNegra(telefone: string, motivo: string) {
+    const cliente = await prisma.cliente.findUnique({ where: { telefone } });
+    if (!cliente) throw new Error('CLIENTE_NAO_ENCONTRADO');
+
+    return prisma.listaNegraCliente.upsert({
+      where: { clienteTelefone: telefone },
+      update: { motivo },
+      create: {
+        clienteTelefone: telefone,
+        motivo,
+      },
+    });
+  }
+
+  async removerListaNegra(telefone: string) {
+    const existente = await prisma.listaNegraCliente.findUnique({
+      where: { clienteTelefone: telefone },
+    });
+    if (!existente) return null;
+    return prisma.listaNegraCliente.delete({ where: { clienteTelefone: telefone } });
   }
 }
 

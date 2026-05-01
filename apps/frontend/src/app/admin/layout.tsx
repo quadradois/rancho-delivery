@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { ReactNode, useEffect, useState } from 'react';
 import '@/styles/admin-theme.css';
+import api from '@/lib/api';
 
 const NAV_ITEMS = [
   {
@@ -59,6 +60,7 @@ const NAV_ITEMS = [
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [mode, setMode] = useState<'dark-mode' | 'light-mode'>('dark-mode');
+  const [whatsConnected, setWhatsConnected] = useState(false);
 
   useEffect(() => {
     const saved = window.localStorage.getItem('rancho:admin:theme');
@@ -76,6 +78,29 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     window.localStorage.setItem('rancho:admin:theme', mode);
   }, [mode]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    const loadStatus = async () => {
+      try {
+        const data = await api.adminClientes.statusWhatsApp();
+        if (mounted) setWhatsConnected(Boolean(data.conectado));
+      } catch {
+        if (mounted) setWhatsConnected(false);
+      }
+    };
+
+    void loadStatus();
+    const id = window.setInterval(() => {
+      void loadStatus();
+    }, 30000);
+
+    return () => {
+      mounted = false;
+      window.clearInterval(id);
+    };
+  }, []);
+
   const toggleMode = () => {
     setMode((prev) => (prev === 'dark-mode' ? 'light-mode' : 'dark-mode'));
   };
@@ -91,6 +116,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <span className="font-brand text-xl font-black uppercase text-[var(--color-text-primary)]">Comida Caseira</span>
           </Link>
           <p className="text-xs text-[var(--color-text-secondary)] mt-1 font-semibold uppercase tracking-wider">Painel Admin</p>
+          <div className="mt-3 flex items-center gap-2">
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${whatsConnected ? 'bg-[var(--color-success)]' : 'bg-[var(--color-danger)]'}`}
+            />
+            <span className="text-xs text-[var(--color-text-secondary)]">
+              WhatsApp {whatsConnected ? 'conectado' : 'desconectado'}
+            </span>
+          </div>
         </div>
 
         {/* Nav */}

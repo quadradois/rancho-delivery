@@ -4,6 +4,7 @@ import pedidoService from '../services/pedido.service';
 import evolutionService from '../services/evolution.service';
 import { logger } from '../config/logger';
 import realtimeService from '../services/realtime.service';
+import clienteService from '../services/cliente.service';
 
 export class WebhookController {
   /**
@@ -107,8 +108,13 @@ export class WebhookController {
         body?.message ||
         '';
 
+      const telefoneNormalizado = String(telefone).replace(/\D/g, '');
+      if (telefoneNormalizado && texto) {
+        await clienteService.registrarMensagemRecebida(telefoneNormalizado, texto);
+      }
+
       realtimeService.emit('mensagem:nova', {
-        telefone,
+        telefone: telefoneNormalizado || telefone,
         texto,
         origem: 'WHATSAPP',
       });

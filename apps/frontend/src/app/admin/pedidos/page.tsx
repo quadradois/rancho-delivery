@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import api, { AdminPedidoDetalhe, AdminPedidoListaItem } from '@/lib/api';
+import api, { AdminPedidoDetalhe, AdminPedidoListaItem, ClienteResumoAdmin, MensagemClienteAdmin } from '@/lib/api';
 import { formatCurrency, formatTime } from '@/lib/utils';
 import { useToast } from '@/contexts/ToastContext';
 import useCockpitSocket from '@/hooks/useCockpitSocket';
@@ -91,6 +91,10 @@ export default function AdminPedidosPage() {
   const [savingStatus, setSavingStatus] = useState(false);
   const [statusFiltro, setStatusFiltro] = useState('todos');
   const [busca, setBusca] = useState('');
+  const [mensagens, setMensagens] = useState<MensagemClienteAdmin[]>([]);
+  const [clienteResumo, setClienteResumo] = useState<ClienteResumoAdmin | null>(null);
+  const [textoMensagem, setTextoMensagem] = useState('');
+  const [motivoListaNegra, setMotivoListaNegra] = useState('');
 
   const carregarLista = useCallback(async () => {
     setLoadingList(true);
@@ -116,6 +120,16 @@ export default function AdminPedidosPage() {
     }
   }, []);
 
+  const carregarResumoCliente = useCallback(async (telefone: string) => {
+    const data = await api.adminClientes.obterResumo(telefone);
+    setClienteResumo(data);
+  }, []);
+
+  const carregarMensagens = useCallback(async (telefone: string, marcarComoLida = false) => {
+    const data = await api.adminClientes.listarMensagens(telefone, marcarComoLida);
+    setMensagens(data);
+  }, []);
+
   useEffect(() => {
     void carregarLista();
   }, [carregarLista]);
@@ -123,6 +137,11 @@ export default function AdminPedidosPage() {
   useEffect(() => {
     if (selectedId) void carregarDetalhe(selectedId);
   }, [selectedId, carregarDetalhe]);
+
+  useEffect(() => {
+    if (!pedidoDetalhe?.cliente?.telefone) return;
+    void carregarResumoCliente(pedidoDetalhe.cliente.telefone);
+  }, [pedidoDetalhe?.cliente?.telefone, carregarResumoCliente]);
 
   useCockpitSocket({
     onPedidoNovo: () => {
@@ -133,6 +152,12 @@ export default function AdminPedidosPage() {
       if (selectedId && payload?.id === selectedId) {
         void carregarDetalhe(selectedId);
       }
+    },
+    onMensagemNova: async (payload) => {
+      if (pedidoDetalhe?.cliente?.telefone && payload?.telefone?.includes(pedidoDetalhe.cliente.telefone)) {
+        await carregarMensagens(pedidoDetalhe.cliente.telefone, false);
+      }
+      void carregarLista();
     },
   });
 
@@ -170,6 +195,49 @@ export default function AdminPedidosPage() {
       setSavingStatus(false);
     }
   }, [pedidoDetalhe, savingStatus, carregarLista, carregarDetalhe, showSuccess, showError]);
+
+  const enviarMensagem = useCallback(async () => {
+    if (!pedidoDetalhe?.cliente?.telefone) return;
+    const texto = textoMensagem.trim();
+    if (!texto) return;
+
+    try {
+      await api.adminClientes.enviarMensagem(pedidoDetalhe.cliente.telefone, texto, pedidoDetalhe.id);
+      setTextoMensagem('');
+      await carregarMensagens(pedidoDetalhe.cliente.telefone, true);
+      showSuccess('Mensagem enviada');
+    } catch (error: any) {
+      showError('Falha ao enviar mensagem', error?.message || 'Tente novamente.');
+    }
+  }, [pedidoDetalhe, textoMensagem, carregarMensagens, showSuccess, showError]);
+
+  const adicionarListaNegra = useCallback(async () => {
+    if (!pedidoDetalhe?.cliente?.telefone) return;
+    const motivo = motivoListaNegra.trim();
+    if (!motivo) {
+      showError('Informe o motivo');
+      return;
+    }
+    try {
+      await api.adminClientes.adicionarListaNegra(pedidoDetalhe.cliente.telefone, motivo);
+      await carregarResumoCliente(pedidoDetalhe.cliente.telefone);
+      setMotivoListaNegra('');
+      showSuccess('Cliente adicionado na lista negra');
+    } catch (error: any) {
+      showError('Falha ao atualizar lista negra', error?.message || 'Tente novamente.');
+    }
+  }, [pedidoDetalhe, motivoListaNegra, carregarResumoCliente, showSuccess, showError]);
+
+  const removerListaNegra = useCallback(async () => {
+    if (!pedidoDetalhe?.cliente?.telefone) return;
+    try {
+      await api.adminClientes.removerListaNegra(pedidoDetalhe.cliente.telefone);
+      await carregarResumoCliente(pedidoDetalhe.cliente.telefone);
+      showSuccess('Cliente removido da lista negra');
+    } catch (error: any) {
+      showError('Falha ao remover da lista negra', error?.message || 'Tente novamente.');
+    }
+  }, [pedidoDetalhe, carregarResumoCliente, showSuccess, showError]);
 
   return (
     <div className="p-5 md:p-6">
@@ -247,6 +315,11 @@ export default function AdminPedidosPage() {
                     </CrmBadge>
                     <span className="text-sm font-semibold text-[var(--color-accent)]">{formatCurrency(pedido.total)}</span>
                   </div>
+                  {pedido.mensagensNaoLidas > 0 && (
+                    <div className="mt-2">
+                      <CrmBadge variant="waiting">{pedido.mensagensNaoLidas} msg</CrmBadge>
+                    </div>
+                  )}
                   <div className="mt-2">
                     <CrmButton
                       size="sm"
@@ -287,13 +360,40 @@ export default function AdminPedidosPage() {
               <CrmTab defaultValue="pedido">
                 <CrmTabList>
                   <CrmTabTrigger value="pedido">Pedido</CrmTabTrigger>
+                  <CrmTabTrigger
+                    value="whatsapp"
+                    onClick={async () => {
+                      if (pedidoDetalhe?.cliente?.telefone) {
+                        await carregarMensagens(pedidoDetalhe.cliente.telefone, true);
+                        await carregarLista();
+                      }
+                    }}
+                  >
+                    WhatsApp
+                  </CrmTabTrigger>
+                  <CrmTabTrigger
+                    value="cliente"
+                    onClick={async () => {
+                      if (pedidoDetalhe?.cliente?.telefone) {
+                        await carregarResumoCliente(pedidoDetalhe.cliente.telefone);
+                      }
+                    }}
+                  >
+                    Cliente
+                  </CrmTabTrigger>
                   <CrmTabTrigger value="timeline">Timeline</CrmTabTrigger>
+                  <CrmTabTrigger value="ia" disabled>IA</CrmTabTrigger>
                 </CrmTabList>
 
                 <CrmTabPanel value="pedido">
                   <div className="space-y-4">
                     <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
                       <p className="mb-2 text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Fluxo de status</p>
+                      {clienteResumo?.emListaNegra && (
+                        <div className="mb-2 rounded-md border border-[var(--color-danger)] bg-[var(--color-danger-muted)] p-2 text-xs text-[var(--color-danger-text)]">
+                          Cliente em lista negra: {clienteResumo.motivoListaNegra}
+                        </div>
+                      )}
                       <div className="mb-3 flex flex-wrap items-center gap-2">
                         {STATUS_FLOW.map((status) => (
                           <CrmBadge key={status} variant={toBadgeVariant(status)}>
@@ -371,6 +471,86 @@ export default function AdminPedidosPage() {
                       </div>
                     ))}
                   </div>
+                </CrmTabPanel>
+                <CrmTabPanel value="whatsapp">
+                  <div className="space-y-3">
+                    <div className="max-h-80 space-y-2 overflow-auto rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
+                      {mensagens.length === 0 ? (
+                        <p className="text-sm text-[var(--color-text-secondary)]">Sem mensagens.</p>
+                      ) : (
+                        mensagens.map((msg) => (
+                          <div key={msg.id} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
+                            <p className="text-xs text-[var(--color-text-tertiary)]">
+                              {formatTime(msg.criadoEm)} · {msg.origem === 'SISTEMA' ? '[AUTO]' : 'HUMANO'}
+                            </p>
+                            <p className="text-sm text-[var(--color-text-primary)]">{msg.texto}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        value={textoMensagem}
+                        onChange={(e) => setTextoMensagem(e.target.value)}
+                        placeholder="Digite uma mensagem..."
+                        className="h-10 flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm text-[var(--color-text-primary)]"
+                      />
+                      <CrmButton onClick={() => void enviarMensagem()}>Enviar</CrmButton>
+                    </div>
+                  </div>
+                </CrmTabPanel>
+                <CrmTabPanel value="cliente">
+                  {clienteResumo ? (
+                    <div className="space-y-3">
+                      <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3 text-sm">
+                        <p><strong>{clienteResumo.nome}</strong></p>
+                        <p className="text-[var(--color-text-secondary)]">{clienteResumo.telefone}</p>
+                        <p className="text-[var(--color-text-secondary)]">{clienteResumo.endereco} · {clienteResumo.bairro}</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <CrmCard className="p-2">Pedidos: {clienteResumo.totalPedidos}</CrmCard>
+                        <CrmCard className="p-2">Gasto: {formatCurrency(clienteResumo.valorGasto)}</CrmCard>
+                        <CrmCard className="p-2">Dia favorito: {clienteResumo.diaFavorito || '-'}</CrmCard>
+                        <CrmCard className="p-2">Sem pedir: {clienteResumo.diasSemPedir ?? '-'} dias</CrmCard>
+                      </div>
+                      <CrmCard className="p-3 text-sm">
+                        <p className="mb-1 font-semibold">Top produtos</p>
+                        {clienteResumo.topProdutos.length === 0 ? (
+                          <p className="text-[var(--color-text-secondary)]">Sem histórico</p>
+                        ) : (
+                          clienteResumo.topProdutos.map((p) => (
+                            <p key={p.nome} className="text-[var(--color-text-secondary)]">{p.nome} · {p.quantidade}x</p>
+                          ))
+                        )}
+                      </CrmCard>
+                      {clienteResumo.emListaNegra ? (
+                        <CrmCard className="border-[var(--color-danger)] bg-[var(--color-danger-muted)] p-3">
+                          <p className="text-sm font-semibold text-[var(--color-danger-text)]">Cliente em lista negra</p>
+                          <p className="text-sm text-[var(--color-danger-text)]">{clienteResumo.motivoListaNegra}</p>
+                          <CrmButton variant="danger" size="sm" className="mt-2" onClick={() => void removerListaNegra()}>
+                            Remover da lista negra
+                          </CrmButton>
+                        </CrmCard>
+                      ) : (
+                        <CrmCard className="p-3">
+                          <p className="mb-2 text-sm font-semibold">Adicionar à lista negra</p>
+                          <div className="flex gap-2">
+                            <input
+                              value={motivoListaNegra}
+                              onChange={(e) => setMotivoListaNegra(e.target.value)}
+                              placeholder="Motivo obrigatório"
+                              className="h-9 flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-sm"
+                            />
+                            <CrmButton variant="danger" size="sm" onClick={() => void adicionarListaNegra()}>
+                              Adicionar
+                            </CrmButton>
+                          </div>
+                        </CrmCard>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-[var(--color-text-secondary)]">Carregando cliente...</p>
+                  )}
                 </CrmTabPanel>
               </CrmTab>
             </>
