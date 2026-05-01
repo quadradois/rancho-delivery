@@ -32,8 +32,8 @@
 ### Gap atual para o Cockpit
 
 - [ ] Endpoints ainda estão em `/api/pedidos`; plano do cockpit prevê `/api/admin/...`
-- [ ] Design systems ainda não estão separados por produto/rota (Fase 0 bloqueante)
-- [ ] Admin ainda usa base visual híbrida (tokens site + tailwind genérico)
+- [x] Design systems separados por produto/rota (FASE 0 concluída e deployado)
+- [x] Admin com base CRM (tokens CRM + dark/light persistente)
 
 ### Execução sugerida para agora (ordem de impacto)
 
@@ -98,10 +98,16 @@
 
 ### 0.5 — Verificação
 
-- [ ] Site de pedidos: fundo `--madeira-fundo`, títulos `Alfa Slab One`, sem token `--color-bg` do CRM
-- [ ] Admin: dark mode ativo por padrão, superfícies `--color-surface`, acento `--color-accent` (#D4601C), títulos Sora
-- [ ] Toggle dark/light no admin funcionando e persistindo no localStorage
-- [ ] Nenhuma tela misturando tokens dos dois sistemas
+- [x] Site de pedidos: fundo `--madeira-fundo`, títulos `Alfa Slab One`, sem token `--color-bg` do CRM
+- [x] Admin: dark mode ativo por padrão, superfícies `--color-surface`, acento `--color-accent` (#D4601C), títulos Sora
+- [x] Toggle dark/light no admin funcionando e persistindo no localStorage
+- [x] Nenhuma tela misturando tokens dos dois sistemas
+
+### 0.6 — Evidências de execução
+
+- [x] Commit GitHub (backend abandono/webhook): `7531603`
+- [x] Commit GitHub (separação DS + tema CRM): `8c7d6bc`
+- [x] Deploy em produção concluído após correção de permissão em `.next/server`
 
 ---
 
@@ -112,14 +118,14 @@
 
 ### Frontend
 
-- [ ] `CrmBadge` — variantes: `pending` (amber), `preparing` (blue), `waiting` (yellow), `on-route` (green), `delivered` (neutral), `cancelled` (red), `paid` (green), `unpaid` (neutral), `expired` (red)
-- [ ] `CrmButton` — variantes: `primary`, `ghost`, `danger`, `success`; tamanhos `sm`, `md`, `lg`
-- [ ] `CrmCard` — container com `--color-surface` e `--color-border`, variante `raised`
-- [ ] `CrmTab` + `CrmTabPanel` — abas horizontais com indicador ativo
-- [ ] `CrmTimer` — exibe `MM:ss` com mudança de cor: normal → `--color-warning-text` → `--color-danger-text`; suporte a animação de piscar
-- [ ] `CrmInput` / `CrmSelect` — campos com `--color-surface-input`, focus em `--color-border-focus`
-- [ ] `CrmModal` — dialog com backdrop, usado para cancelamento e pedido manual
-- [ ] `CrmAvatar` — initial letter avatar para operador/cliente
+- [x] `CrmBadge` — variantes: `pending` (amber), `preparing` (blue), `waiting` (yellow), `on-route` (green), `delivered` (neutral), `cancelled` (red), `paid` (green), `unpaid` (neutral), `expired` (red)
+- [x] `CrmButton` — variantes: `primary`, `ghost`, `danger`, `success`; tamanhos `sm`, `md`, `lg`
+- [x] `CrmCard` — container com `--color-surface` e `--color-border`, variante `raised`
+- [x] `CrmTab` + `CrmTabPanel` — abas horizontais com indicador ativo
+- [x] `CrmTimer` — exibe `MM:ss` com mudança de cor: normal → `--color-warning-text` → `--color-danger-text`; suporte a animação de piscar
+- [x] `CrmInput` / `CrmSelect` — campos com `--color-surface-input`, focus em `--color-border-focus`
+- [x] `CrmModal` — dialog com backdrop, usado para cancelamento e pedido manual
+- [x] `CrmAvatar` — initial letter avatar para operador/cliente
 
 ---
 
@@ -129,12 +135,12 @@
 
 ### Backend
 
-- [ ] **B1a** `GET /api/admin/pedidos`
+- [x] **B1a** `GET /api/admin/pedidos`
   - Retorna todos os pedidos ordenados por urgência (status + tempo no estágio)
   - Campos: id, numero, status, statusPagamento, clienteNome, clienteTelefone, bairro, itens resumidos, total, createdAt, `tempoNoEstagio` (segundos)
   - Filtros opcionais: `?status=` e `?busca=`
 
-- [ ] **B1b** `GET /api/admin/pedidos/:id`
+- [x] **B1b** `GET /api/admin/pedidos/:id`
   - Detalhe completo: itens com produto, endereço, pagamento, observações, motoboy, timeline resumida
 
 - [ ] **B10a** Timestamps por estágio
@@ -143,26 +149,26 @@
 
 ### Frontend
 
-- [ ] **F1** Layout split-panel
+- [x] **F1** Layout split-panel
   - Painel esquerdo fixo (320px): lista de pedidos com scroll
   - Painel direito flex: detalhe do pedido selecionado com abas
   - Substituir `apps/frontend/src/app/admin/layout.tsx` para suportar nova estrutura
   - Top bar global (64px altura `--topbar-height`)
 
-- [ ] **F3a** Card de pedido compacto
+- [x] **F3a** Card de pedido compacto
   - Campos: `#numero`, ícone pagamento (3 estados), timer (`CrmTimer`), nome + bairro, itens resumidos, total, badge mensagem não lida
   - Botão **CONFIRMAR** visível no card
   - Botão CONFIRMAR desabilitado + tooltip quando `statusPagamento !== CONFIRMADO`
   - Seleção do card destaca painel direito
 
-- [ ] **F3b** Ordenação automática da lista
+- [x] **F3b** Ordenação automática da lista
   - Aguardando Aprovação → SLA vermelho → SLA amarelo → ordem de chegada
 
-- [ ] **F3c** SLA visual no `CrmTimer`
+- [x] **F3c** SLA visual no `CrmTimer`
   - Tabela hard-coded: Aprovação (2/3/5min), Preparo (20/25/35min), Aguard.Entregador (5/8/12min), Em Rota (40/50/60min)
   - Alerta vermelho: card inteiro pisca
 
-- [ ] **F4** Aba Pedido
+- [x] **F4** Aba Pedido
   - Flow visual de status clicável (avança estágio via PATCH)
   - Lista de itens, subtotal, taxa, total
   - Forma de pagamento + status
@@ -176,12 +182,12 @@
 
 ### Backend
 
-- [ ] **B1c** `PATCH /api/admin/pedidos/:id/status`
+- [x] **B1c** `PATCH /api/admin/pedidos/:id/status`
   - Valida transição de status (não permite voltar)
   - Registra na timeline: `{ timestamp, ator: 'OPERADOR', acao: 'Status → X' }`
   - Dispara mensagem automática quando aplicável (ver B4)
 
-- [ ] **B4** Mensagens automáticas por status
+- [x] **B4** Mensagens automáticas por status
   - `CONFIRMADO` → envia via Evolution API: "Olá [nome]! Seu pedido foi confirmado..."
   - `EM_ROTA` → envia: "Seu pedido saiu para entrega..."
   - `ENTREGUE` → envia: "Pedido entregue! Bom apetite!..."
@@ -190,8 +196,8 @@
 
 ### Frontend
 
-- [ ] Flow de status no F4 chama `PATCH /api/admin/pedidos/:id/status`
-- [ ] Feedback visual após mudança de status (toast CRM)
+- [x] Flow de status no F4 chama `PATCH /api/admin/pedidos/:id/status`
+- [x] Feedback visual após mudança de status (toast CRM)
 
 ---
 
@@ -199,18 +205,18 @@
 
 ### Backend
 
-- [ ] **B2a** WebSocket ou SSE no servidor Express
-- [ ] **B2b** Emitir `pedido:novo` ao criar pedido (via webhook de pagamento confirmado)
-- [ ] **B2c** Emitir `pedido:atualizado` ao mudar status
-- [ ] **B2d** Emitir `mensagem:nova` ao receber mensagem WhatsApp
+- [x] **B2a** WebSocket ou SSE no servidor Express
+- [x] **B2b** Emitir `pedido:novo` ao criar pedido (via webhook de pagamento confirmado)
+- [x] **B2c** Emitir `pedido:atualizado` ao mudar status
+- [x] **B2d** Emitir `mensagem:nova` ao receber mensagem WhatsApp
 
 ### Frontend
 
-- [ ] **F — WS Client** hook `useCockpitSocket()`
+- [x] **F — WS Client** hook `useCockpitSocket()`
   - Conecta ao servidor
   - Atualiza lista de pedidos ao receber `pedido:novo` e `pedido:atualizado`
   - Remove polling de 30s da página atual
-- [ ] Métricas da Top Bar atualizadas em tempo real (derivadas do estado da lista)
+- [x] Métricas da Top Bar atualizadas em tempo real (derivadas do estado da lista)
 
 ---
 

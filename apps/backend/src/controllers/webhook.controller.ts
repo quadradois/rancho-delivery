@@ -3,6 +3,7 @@ import infinitePayService from '../services/infinitepay.service';
 import pedidoService from '../services/pedido.service';
 import evolutionService from '../services/evolution.service';
 import { logger } from '../config/logger';
+import realtimeService from '../services/realtime.service';
 
 export class WebhookController {
   /**
@@ -54,6 +55,8 @@ export class WebhookController {
 
         // order_nsu é o ID do pedido no nosso sistema
         await pedidoService.atualizarStatus(order_nsu, 'CONFIRMADO', order_nsu);
+        realtimeService.emit('pedido:novo', { id: order_nsu, status: 'CONFIRMADO' });
+        realtimeService.emit('pedido:atualizado', { id: order_nsu, status: 'CONFIRMADO' });
 
         logger.info('Pedido confirmado via webhook InfinitePay', {
           pedidoId: order_nsu,
@@ -82,6 +85,43 @@ export class WebhookController {
       return res.status(200).json({
         success: false,
         error: { message: 'Erro ao processar webhook' },
+      });
+    }
+  }
+
+  /**
+   * POST /webhook/whatsapp
+   * Recebe eventos de mensagem WhatsApp para tempo real do cockpit
+   */
+  async whatsapp(req: Request, res: Response) {
+    try {
+      const body = req.body || {};
+      const telefone =
+        body?.data?.key?.remoteJid ||
+        body?.data?.from ||
+        body?.from ||
+        '';
+      const texto =
+        body?.data?.message?.conversation ||
+        body?.data?.message?.extendedTextMessage?.text ||
+        body?.message ||
+        '';
+
+      realtimeService.emit('mensagem:nova', {
+        telefone,
+        texto,
+        origem: 'WHATSAPP',
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Webhook WhatsApp recebido',
+      });
+    } catch (error) {
+      logger.error('Erro ao processar webhook WhatsApp:', error);
+      return res.status(200).json({
+        success: false,
+        error: { message: 'Erro ao processar webhook WhatsApp' },
       });
     }
   }

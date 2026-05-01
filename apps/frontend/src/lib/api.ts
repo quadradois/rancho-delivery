@@ -94,6 +94,60 @@ export interface Pedido {
   atualizadoEm?: string;
 }
 
+export interface AdminPedidoListaItem {
+  id: string;
+  numero: string;
+  status: string;
+  statusPagamento: 'PENDENTE' | 'CONFIRMADO' | 'EXPIRADO';
+  clienteNome: string;
+  clienteTelefone: string;
+  bairro: string;
+  itensResumo: string[];
+  total: number;
+  createdAt: string;
+  tempoNoEstagio: number;
+}
+
+export interface AdminPedidoDetalhe {
+  id: string;
+  numero: string;
+  status: string;
+  statusPagamento: 'PENDENTE' | 'CONFIRMADO' | 'EXPIRADO';
+  pagamentoId?: string | null;
+  observacao?: string | null;
+  subtotal: number;
+  taxaEntrega: number;
+  total: number;
+  createdAt: string;
+  updatedAt: string;
+  tempoNoEstagio: number;
+  cliente: {
+    nome: string;
+    telefone: string;
+    endereco: string;
+    bairro: string;
+  };
+  itens: Array<{
+    id: string;
+    quantidade: number;
+    precoUnit: number;
+    subtotal: number;
+    observacao?: string | null;
+    produto: {
+      id: string;
+      nome: string;
+      categoria: string;
+      preco: number;
+    } | null;
+  }>;
+  motoboy: null;
+  timeline: Array<{
+    timestamp: string;
+    ator: string;
+    acao: string;
+  }>;
+}
+
 export interface Bairro {
   id: string;
   nome: string;
@@ -150,6 +204,24 @@ export const pedidoService = {
   },
 };
 
+export const adminPedidoService = {
+  async listar(params?: { status?: string; busca?: string }): Promise<AdminPedidoListaItem[]> {
+    const query = new URLSearchParams();
+    if (params?.status) query.set('status', params.status);
+    if (params?.busca) query.set('busca', params.busca);
+    const suffix = query.toString() ? `?${query.toString()}` : '';
+    return apiClient.get<AdminPedidoListaItem[]>(`/admin/pedidos${suffix}`);
+  },
+
+  async buscarPorId(id: string): Promise<AdminPedidoDetalhe> {
+    return apiClient.get<AdminPedidoDetalhe>(`/admin/pedidos/${id}`);
+  },
+
+  async atualizarStatus(id: string, status: string): Promise<{ id: string; status: string; atualizadoEm: string }> {
+    return apiClient.patch<{ id: string; status: string; atualizadoEm: string }>(`/admin/pedidos/${id}/status`, { status });
+  },
+};
+
 /**
  * Serviço de Bairros
  */
@@ -175,6 +247,7 @@ export const bairroService = {
 const api = {
   produtos: produtoService,
   pedidos: pedidoService,
+  adminPedidos: adminPedidoService,
   bairros: bairroService,
 };
 

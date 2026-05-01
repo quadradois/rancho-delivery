@@ -8,5 +8,6 @@ const router: ExpressRouter = Router();
  * Recebe notificações de pagamento do InfinitePay
  */
 router.post('/infinitepay', webhookController.infinitepay.bind(webhookController));
+router.post('/whatsapp', webhookController.whatsapp.bind(webhookController));
 
 export default router;

@@ -160,6 +160,60 @@ export class EvolutionService {
       return false;
     }
   }
+
+  formatarMensagemStatusPedido(pedido: any, status: string, motivoCancelamento?: string): string | null {
+    const nome = pedido?.cliente?.nome || 'cliente';
+
+    if (status === 'CONFIRMADO') {
+      return `Olá ${nome}! Seu pedido foi confirmado e já está sendo preparado.`;
+    }
+
+    if (status === 'SAIU_ENTREGA') {
+      return 'Seu pedido saiu para entrega. Em breve chegará aí.';
+    }
+
+    if (status === 'ENTREGUE') {
+      return 'Pedido entregue! Bom apetite! Qualquer dúvida estamos aqui.';
+    }
+
+    if (status === 'CANCELADO') {
+      const base = `Infelizmente precisamos cancelar seu pedido${motivoCancelamento ? `: ${motivoCancelamento}` : '.'}`;
+      return `${base} Se o pagamento já foi feito, nossa equipe vai tratar o estorno com você.`;
+    }
+
+    return null;
+  }
+
+  async notificarClienteStatusPedido(pedido: any, status: string, motivoCancelamento?: string): Promise<boolean> {
+    try {
+      const numero = pedido?.cliente?.telefone;
+      if (!numero) {
+        logger.warn('Cliente sem telefone para notificação de status', { pedidoId: pedido?.id, status });
+        return false;
+      }
+
+      const mensagem = this.formatarMensagemStatusPedido(pedido, status, motivoCancelamento);
+      if (!mensagem) return false;
+
+      const enviado = await this.enviarMensagem({ numero, mensagem });
+      if (enviado) {
+        logger.info('Mensagem automática de status enviada ao cliente', {
+          pedidoId: pedido?.id,
+          status,
+        });
+      } else {
+        logger.warn('Falha ao enviar mensagem automática de status ao cliente', {
+          pedidoId: pedido?.id,
+          status,
+        });
+      }
+
+      return enviado;
+    } catch (error) {
+      logger.error('Erro ao notificar cliente por status do pedido:', error);
+      return false;
+    }
+  }
 }
 
 export default new EvolutionService();

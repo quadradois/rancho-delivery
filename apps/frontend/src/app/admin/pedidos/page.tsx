@@ -1,331 +1,381 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useToast } from '@/contexts/ToastContext';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import api, { AdminPedidoDetalhe, AdminPedidoListaItem } from '@/lib/api';
 import { formatCurrency, formatTime } from '@/lib/utils';
-import api, { Pedido } from '@/lib/api';
-import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
+import { useToast } from '@/contexts/ToastContext';
+import useCockpitSocket from '@/hooks/useCockpitSocket';
+import {
+  CrmBadge,
+  CrmButton,
+  CrmCard,
+  CrmInput,
+  CrmTab,
+  CrmTabList,
+  CrmTabPanel,
+  CrmTabTrigger,
+  CrmTimer,
+} from '@/components/crm';
 
 const STATUS_OPTIONS = [
   { value: 'todos', label: 'Todos' },
-  { value: 'pendente', label: 'Pendente' },
-  { value: 'confirmado', label: 'Confirmado' },
-  { value: 'preparando', label: 'Preparando' },
-  { value: 'saiu_entrega', label: 'A Caminho' },
-  { value: 'entregue', label: 'Entregue' },
-  { value: 'cancelado', label: 'Cancelado' },
+  { value: 'AGUARDANDO_PAGAMENTO', label: 'Pag. Pendente' },
+  { value: 'CONFIRMADO', label: 'Aprovação' },
+  { value: 'PREPARANDO', label: 'Preparo' },
+  { value: 'SAIU_ENTREGA', label: 'Em rota' },
+  { value: 'ENTREGUE', label: 'Entregue' },
+  { value: 'CANCELADO', label: 'Cancelado' },
 ];
+const STATUS_FLOW = ['CONFIRMADO', 'PREPARANDO', 'SAIU_ENTREGA', 'ENTREGUE'] as const;
 
-const STATUS_BADGE: Record<string, { variant: 'gold' | 'green' | 'brand' | 'red' | 'dark'; label: string }> = {
-  pendente:     { variant: 'gold',  label: 'Pendente' },
-  confirmado:   { variant: 'green', label: 'Confirmado' },
-  preparando:   { variant: 'gold',  label: 'Preparando' },
-  saiu_entrega: { variant: 'brand', label: 'A Caminho' },
-  entregue:     { variant: 'green', label: 'Entregue' },
-  cancelado:    { variant: 'red',   label: 'Cancelado' },
-};
+function toBadgeVariant(status: string) {
+  switch (status) {
+    case 'AGUARDANDO_PAGAMENTO':
+    case 'PENDENTE':
+      return 'pending' as const;
+    case 'CONFIRMADO':
+      return 'waiting' as const;
+    case 'PREPARANDO':
+      return 'preparing' as const;
+    case 'SAIU_ENTREGA':
+      return 'on-route' as const;
+    case 'ENTREGUE':
+      return 'delivered' as const;
+    case 'CANCELADO':
+      return 'cancelled' as const;
+    case 'EXPIRADO':
+    case 'ABANDONADO':
+      return 'expired' as const;
+    default:
+      return 'unpaid' as const;
+  }
+}
+
+function labelStatus(status: string) {
+  switch (status) {
+    case 'AGUARDANDO_PAGAMENTO':
+      return 'Aguard. pagamento';
+    case 'SAIU_ENTREGA':
+      return 'Em rota';
+    default:
+      return status.replace('_', ' ').toLowerCase();
+  }
+}
+
+function paymentIcon(statusPagamento: 'PENDENTE' | 'CONFIRMADO' | 'EXPIRADO') {
+  if (statusPagamento === 'CONFIRMADO') return '🔒';
+  if (statusPagamento === 'EXPIRADO') return '❌';
+  return '⏳';
+}
+
+function slaByStatus(status: string) {
+  switch (status) {
+    case 'CONFIRMADO':
+      return { warningAt: 180, dangerAt: 300 };
+    case 'PREPARANDO':
+      return { warningAt: 1500, dangerAt: 2100 };
+    case 'SAIU_ENTREGA':
+      return { warningAt: 3000, dangerAt: 3600 };
+    default:
+      return { warningAt: 300, dangerAt: 600 };
+  }
+}
 
 export default function AdminPedidosPage() {
-  const { showError } = useToast();
-  const [pedidos, setPedidos] = useState<Pedido[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { showSuccess, showError } = useToast();
+  const [pedidos, setPedidos] = useState<AdminPedidoListaItem[]>([]);
+  const [pedidoDetalhe, setPedidoDetalhe] = useState<AdminPedidoDetalhe | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [loadingList, setLoadingList] = useState(true);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [savingStatus, setSavingStatus] = useState(false);
   const [statusFiltro, setStatusFiltro] = useState('todos');
-  const [buscaCliente, setBuscaCliente] = useState('');
-  const [pedidoSelecionado, setPedidoSelecionado] = useState<Pedido | null>(null);
-  const [pagina, setPagina] = useState(1);
-  const POR_PAGINA = 10;
+  const [busca, setBusca] = useState('');
 
-  const carregarPedidos = useCallback(async () => {
+  const carregarLista = useCallback(async () => {
+    setLoadingList(true);
     try {
-      setLoading(true);
-      // Busca pedidos recentes — usa telefone vazio para listar todos se a API suportar
-      // Como a API atual lista por cliente, buscamos por um telefone genérico
-      // Em produção, o backend deve ter um endpoint GET /pedidos para admin
-      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const res = await fetch(`${baseUrl}/api/pedidos`);
-      if (res.ok) {
-        const json = await res.json();
-        const data = json.data ?? json;
-        setPedidos(Array.isArray(data) ? data : []);
-      } else {
-        setPedidos([]);
-      }
-    } catch {
-      setPedidos([]);
+      const data = await api.adminPedidos.listar({
+        status: statusFiltro !== 'todos' ? statusFiltro : undefined,
+        busca: busca || undefined,
+      });
+      setPedidos(data);
+      if (!selectedId && data[0]) setSelectedId(data[0].id);
     } finally {
-      setLoading(false);
+      setLoadingList(false);
+    }
+  }, [statusFiltro, busca, selectedId]);
+
+  const carregarDetalhe = useCallback(async (id: string) => {
+    setLoadingDetail(true);
+    try {
+      const data = await api.adminPedidos.buscarPorId(id);
+      setPedidoDetalhe(data);
+    } finally {
+      setLoadingDetail(false);
     }
   }, []);
 
   useEffect(() => {
-    carregarPedidos();
-    // Atualiza a cada 30s
-    const interval = setInterval(carregarPedidos, 30000);
-    return () => clearInterval(interval);
-  }, [carregarPedidos]);
+    void carregarLista();
+  }, [carregarLista]);
 
-  const pedidosFiltrados = pedidos.filter((p) => {
-    const matchStatus = statusFiltro === 'todos' || p.status === statusFiltro;
-    const matchCliente =
-      !buscaCliente ||
-      p.clienteNome?.toLowerCase().includes(buscaCliente.toLowerCase()) ||
-      p.clienteTelefone?.includes(buscaCliente);
-    return matchStatus && matchCliente;
+  useEffect(() => {
+    if (selectedId) void carregarDetalhe(selectedId);
+  }, [selectedId, carregarDetalhe]);
+
+  useCockpitSocket({
+    onPedidoNovo: () => {
+      void carregarLista();
+    },
+    onPedidoAtualizado: (payload) => {
+      void carregarLista();
+      if (selectedId && payload?.id === selectedId) {
+        void carregarDetalhe(selectedId);
+      }
+    },
   });
 
-  const totalPaginas = Math.ceil(pedidosFiltrados.length / POR_PAGINA);
-  const pedidosPagina = pedidosFiltrados.slice((pagina - 1) * POR_PAGINA, pagina * POR_PAGINA);
+  const resumo = useMemo(
+    () => ({
+      total: pedidos.length,
+      aprovacao: pedidos.filter((p) => p.status === 'CONFIRMADO').length,
+      preparo: pedidos.filter((p) => p.status === 'PREPARANDO').length,
+    }),
+    [pedidos]
+  );
+
+  const temBebida = useMemo(() => {
+    if (!pedidoDetalhe) return false;
+    return pedidoDetalhe.itens.some((item) => (item.produto?.categoria || '').toUpperCase().includes('BEBIDA'));
+  }, [pedidoDetalhe]);
+
+  const avancarStatus = useCallback(async () => {
+    if (!pedidoDetalhe || savingStatus) return;
+
+    const atual = pedidoDetalhe.status;
+    const idx = STATUS_FLOW.indexOf(atual as (typeof STATUS_FLOW)[number]);
+    if (idx < 0 || idx === STATUS_FLOW.length - 1) return;
+
+    const proximo = STATUS_FLOW[idx + 1];
+
+    setSavingStatus(true);
+    try {
+      await api.adminPedidos.atualizarStatus(pedidoDetalhe.id, proximo);
+      await Promise.all([carregarLista(), carregarDetalhe(pedidoDetalhe.id)]);
+      showSuccess('Status atualizado', `Pedido #${pedidoDetalhe.numero} movido para ${labelStatus(proximo)}.`);
+    } catch (error: any) {
+      showError('Falha ao atualizar status', error?.message || 'Tente novamente.');
+    } finally {
+      setSavingStatus(false);
+    }
+  }, [pedidoDetalhe, savingStatus, carregarLista, carregarDetalhe, showSuccess, showError]);
 
   return (
-    <div className="p-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+    <div className="p-5 md:p-6">
+      <div className="mb-4 flex items-center justify-between">
         <div>
-          <h1 className="font-brand text-3xl font-black uppercase text-neutral-900">Pedidos</h1>
-          <p className="text-neutral-500 mt-1">{pedidos.length} pedido{pedidos.length !== 1 ? 's' : ''} no total</p>
+          <h1 className="font-sora text-2xl font-bold text-[var(--color-text-primary)]">Cockpit de Pedidos</h1>
+          <p className="text-sm text-[var(--color-text-secondary)]">
+            {resumo.total} pedidos · {resumo.aprovacao} aguardando aprovação · {resumo.preparo} em preparo
+          </p>
         </div>
-        <Button variant="outline" size="md" onClick={carregarPedidos}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <polyline points="23 4 23 10 17 10" />
-            <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
-          </svg>
+        <CrmButton variant="ghost" onClick={() => void carregarLista()}>
           Atualizar
-        </Button>
+        </CrmButton>
       </div>
 
-      {/* Filtros */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm mb-6 flex flex-col md:flex-row gap-4">
-        {/* Busca cliente */}
-        <div className="relative flex-1">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400">
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.35-4.35" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Buscar por cliente ou telefone..."
-            value={buscaCliente}
-            onChange={(e) => { setBuscaCliente(e.target.value); setPagina(1); }}
-            className="w-full h-10 pl-9 pr-4 text-sm border border-neutral-200 rounded-xl outline-none focus:border-red-500 transition-colors"
+      <div className="mb-4 flex flex-col gap-3 md:flex-row">
+        <div className="md:w-80">
+          <CrmInput
+            placeholder="Buscar cliente, telefone ou ID..."
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
           />
         </div>
-
-        {/* Status */}
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex flex-wrap gap-2">
           {STATUS_OPTIONS.map((opt) => (
-            <button
+            <CrmButton
               key={opt.value}
-              onClick={() => { setStatusFiltro(opt.value); setPagina(1); }}
-              className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${
-                statusFiltro === opt.value
-                  ? 'bg-red-500 text-white'
-                  : 'bg-neutral-100 text-neutral-500 hover:bg-neutral-200'
-              }`}
+              variant={statusFiltro === opt.value ? 'primary' : 'ghost'}
+              size="sm"
+              onClick={() => setStatusFiltro(opt.value)}
             >
               {opt.label}
-            </button>
+            </CrmButton>
           ))}
         </div>
       </div>
 
-      <div className="flex gap-6">
-        {/* Tabela */}
-        <div className="flex-1 bg-white rounded-2xl shadow-sm overflow-hidden">
-          {loading ? (
-            <div className="p-12 text-center">
-              <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-              <p className="text-neutral-500 text-sm">Carregando pedidos...</p>
-            </div>
-          ) : pedidosPagina.length === 0 ? (
-            <div className="p-12 text-center">
-              <p className="text-neutral-400 font-semibold">Nenhum pedido encontrado</p>
-              <p className="text-neutral-400 text-sm mt-1">Tente ajustar os filtros</p>
-            </div>
+      <div className="grid min-h-[72vh] grid-cols-1 gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
+        <CrmCard className="max-h-[72vh] overflow-auto p-3">
+          {loadingList ? (
+            <p className="p-3 text-sm text-[var(--color-text-secondary)]">Carregando pedidos...</p>
+          ) : pedidos.length === 0 ? (
+            <p className="p-3 text-sm text-[var(--color-text-secondary)]">Sem pedidos para os filtros atuais.</p>
           ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-neutral-100">
-                  <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">#</th>
-                  <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Cliente</th>
-                  <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Total</th>
-                  <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Pagamento</th>
-                  <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Status</th>
-                  <th className="text-left px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Data</th>
-                  <th className="text-right px-6 py-4 text-xs font-bold uppercase tracking-wider text-neutral-400">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-50">
-                {pedidosPagina.map((pedido) => {
-                  const badge = STATUS_BADGE[pedido.status] ?? { variant: 'dark' as const, label: pedido.status };
-                  return (
-                    <tr
-                      key={pedido.id}
-                      className={`hover:bg-neutral-50 transition-colors cursor-pointer ${pedidoSelecionado?.id === pedido.id ? 'bg-red-50' : ''}`}
-                      onClick={() => setPedidoSelecionado(pedidoSelecionado?.id === pedido.id ? null : pedido)}
-                    >
-                      <td className="px-6 py-4 font-brand font-black text-neutral-500">#{pedido.numero}</td>
-                      <td className="px-6 py-4">
-                        <p className="font-semibold text-neutral-900 text-sm">{pedido.clienteNome}</p>
-                        <p className="text-xs text-neutral-400">{pedido.clienteTelefone}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="font-brand font-black text-red-500">{formatCurrency(pedido.total)}</span>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-neutral-600 capitalize">
-                        {pedido.formaPagamento?.replace('_', ' ')}
-                      </td>
-                      <td className="px-6 py-4">
-                        <Badge variant={badge.variant} size="sm">{badge.label}</Badge>
-                      </td>
-                      <td className="px-6 py-4 text-xs text-neutral-400">
-                        {formatTime(pedido.createdAt)}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setPedidoSelecionado(pedidoSelecionado?.id === pedido.id ? null : pedido);
-                          }}
-                          className="p-2 text-neutral-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                          aria-label="Ver detalhes"
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                            <circle cx="12" cy="12" r="3" />
-                          </svg>
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-
-          {/* Paginação */}
-          {totalPaginas > 1 && (
-            <div className="px-6 py-4 border-t border-neutral-100 flex items-center justify-between">
-              <p className="text-sm text-neutral-500">
-                Mostrando {(pagina - 1) * POR_PAGINA + 1}–{Math.min(pagina * POR_PAGINA, pedidosFiltrados.length)} de {pedidosFiltrados.length}
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setPagina((p) => Math.max(1, p - 1))}
-                  disabled={pagina === 1}
-                  className="px-3 py-1.5 text-sm font-semibold rounded-lg border border-neutral-200 disabled:opacity-40 hover:bg-neutral-50 transition-colors"
-                >
-                  Anterior
-                </button>
-                {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setPagina(p)}
-                    className={`w-8 h-8 text-sm font-semibold rounded-lg transition-colors ${
-                      p === pagina ? 'bg-red-500 text-white' : 'border border-neutral-200 hover:bg-neutral-50'
-                    }`}
-                  >
-                    {p}
-                  </button>
-                ))}
-                <button
-                  onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-                  disabled={pagina === totalPaginas}
-                  className="px-3 py-1.5 text-sm font-semibold rounded-lg border border-neutral-200 disabled:opacity-40 hover:bg-neutral-50 transition-colors"
-                >
-                  Próxima
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Painel de detalhes */}
-        {pedidoSelecionado && (
-          <div className="w-80 flex-shrink-0 bg-white rounded-2xl shadow-sm p-6 space-y-4 self-start sticky top-8">
-            <div className="flex items-center justify-between">
-              <h2 className="font-brand text-lg font-black uppercase text-neutral-900">
-                Pedido #{pedidoSelecionado.numero}
-              </h2>
-              <button
-                onClick={() => setPedidoSelecionado(null)}
-                className="p-1 text-neutral-400 hover:text-neutral-700 rounded-lg transition-colors"
-                aria-label="Fechar detalhes"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-
-            {/* Status */}
-            <div>
-              <Badge
-                variant={STATUS_BADGE[pedidoSelecionado.status]?.variant ?? 'dark'}
-                size="md"
-              >
-                {STATUS_BADGE[pedidoSelecionado.status]?.label ?? pedidoSelecionado.status}
-              </Badge>
-            </div>
-
-            {/* Cliente */}
-            <div className="space-y-1 text-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">Cliente</p>
-              <p className="font-semibold text-neutral-900">{pedidoSelecionado.clienteNome}</p>
-              <p className="text-neutral-500">{pedidoSelecionado.clienteTelefone}</p>
-              {pedidoSelecionado.clienteEmail && (
-                <p className="text-neutral-500">{pedidoSelecionado.clienteEmail}</p>
-              )}
-            </div>
-
-            {/* Endereço */}
-            <div className="space-y-1 text-sm">
-              <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">Endereço</p>
-              <p className="text-neutral-700">
-                {pedidoSelecionado.endereco.rua}, {pedidoSelecionado.endereco.numero}
-                {pedidoSelecionado.endereco.complemento && ` - ${pedidoSelecionado.endereco.complemento}`}
-              </p>
-              <p className="text-neutral-500">{pedidoSelecionado.endereco.bairro} — CEP {pedidoSelecionado.endereco.cep}</p>
-            </div>
-
-            {/* Itens */}
             <div className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">Itens</p>
-              {pedidoSelecionado.itens.map((item) => (
-                <div key={item.id} className="flex justify-between text-sm">
-                  <span className="text-neutral-700">{item.quantidade}x {item.produto?.nome ?? item.produtoId}</span>
-                  <span className="font-semibold text-neutral-900">{formatCurrency(item.precoUnitario * item.quantidade)}</span>
-                </div>
+              {pedidos.map((pedido) => (
+                (() => {
+                  const sla = slaByStatus(pedido.status);
+                  return (
+                <button
+                  key={pedido.id}
+                  type="button"
+                  onClick={() => setSelectedId(pedido.id)}
+                  className={`w-full rounded-md border p-3 text-left transition-colors ${
+                    selectedId === pedido.id
+                      ? 'border-[var(--color-accent)] bg-[var(--color-accent-muted)]'
+                      : 'border-[var(--color-border)] bg-[var(--color-surface-raised)] hover:bg-[var(--color-surface-hover)]'
+                  }`}
+                >
+                  <div className="mb-1 flex items-center justify-between gap-2">
+                    <span className="font-mono-crm text-xs font-semibold text-[var(--color-text-secondary)]">#{pedido.numero}</span>
+                    <CrmTimer
+                      elapsedSeconds={pedido.tempoNoEstagio}
+                      warningAt={sla.warningAt}
+                      dangerAt={sla.dangerAt}
+                      blinkOnDanger
+                    />
+                  </div>
+                  <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{pedido.clienteNome}</p>
+                  <p className="truncate text-xs text-[var(--color-text-secondary)]">{pedido.bairro}</p>
+                  <p className="mt-1 truncate text-xs text-[var(--color-text-tertiary)]">{pedido.itensResumo.join(' + ')}</p>
+                  <div className="mt-2 flex items-center justify-between">
+                    <CrmBadge variant={pedido.statusPagamento === 'CONFIRMADO' ? 'paid' : pedido.statusPagamento === 'EXPIRADO' ? 'expired' : 'unpaid'}>
+                      {paymentIcon(pedido.statusPagamento)} {pedido.statusPagamento}
+                    </CrmBadge>
+                    <span className="text-sm font-semibold text-[var(--color-accent)]">{formatCurrency(pedido.total)}</span>
+                  </div>
+                  <div className="mt-2">
+                    <CrmButton
+                      size="sm"
+                      className="w-full"
+                      disabled={pedido.statusPagamento !== 'CONFIRMADO'}
+                      title={pedido.statusPagamento !== 'CONFIRMADO' ? 'Aguardando pagamento' : 'Confirmar pedido'}
+                    >
+                      Confirmar
+                    </CrmButton>
+                  </div>
+                </button>
+                  );
+                })()
               ))}
             </div>
+          )}
+        </CrmCard>
 
-            {/* Totais */}
-            <div className="border-t border-neutral-100 pt-3 space-y-1 text-sm">
-              <div className="flex justify-between text-neutral-500">
-                <span>Subtotal</span>
-                <span>{formatCurrency(pedidoSelecionado.subtotal)}</span>
+        <CrmCard className="p-5">
+          {!selectedId ? (
+            <p className="text-sm text-[var(--color-text-secondary)]">Selecione um pedido.</p>
+          ) : loadingDetail || !pedidoDetalhe ? (
+            <p className="text-sm text-[var(--color-text-secondary)]">Carregando detalhes...</p>
+          ) : (
+            <>
+              <div className="mb-4 flex items-start justify-between">
+                <div>
+                  <h2 className="font-sora text-xl font-bold text-[var(--color-text-primary)]">
+                    Pedido #{pedidoDetalhe.numero}
+                  </h2>
+                  <p className="text-sm text-[var(--color-text-secondary)]">
+                    {pedidoDetalhe.cliente.nome} · {pedidoDetalhe.cliente.telefone}
+                  </p>
+                </div>
+                <CrmBadge variant={toBadgeVariant(pedidoDetalhe.status)}>{labelStatus(pedidoDetalhe.status)}</CrmBadge>
               </div>
-              <div className="flex justify-between text-neutral-500">
-                <span>Entrega</span>
-                <span>{formatCurrency(pedidoSelecionado.taxaEntrega)}</span>
-              </div>
-              <div className="flex justify-between font-brand font-black text-base pt-1">
-                <span className="text-neutral-900">Total</span>
-                <span className="text-red-500">{formatCurrency(pedidoSelecionado.total)}</span>
-              </div>
-            </div>
 
-            {/* Pagamento */}
-            <div className="text-sm text-neutral-500">
-              <span className="font-semibold text-neutral-700">Pagamento: </span>
-              {pedidoSelecionado.formaPagamento?.replace('_', ' ')}
-              {pedidoSelecionado.trocoParaValor && (
-                <span> (troco para {formatCurrency(pedidoSelecionado.trocoParaValor)})</span>
-              )}
-            </div>
-          </div>
-        )}
+              <CrmTab defaultValue="pedido">
+                <CrmTabList>
+                  <CrmTabTrigger value="pedido">Pedido</CrmTabTrigger>
+                  <CrmTabTrigger value="timeline">Timeline</CrmTabTrigger>
+                </CrmTabList>
+
+                <CrmTabPanel value="pedido">
+                  <div className="space-y-4">
+                    <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
+                      <p className="mb-2 text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Fluxo de status</p>
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                        {STATUS_FLOW.map((status) => (
+                          <CrmBadge key={status} variant={toBadgeVariant(status)}>
+                            {labelStatus(status)}
+                          </CrmBadge>
+                        ))}
+                      </div>
+                      <CrmButton
+                        size="sm"
+                        onClick={() => void avancarStatus()}
+                        disabled={savingStatus || !STATUS_FLOW.includes(pedidoDetalhe.status as (typeof STATUS_FLOW)[number]) || pedidoDetalhe.status === 'ENTREGUE'}
+                      >
+                        {savingStatus ? 'Atualizando...' : 'Avançar status'}
+                      </CrmButton>
+                    </div>
+                    {temBebida && (
+                      <div className="rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-muted)] p-3">
+                        <p className="text-sm font-semibold text-[var(--color-warning-text)]">Não esqueça as bebidas</p>
+                      </div>
+                    )}
+                    <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
+                      <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Pagamento</p>
+                      <p className="text-sm text-[var(--color-text-primary)]">{pedidoDetalhe.statusPagamento}</p>
+                    </div>
+                    <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
+                      <label className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]">
+                        <span>Imprimir comanda (em breve)</span>
+                        <input type="checkbox" disabled className="h-4 w-4 cursor-not-allowed accent-[var(--color-accent)]" />
+                      </label>
+                    </div>
+                    <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
+                      <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Endereço</p>
+                      <p className="text-sm text-[var(--color-text-primary)]">
+                        {pedidoDetalhe.cliente.endereco} · {pedidoDetalhe.cliente.bairro}
+                      </p>
+                    </div>
+                    <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
+                      <p className="mb-2 text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Itens</p>
+                      <div className="space-y-1">
+                        {pedidoDetalhe.itens.map((item) => (
+                          <div key={item.id} className="flex items-center justify-between text-sm">
+                            <span className="text-[var(--color-text-primary)]">
+                              {item.quantidade}x {item.produto?.nome || 'Produto'}
+                            </span>
+                            <span className="text-[var(--color-text-secondary)]">{formatCurrency(item.subtotal)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="mt-3 border-t border-[var(--color-border)] pt-2">
+                        <div className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]">
+                          <span>Subtotal</span>
+                          <span>{formatCurrency(pedidoDetalhe.subtotal)}</span>
+                        </div>
+                        <div className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]">
+                          <span>Entrega</span>
+                          <span>{formatCurrency(pedidoDetalhe.taxaEntrega)}</span>
+                        </div>
+                        <div className="mt-1 flex items-center justify-between text-sm font-semibold text-[var(--color-text-primary)]">
+                          <span>Total</span>
+                          <span>{formatCurrency(pedidoDetalhe.total)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </CrmTabPanel>
+
+                <CrmTabPanel value="timeline">
+                  <div className="space-y-2">
+                    {pedidoDetalhe.timeline.map((item, index) => (
+                      <div key={`${item.timestamp}-${index}`} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
+                        <p className="text-xs text-[var(--color-text-tertiary)]">
+                          {formatTime(item.timestamp)} · {item.ator}
+                        </p>
+                        <p className="text-sm text-[var(--color-text-primary)]">{item.acao}</p>
+                      </div>
+                    ))}
+                  </div>
+                </CrmTabPanel>
+              </CrmTab>
+            </>
+          )}
+        </CrmCard>
       </div>
     </div>
   );

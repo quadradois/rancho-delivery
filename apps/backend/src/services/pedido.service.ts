@@ -4,6 +4,7 @@ import clienteService from './cliente.service';
 import bairroService from './bairro.service';
 import produtoService from './produto.service';
 import infinitePayService from './infinitepay.service';
+import evolutionService from './evolution.service';
 import { Origem, StatusPedido } from '@prisma/client';
 
 interface ItemPedidoInput {
@@ -25,6 +26,49 @@ interface CriarPedidoInput {
 }
 
 export class PedidoService {
+  private transicoesPermitidas: Record<StatusPedido, StatusPedido[]> = {
+    PENDENTE: [StatusPedido.CONFIRMADO, StatusPedido.CANCELADO],
+    AGUARDANDO_PAGAMENTO: [StatusPedido.CONFIRMADO, StatusPedido.CANCELADO, StatusPedido.EXPIRADO],
+    CONFIRMADO: [StatusPedido.PREPARANDO, StatusPedido.CANCELADO],
+    PREPARANDO: [StatusPedido.SAIU_ENTREGA, StatusPedido.CANCELADO],
+    SAIU_ENTREGA: [StatusPedido.ENTREGUE, StatusPedido.CANCELADO],
+    ENTREGUE: [],
+    EXPIRADO: [StatusPedido.CONFIRMADO, StatusPedido.CANCELADO, StatusPedido.ABANDONADO],
+    ABANDONADO: [StatusPedido.CONFIRMADO, StatusPedido.CANCELADO],
+    CANCELADO: [],
+  };
+
+  private resolverStatusPagamento(status: StatusPedido) {
+    switch (status) {
+      case StatusPedido.EXPIRADO:
+      case StatusPedido.ABANDONADO:
+      case StatusPedido.CANCELADO:
+        return 'EXPIRADO';
+      case StatusPedido.CONFIRMADO:
+      case StatusPedido.PREPARANDO:
+      case StatusPedido.SAIU_ENTREGA:
+      case StatusPedido.ENTREGUE:
+        return 'CONFIRMADO';
+      default:
+        return 'PENDENTE';
+    }
+  }
+
+  private prioridadeStatus(status: StatusPedido) {
+    const ordem: Record<StatusPedido, number> = {
+      AGUARDANDO_PAGAMENTO: 0,
+      PENDENTE: 1,
+      CONFIRMADO: 2,
+      PREPARANDO: 3,
+      SAIU_ENTREGA: 4,
+      ENTREGUE: 5,
+      EXPIRADO: 6,
+      ABANDONADO: 7,
+      CANCELADO: 8,
+    };
+    return ordem[status] ?? 99;
+  }
+
   private getCheckoutTtlMinutes() {
     const ttl = Number(process.env.CHECKOUT_TTL_MINUTES || 20);
     return Number.isFinite(ttl) && ttl > 0 ? ttl : 20;
@@ -129,6 +173,154 @@ export class PedidoService {
       logger.error('Erro ao listar pedidos:', error);
       throw new Error('Erro ao buscar pedidos');
     }
+  }
+
+  async listarPedidosAdmin(filtros?: { status?: string; busca?: string }) {
+    const busca = filtros?.busca?.trim();
+
+    const where: any = {};
+    if (filtros?.status && filtros.status !== 'todos') {
+      where.status = filtros.status.toUpperCase();
+    }
+
+    if (busca) {
+      where.OR = [
+        { id: { contains: busca, mode: 'insensitive' } },
+        { clienteTelefone: { contains: busca, mode: 'insensitive' } },
+        { cliente: { nome: { contains: busca, mode: 'insensitive' } } },
+        { cliente: { bairro: { contains: busca, mode: 'insensitive' } } },
+      ];
+    }
+
+    const pedidos = await prisma.pedido.findMany({
+      where,
+      include: {
+        cliente: {
+          select: {
+            nome: true,
+            telefone: true,
+            bairro: true,
+          },
+        },
+        itens: {
+          include: {
+            produto: {
+              select: {
+                nome: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const agora = Date.now();
+    const data = pedidos.map((pedido) => {
+      const tempoNoEstagio = Math.max(0, Math.floor((agora - pedido.atualizadoEm.getTime()) / 1000));
+      return {
+        id: pedido.id,
+        numero: pedido.id.slice(-6).toUpperCase(),
+        status: pedido.status,
+        statusPagamento: this.resolverStatusPagamento(pedido.status),
+        clienteNome: pedido.cliente?.nome || 'Cliente',
+        clienteTelefone: pedido.cliente?.telefone || '',
+        bairro: pedido.cliente?.bairro || '',
+        itensResumo: pedido.itens.slice(0, 3).map((item) => item.produto?.nome || 'Produto'),
+        total: Number(pedido.total),
+        createdAt: pedido.criadoEm.toISOString(),
+        tempoNoEstagio,
+      };
+    });
+
+    data.sort((a, b) => {
+      const aStatus = this.prioridadeStatus(a.status as StatusPedido);
+      const bStatus = this.prioridadeStatus(b.status as StatusPedido);
+      if (aStatus !== bStatus) return aStatus - bStatus;
+      if (a.tempoNoEstagio !== b.tempoNoEstagio) return b.tempoNoEstagio - a.tempoNoEstagio;
+      return a.createdAt.localeCompare(b.createdAt);
+    });
+
+    return data;
+  }
+
+  async buscarPedidoAdminPorId(id: string) {
+    const pedido = await prisma.pedido.findUnique({
+      where: { id },
+      include: {
+        cliente: {
+          select: {
+            nome: true,
+            telefone: true,
+            endereco: true,
+            bairro: true,
+          },
+        },
+        itens: {
+          include: {
+            produto: {
+              select: {
+                id: true,
+                nome: true,
+                categoria: true,
+                preco: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!pedido) return null;
+
+    const tempoNoEstagio = Math.max(0, Math.floor((Date.now() - pedido.atualizadoEm.getTime()) / 1000));
+    return {
+      id: pedido.id,
+      numero: pedido.id.slice(-6).toUpperCase(),
+      status: pedido.status,
+      statusPagamento: this.resolverStatusPagamento(pedido.status),
+      pagamentoId: pedido.pagamentoId,
+      observacao: pedido.observacao,
+      subtotal: Number(pedido.subtotal),
+      taxaEntrega: Number(pedido.taxaEntrega),
+      total: Number(pedido.total),
+      createdAt: pedido.criadoEm.toISOString(),
+      updatedAt: pedido.atualizadoEm.toISOString(),
+      tempoNoEstagio,
+      cliente: {
+        nome: pedido.cliente?.nome || 'Cliente',
+        telefone: pedido.cliente?.telefone || '',
+        endereco: pedido.cliente?.endereco || '',
+        bairro: pedido.cliente?.bairro || '',
+      },
+      itens: pedido.itens.map((item) => ({
+        id: item.id,
+        quantidade: item.quantidade,
+        precoUnit: Number(item.precoUnit),
+        subtotal: Number(item.subtotal),
+        observacao: item.observacao,
+        produto: item.produto
+          ? {
+              id: item.produto.id,
+              nome: item.produto.nome,
+              categoria: item.produto.categoria,
+              preco: Number(item.produto.preco),
+            }
+          : null,
+      })),
+      motoboy: null,
+      timeline: [
+        {
+          timestamp: pedido.criadoEm.toISOString(),
+          ator: 'SISTEMA',
+          acao: 'Pedido criado',
+        },
+        {
+          timestamp: pedido.atualizadoEm.toISOString(),
+          ator: 'SISTEMA',
+          acao: `Status atual: ${pedido.status}`,
+        },
+      ],
+    };
   }
 
   /**
@@ -364,6 +556,57 @@ export class PedidoService {
       logger.error(`Erro ao atualizar status do pedido ${id}:`, error);
       throw new Error('Erro ao atualizar pedido');
     }
+  }
+
+  async atualizarStatusAdmin(id: string, novoStatus: StatusPedido, motivoCancelamento?: string) {
+    const pedido = await prisma.pedido.findUnique({
+      where: { id },
+      select: { id: true, status: true },
+    });
+
+    if (!pedido) {
+      throw new Error('PEDIDO_NAO_ENCONTRADO');
+    }
+
+    if (pedido.status === novoStatus) {
+      return pedido;
+    }
+
+    const permitidos = this.transicoesPermitidas[pedido.status] || [];
+    if (!permitidos.includes(novoStatus)) {
+      throw new Error('TRANSICAO_INVALIDA');
+    }
+
+    const atualizado = await prisma.pedido.update({
+      where: { id },
+      data: { status: novoStatus },
+      select: { id: true, status: true, atualizadoEm: true },
+    });
+
+    logger.info('Status alterado pelo admin', {
+      pedidoId: id,
+      de: pedido.status,
+      para: novoStatus,
+    });
+
+    const deveNotificarCliente =
+      novoStatus === StatusPedido.CONFIRMADO ||
+      novoStatus === StatusPedido.SAIU_ENTREGA ||
+      novoStatus === StatusPedido.ENTREGUE ||
+      novoStatus === StatusPedido.CANCELADO;
+
+    if (deveNotificarCliente) {
+      try {
+        const pedidoCompleto = await this.buscarPedidoPorId(id);
+        if (pedidoCompleto) {
+          await evolutionService.notificarClienteStatusPedido(pedidoCompleto, novoStatus, motivoCancelamento);
+        }
+      } catch (error) {
+        logger.error('Erro ao enviar mensagem automática de status ao cliente:', error);
+      }
+    }
+
+    return atualizado;
   }
 
   /**
