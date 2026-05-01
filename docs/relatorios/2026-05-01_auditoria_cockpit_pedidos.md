@@ -49,22 +49,22 @@
   Elemento desabilitado com label "(em breve)". Sem onClick, sem integração com impressora.  
   _Correção: implementar ou remover do layout._
 
-- [ ] **#8 — Campo "ID do produto" no pedido manual exige UUID**  
+- [x] **#8 — Campo "ID do produto" no pedido manual exige UUID**  
   `apps/frontend/src/app/admin/pedidos/page.tsx:846`  
   Operador precisa digitar o UUID do produto manualmente. Sem busca, autocomplete ou dropdown. Inutilizável em produção sem consultar o banco.  
   _Correção: substituir por `<select>` ou autocomplete carregando produtos via `api.produtos.listar()`._
 
-- [ ] **#9 — Cancelamento via `PATCH /status` não marca `estornoNecessario`**  
+- [x] **#9 — Cancelamento via `PATCH /status` não marca `estornoNecessario`**  
   `apps/backend/src/services/pedido.service.ts:714`  
   `atualizarStatusAdmin` não verifica `statusPagamento` ao cancelar. Apenas `cancelarPedidoAdmin` marca `estornoNecessario`. Se o operador cancelar via rota de status diretamente, o estorno não é registrado.  
   _Correção: adicionar verificação de estorno em `atualizarStatusAdmin` quando `novoStatus === CANCELADO`._
 
-- [ ] **#10 — SSE sem reconexão automática após falha**  
+- [x] **#10 — SSE sem reconexão automática após falha**  
   `apps/frontend/src/hooks/useCockpitSocket.ts:62`  
   Na primeira falha do SSE, a conexão é fechada permanentemente e cai para polling a cada 8s. Não tenta reconectar. Se o backend reiniciar, o cockpit fica em polling até o operador recarregar a página.  
   _Correção: implementar backoff exponencial para reconexão do SSE antes de cair para polling._
 
-- [ ] **#11 — `statusPagamento` inferido do status do pedido, não consultado no gateway**  
+- [x] **#11 — `statusPagamento` inferido do status do pedido, não consultado no gateway**  
   `apps/backend/src/services/pedido.service.ts:42`  
   Se o webhook do InfinitePay falhar, o pedido fica em `AGUARDANDO_PAGAMENTO` mesmo após pagamento confirmado. O `statusPagamento` retornado será `PENDENTE` e o botão "Confirmar" ficará bloqueado indefinidamente.  
   _Correção: adicionar endpoint de consulta ao InfinitePay para verificar status real do pagamento, ou armazenar `statusPagamento` como campo independente no banco._

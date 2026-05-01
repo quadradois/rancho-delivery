@@ -93,6 +93,7 @@ model Pedido {
   taxaEntrega     Decimal       @map("taxa_entrega") @db.Decimal(10, 2)
   total           Decimal       @db.Decimal(10, 2)
   status          StatusPedido  @default(PENDENTE)
+  statusPagamento StatusPagamento @default(PENDENTE) @map("status_pagamento")
   statusMudouEm   DateTime      @default(now()) @map("status_mudou_em")
   pagamentoId     String?       @map("pagamento_id") @db.VarChar(255) // ID do Asaas
   motoboyId       String?       @map("motoboy_id")
@@ -120,6 +121,12 @@ model Pedido {
   @@index([status])
   @@index([motoboyId])
   @@index([criadoEm])
+}
+
+enum StatusPagamento {
+  PENDENTE
+  CONFIRMADO
+  EXPIRADO
 }
 
 // Enum para status do pedido

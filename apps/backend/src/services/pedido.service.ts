@@ -5,7 +5,7 @@ import bairroService from './bairro.service';
 import produtoService from './produto.service';
 import infinitePayService from './infinitepay.service';
 import evolutionService from './evolution.service';
-import { Origem, StatusLoja, StatusPedido } from '@prisma/client';
+import { Origem, StatusLoja, StatusPagamento, StatusPedido } from '@prisma/client';
 
 interface ItemPedidoInput {
   produtoId: string;
@@ -38,22 +38,6 @@ export class PedidoService {
     ABANDONADO: [StatusPedido.CONFIRMADO, StatusPedido.CANCELADO],
     CANCELADO: [],
   };
-
-  private resolverStatusPagamento(status: StatusPedido) {
-    switch (status) {
-      case StatusPedido.EXPIRADO:
-      case StatusPedido.ABANDONADO:
-      case StatusPedido.CANCELADO:
-        return 'EXPIRADO';
-      case StatusPedido.CONFIRMADO:
-      case StatusPedido.PREPARANDO:
-      case StatusPedido.SAIU_ENTREGA:
-      case StatusPedido.ENTREGUE:
-        return 'CONFIRMADO';
-      default:
-        return 'PENDENTE';
-    }
-  }
 
   private prioridadeStatus(status: StatusPedido) {
     const ordem: Record<StatusPedido, number> = {
@@ -341,7 +325,7 @@ export class PedidoService {
         id: pedido.id,
         numero: pedido.id.slice(-6).toUpperCase(),
         status: pedido.status,
-        statusPagamento: this.resolverStatusPagamento(pedido.status),
+        statusPagamento: pedido.statusPagamento,
         clienteNome: pedido.cliente?.nome || 'Cliente',
         clienteTelefone: pedido.cliente?.telefone || '',
         bairro: pedido.bairroEntrega || pedido.cliente?.bairro || '',
@@ -420,7 +404,7 @@ export class PedidoService {
       id: pedido.id,
       numero: pedido.id.slice(-6).toUpperCase(),
       status: pedido.status,
-      statusPagamento: this.resolverStatusPagamento(pedido.status),
+      statusPagamento: pedido.statusPagamento,
       pagamentoId: pedido.pagamentoId,
       observacao: pedido.observacao,
       observacaoEntrega: pedido.observacaoEntrega,
@@ -536,6 +520,7 @@ export class PedidoService {
           taxaEntrega,
           total,
           status: StatusPedido.AGUARDANDO_PAGAMENTO,
+          statusPagamento: StatusPagamento.PENDENTE,
           statusMudouEm: new Date(),
           pagamentoExpiraEm,
           observacao,
@@ -685,7 +670,7 @@ export class PedidoService {
     try {
       const pedidoAtual = await prisma.pedido.findUnique({
         where: { id },
-        select: { status: true },
+        select: { status: true, statusPagamento: true },
       });
 
       const eraAbandonadoOuExpirado =
@@ -696,6 +681,7 @@ export class PedidoService {
         where: { id },
         data: {
           status: status as StatusPedido,
+          statusPagamento: virouConfirmado ? StatusPagamento.CONFIRMADO : pedidoAtual?.statusPagamento,
           statusMudouEm: new Date(),
           pagamentoId,
           ...(virouConfirmado && { recuperadoEm: eraAbandonadoOuExpirado ? new Date() : null }),
@@ -718,7 +704,7 @@ export class PedidoService {
   async atualizarStatusAdmin(id: string, novoStatus: StatusPedido, motivoCancelamento?: string) {
     const pedido = await prisma.pedido.findUnique({
       where: { id },
-      select: { id: true, status: true },
+      select: { id: true, status: true, statusPagamento: true },
     });
 
     if (!pedido) {
@@ -734,11 +720,19 @@ export class PedidoService {
       throw new Error('TRANSICAO_INVALIDA');
     }
 
+    const statusPagamentoAtualizado =
+      novoStatus === StatusPedido.CANCELADO
+        ? (pedido.statusPagamento === StatusPagamento.CONFIRMADO ? StatusPagamento.CONFIRMADO : StatusPagamento.EXPIRADO)
+        : pedido.statusPagamento;
+    const estornoNecessario = novoStatus === StatusPedido.CANCELADO && pedido.statusPagamento === StatusPagamento.CONFIRMADO;
+
     const atualizado = await prisma.pedido.update({
       where: { id },
       data: {
         status: novoStatus,
+        statusPagamento: statusPagamentoAtualizado,
         statusMudouEm: new Date(),
+        ...(novoStatus === StatusPedido.CANCELADO ? { estornoNecessario } : {}),
         ...(novoStatus === StatusPedido.CANCELADO && motivoCancelamento
           ? { canceladoMotivo: motivoCancelamento }
           : {}),
@@ -834,6 +828,7 @@ export class PedidoService {
         where: { id: pedido.id },
         data: {
           status: StatusPedido.CONFIRMADO,
+          statusPagamento: StatusPagamento.CONFIRMADO,
           statusMudouEm: new Date(),
         },
       });
@@ -855,17 +850,17 @@ export class PedidoService {
   async cancelarPedidoAdmin(id: string, motivo: string) {
     const pedido = await prisma.pedido.findUnique({
       where: { id },
-      select: { id: true, status: true },
+      select: { id: true, status: true, statusPagamento: true },
     });
     if (!pedido) throw new Error('PEDIDO_NAO_ENCONTRADO');
 
-    const statusPagamento = this.resolverStatusPagamento(pedido.status);
-    const estornoNecessario = statusPagamento === 'CONFIRMADO';
+    const estornoNecessario = pedido.statusPagamento === StatusPagamento.CONFIRMADO;
 
     const atualizado = await prisma.pedido.update({
       where: { id },
       data: {
         status: StatusPedido.CANCELADO,
+        statusPagamento: estornoNecessario ? StatusPagamento.CONFIRMADO : StatusPagamento.EXPIRADO,
         statusMudouEm: new Date(),
         canceladoMotivo: motivo.trim(),
         estornoNecessario,
@@ -1006,7 +1001,7 @@ export class PedidoService {
           status: StatusPedido.AGUARDANDO_PAGAMENTO,
           pagamentoExpiraEm: { not: null, lte: agora },
         },
-        data: { status: StatusPedido.EXPIRADO, statusMudouEm: agora },
+        data: { status: StatusPedido.EXPIRADO, statusPagamento: StatusPagamento.EXPIRADO, statusMudouEm: agora },
       });
 
       const abandonados = await prisma.pedido.updateMany({
@@ -1017,6 +1012,7 @@ export class PedidoService {
         },
         data: {
           status: StatusPedido.ABANDONADO,
+          statusPagamento: StatusPagamento.EXPIRADO,
           statusMudouEm: agora,
           abandonadoEm: agora,
         },

@@ -9,6 +9,7 @@ import api, {
   LojaStatusAdmin,
   MensagemClienteAdmin,
   MotoboyAdmin,
+  Produto,
 } from '@/lib/api';
 import { formatCurrency, formatTime } from '@/lib/utils';
 import { useToast } from '@/contexts/ToastContext';
@@ -137,6 +138,7 @@ export default function AdminPedidosPage() {
   const [textoMensagem, setTextoMensagem] = useState('');
   const [motivoListaNegra, setMotivoListaNegra] = useState('');
   const [motoboys, setMotoboys] = useState<MotoboyAdmin[]>([]);
+  const [produtos, setProdutos] = useState<Produto[]>([]);
   const [selectedMotoboyId, setSelectedMotoboyId] = useState('');
   const [observacaoEntrega, setObservacaoEntrega] = useState('');
   const [enderecoEntrega, setEnderecoEntrega] = useState('');
@@ -223,6 +225,20 @@ export default function AdminPedidosPage() {
     }
   }, [showError]);
 
+  const carregarProdutos = useCallback(async () => {
+    try {
+      const data = await api.produtos.listar();
+      const ativos = data.filter((produto) => produto.disponivel !== false);
+      setProdutos(ativos);
+      setManualForm((state) => {
+        if (state.produtoId || ativos.length === 0) return state;
+        return { ...state, produtoId: ativos[0].id };
+      });
+    } catch (error: any) {
+      showError('Falha ao carregar produtos', error?.message || 'Tente novamente.');
+    }
+  }, [showError]);
+
   const carregarStatusLoja = useCallback(async () => {
     try {
       const data = await api.adminPedidos.obterStatusLoja();
@@ -257,9 +273,10 @@ export default function AdminPedidosPage() {
   useEffect(() => {
     void carregarLista();
     void carregarMotoboys();
+    void carregarProdutos();
     void carregarStatusLoja();
     void carregarMetricas();
-  }, [carregarLista, carregarMotoboys, carregarStatusLoja, carregarMetricas]);
+  }, [carregarLista, carregarMotoboys, carregarProdutos, carregarStatusLoja, carregarMetricas]);
 
   useEffect(() => {
     if (selectedId) void carregarDetalhe(selectedId);
@@ -886,7 +903,21 @@ export default function AdminPedidosPage() {
           <input placeholder="Telefone" value={manualForm.telefone} onChange={(e) => setManualForm((s) => ({ ...s, telefone: e.target.value }))} className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-sm" />
           <input placeholder="Endereço" value={manualForm.endereco} onChange={(e) => setManualForm((s) => ({ ...s, endereco: e.target.value }))} className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-sm" />
           <input placeholder="Bairro" value={manualForm.bairro} onChange={(e) => setManualForm((s) => ({ ...s, bairro: e.target.value }))} className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-sm" />
-          <input placeholder="ID do produto" value={manualForm.produtoId} onChange={(e) => setManualForm((s) => ({ ...s, produtoId: e.target.value }))} className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-sm" />
+          <select
+            value={manualForm.produtoId}
+            onChange={(e) => setManualForm((s) => ({ ...s, produtoId: e.target.value }))}
+            className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-sm"
+          >
+            {produtos.length === 0 ? (
+              <option value="">Carregando produtos...</option>
+            ) : (
+              produtos.map((produto) => (
+                <option key={produto.id} value={produto.id}>
+                  {produto.nome} · {formatCurrency(produto.preco)}
+                </option>
+              ))
+            )}
+          </select>
           <div className="grid grid-cols-2 gap-2">
             <CrmButton size="sm" variant={manualForm.pagamentoMetodo === 'PIX' ? 'primary' : 'ghost'} onClick={() => setManualForm((s) => ({ ...s, pagamentoMetodo: 'PIX' }))}>PIX</CrmButton>
             <CrmButton size="sm" variant={manualForm.pagamentoMetodo === 'DINHEIRO' ? 'primary' : 'ghost'} onClick={() => setManualForm((s) => ({ ...s, pagamentoMetodo: 'DINHEIRO' }))}>Dinheiro</CrmButton>

@@ -21,9 +21,14 @@ export function useCockpitSocket(options: UseCockpitSocketOptions) {
   useEffect(() => {
     let source: EventSource | null = null;
     let fallbackTimer: number | null = null;
+    let reconnectTimer: number | null = null;
+    let reconnectAttempts = 0;
+    let fallbackStarted = false;
+    let closedByCleanup = false;
 
     const startFallbackPolling = () => {
-      if (fallbackTimer) return;
+      if (fallbackTimer || fallbackStarted) return;
+      fallbackStarted = true;
       const interval = optionsRef.current.fallbackIntervalMs ?? 8000;
       fallbackTimer = window.setInterval(() => {
         optionsRef.current.onFallbackPoll?.();
@@ -39,6 +44,7 @@ export function useCockpitSocket(options: UseCockpitSocketOptions) {
     }
 
     const connect = () => {
+      if (closedByCleanup || fallbackStarted) return;
       // Usa mesma origem do frontend (nginx/proxy) para evitar falhas de CORS/DNS no SSE.
       source = new EventSource('/api/admin/events');
 
@@ -59,15 +65,33 @@ export function useCockpitSocket(options: UseCockpitSocketOptions) {
       onEvent('metricas:atualizadas', optionsRef.current.onMetricasAtualizadas);
       onEvent('loja:status', optionsRef.current.onLojaStatus);
 
+      source.onopen = () => {
+        reconnectAttempts = 0;
+      };
+
       source.onerror = () => {
         source?.close();
-        startFallbackPolling();
+        if (fallbackStarted) return;
+
+        if (reconnectAttempts >= 4) {
+          startFallbackPolling();
+          return;
+        }
+
+        const delayMs = Math.min(1000 * 2 ** reconnectAttempts, 8000);
+        reconnectAttempts += 1;
+        if (reconnectTimer) window.clearTimeout(reconnectTimer);
+        reconnectTimer = window.setTimeout(() => {
+          connect();
+        }, delayMs);
       };
     };
 
     connect();
 
     return () => {
+      closedByCleanup = true;
+      if (reconnectTimer) window.clearTimeout(reconnectTimer);
       if (fallbackTimer) window.clearInterval(fallbackTimer);
       source?.close();
     };
