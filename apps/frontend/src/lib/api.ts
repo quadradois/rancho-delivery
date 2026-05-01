@@ -184,6 +184,8 @@ export interface ClienteResumoAdmin {
   diasSemPedir: number | null;
   emListaNegra: boolean;
   motivoListaNegra: string | null;
+  nivelListaNegra: number | null;
+  totalOcorrencias: number;
 }
 
 export interface WhatsAppStatusAdmin {
@@ -203,16 +205,80 @@ export interface MotoboyAdmin {
   status: 'DISPONIVEL' | 'EM_ENTREGA' | 'INATIVO';
 }
 
+export interface MotoboyStatusAdmin extends MotoboyAdmin {
+  rotasAtivas: number;
+  pedidosAtivos: string[];
+  entregasHoje: number;
+}
+
 export interface LojaStatusAdmin {
   status: 'ABERTO' | 'FECHADO' | 'PAUSADO';
   mensagem?: string | null;
   atualizadoEm: string;
 }
 
+export interface SugestaoIA {
+  id: string;
+  tipo: 'PREPARO_ACIMA_MEDIA' | 'AGRUPAR_ENTREGAS' | 'CLIENTE_INATIVO' | 'CANCELAMENTOS_ITEM' | 'TODOS_MOTOBOYS_OCUPADOS' | 'WHATSAPP_ACUMULADO';
+  texto: string;
+  acao?: string;
+  dados?: Record<string, any>;
+  criadaEm: string;
+}
+
+export interface RelatorioDia {
+  id?: string;
+  data: string;
+  pedidosRecebidos: number;
+  pedidosEntregues: number;
+  pedidosCancelados: number;
+  motivosCancelamento: Record<string, number> | null;
+  tempoMedioPreparo: number | null;
+  tempoMedioEntrega: number | null;
+  receitaBruta: number;
+  ticketMedio: number;
+  receitaOntem: number | null;
+  mensagensRespondidas: number;
+  mensagensTotal: number;
+  piorHorario: string | null;
+  produtoMaisVendido: string | null;
+}
+
+export interface ConfiguracaoAlerta {
+  id?: string;
+  tipo: string;
+  ativo: boolean;
+  threshold: number;
+  acao: string;
+}
+
+export interface ConversaNaoLida {
+  telefone: string;
+  nome: string;
+  mensagensNaoLidas: number;
+  ultimaMensagem: string;
+  ultimaMensagemEm: string;
+  tempoSemRespostaSegundos: number;
+  pedidoAtivo: { id: string; status: string } | null;
+}
+
+export interface FilaUrgenteItem {
+  id: string;
+  numero: string;
+  clienteNome: string;
+  clienteTelefone: string;
+  tipo: 'PAGAMENTO_PENDENTE' | 'SLA_ESTOURADO' | 'MENSAGEM_SEM_RESPOSTA' | 'ESTORNO_PENDENTE';
+  tempoEsperaSegundos: number;
+  status: string;
+  itensResumo: string[];
+}
+
 export interface AdminMetricas {
   total: number;
   pedidosHoje: number;
   receitaDia: number;
+  receitaOntem: number;
+  variacaoReceita: number | null;
   mensagensNaoLidas: number;
   aguardandoPagamento: number;
   aguardandoAprovacao: number;
@@ -220,7 +286,11 @@ export interface AdminMetricas {
   aguardandoEntregador: number;
   emRota: number;
   entregues: number;
+  entreguesHoje: number;
   cancelados: number;
+  canceladosHoje: number;
+  taxaCancelamento: number;
+  tempoMedioPreparo: number | null;
   expirados: number;
   porStatus: Record<string, number>;
   atualizadoEm: string;
@@ -353,6 +423,10 @@ export const adminPedidoService = {
     return apiClient.patch<{ id: string; status: string; atualizadoEm: string }>(`/admin/pedidos/${id}/status`, { status });
   },
 
+  async obterStatusMotoboys(): Promise<MotoboyStatusAdmin[]> {
+    return apiClient.get<MotoboyStatusAdmin[]>('/admin/motoboys/status');
+  },
+
   async listarMotoboys(): Promise<MotoboyAdmin[]> {
     return apiClient.get<MotoboyAdmin[]>('/admin/motoboys');
   },
@@ -385,12 +459,30 @@ export const adminPedidoService = {
     return apiClient.patch<LojaStatusAdmin>('/admin/loja/status', { status, mensagem });
   },
 
+  async obterFilaUrgente(): Promise<FilaUrgenteItem[]> {
+    return apiClient.get<FilaUrgenteItem[]>('/admin/fila-urgente');
+  },
+
   async obterMetricas(): Promise<AdminMetricas> {
     return apiClient.get<AdminMetricas>('/admin/metricas');
   },
 };
 
 export const adminClienteService = {
+  async obterConversasNaoLidas(): Promise<ConversaNaoLida[]> {
+    return apiClient.get<ConversaNaoLida[]>('/admin/conversas/nao-lidas');
+  },
+
+  async buscarClienteRapido(telefone: string): Promise<{
+    telefone: string;
+    nome: string;
+    endereco: string;
+    bairro: string;
+    topProdutos: Array<{ id: string; nome: string; preco: number }>;
+  } | null> {
+    return apiClient.get(`/admin/clientes/buscar?telefone=${encodeURIComponent(telefone)}`);
+  },
+
   async statusWhatsApp(): Promise<WhatsAppStatusAdmin> {
     return apiClient.get<WhatsAppStatusAdmin>('/admin/whatsapp/status');
   },
@@ -421,6 +513,14 @@ export const adminClienteService = {
 
   async adicionarListaNegra(telefone: string, motivo: string): Promise<any> {
     return apiClient.post(`/admin/clientes/${telefone}/lista-negra`, { motivo });
+  },
+
+  async atualizarNivelListaNegra(telefone: string, nivel: number): Promise<any> {
+    return apiClient.patch(`/admin/clientes/${telefone}/lista-negra/nivel`, { nivel });
+  },
+
+  async listarOcorrencias(telefone: string): Promise<Array<{ id: string; motivo: string; registradoPor: string | null; criadoEm: string }>> {
+    return apiClient.get(`/admin/clientes/${telefone}/lista-negra/ocorrencias`);
   },
 
   async removerListaNegra(telefone: string): Promise<any> {
@@ -467,6 +567,33 @@ export const bairroService = {
   },
 };
 
+export const adminIaService = {
+  async obterSugestoes(): Promise<SugestaoIA[]> {
+    return apiClient.get<SugestaoIA[]>('/admin/ia/sugestoes');
+  },
+};
+
+export const adminRelatorioService = {
+  async gerar(data?: string): Promise<RelatorioDia> {
+    const query = data ? `?data=${encodeURIComponent(data)}` : '';
+    return apiClient.get<RelatorioDia>(`/admin/relatorios/gerar${query}`);
+  },
+
+  async listar(limite = 30): Promise<RelatorioDia[]> {
+    return apiClient.get<RelatorioDia[]>(`/admin/relatorios?limite=${limite}`);
+  },
+};
+
+export const adminAlertaService = {
+  async listar(): Promise<ConfiguracaoAlerta[]> {
+    return apiClient.get<ConfiguracaoAlerta[]>('/admin/alertas');
+  },
+
+  async atualizar(tipo: string, dados: Partial<Pick<ConfiguracaoAlerta, 'ativo' | 'threshold' | 'acao'>>): Promise<ConfiguracaoAlerta> {
+    return apiClient.patch<ConfiguracaoAlerta>(`/admin/alertas/${tipo}`, dados);
+  },
+};
+
 export const adminAuthService = {
   async login(username: string, password: string): Promise<AdminLoginResponse> {
     return apiClient.post<AdminLoginResponse>('/admin/auth/login', { username, password });
@@ -482,6 +609,9 @@ const api = {
   loja: lojaService,
   adminPedidos: adminPedidoService,
   adminClientes: adminClienteService,
+  adminAlertas: adminAlertaService,
+  adminRelatorios: adminRelatorioService,
+  adminIa: adminIaService,
   adminAuth: adminAuthService,
   bairros: bairroService,
 };

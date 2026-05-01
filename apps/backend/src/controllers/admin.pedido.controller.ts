@@ -15,6 +15,22 @@ export class AdminPedidoController {
   }
 
   /**
+   * GET /api/admin/fila-urgente
+   */
+  async filaUrgente(_req: Request, res: Response) {
+    try {
+      const data = await pedidoService.obterFilaUrgente();
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao buscar fila urgente:', error);
+      return res.status(500).json({
+        success: false,
+        error: { message: 'Erro ao buscar fila urgente' },
+      });
+    }
+  }
+
+  /**
    * GET /api/admin/metricas
    */
   async metricas(_req: Request, res: Response) {
@@ -119,6 +135,22 @@ export class AdminPedidoController {
       return res.status(500).json({
         success: false,
         error: { message: 'Erro ao atualizar status do pedido' },
+      });
+    }
+  }
+
+  /**
+   * GET /api/admin/motoboys/status
+   */
+  async statusMotoboys(_req: Request, res: Response) {
+    try {
+      const data = await pedidoService.listarMotoboyStatus();
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao buscar status dos motoboys:', error);
+      return res.status(500).json({
+        success: false,
+        error: { message: 'Erro ao buscar status dos motoboys' },
       });
     }
   }

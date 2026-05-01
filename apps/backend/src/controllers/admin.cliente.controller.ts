@@ -3,6 +3,36 @@ import clienteService from '../services/cliente.service';
 import { logger } from '../config/logger';
 
 export class AdminClienteController {
+  async buscarClienteRapido(req: Request, res: Response) {
+    try {
+      const telefone = typeof req.query.telefone === 'string' ? req.query.telefone.trim() : '';
+      if (!telefone) {
+        return res.json({ success: true, data: null });
+      }
+      const data = await clienteService.buscarClienteParaPedidoManual(telefone);
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao buscar cliente rapido:', error);
+      return res.status(500).json({
+        success: false,
+        error: { message: 'Erro ao buscar cliente' },
+      });
+    }
+  }
+
+  async conversasNaoLidas(_req: Request, res: Response) {
+    try {
+      const data = await clienteService.listarConversasNaoLidas();
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao listar conversas nao lidas:', error);
+      return res.status(500).json({
+        success: false,
+        error: { message: 'Erro ao listar conversas' },
+      });
+    }
+  }
+
   async listarMensagens(req: Request, res: Response) {
     try {
       const { telefone } = req.params;
@@ -152,6 +182,34 @@ export class AdminClienteController {
         success: false,
         error: { message: 'Erro ao remover cliente da lista negra' },
       });
+    }
+  }
+  async atualizarNivelListaNegra(req: Request, res: Response) {
+    try {
+      const { telefone } = req.params;
+      const nivel = Number(req.body?.nivel);
+      if (!nivel || nivel < 1 || nivel > 3) {
+        return res.status(400).json({ success: false, error: { message: 'Nível deve ser 1, 2 ou 3' } });
+      }
+      const data = await clienteService.atualizarNivelListaNegra(telefone, nivel);
+      return res.json({ success: true, data });
+    } catch (error: any) {
+      if (error.message === 'CLIENTE_NAO_ENCONTRADO_LISTA_NEGRA') {
+        return res.status(404).json({ success: false, error: { message: 'Cliente não está na lista negra' } });
+      }
+      logger.error('Erro ao atualizar nivel lista negra:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao atualizar nível' } });
+    }
+  }
+
+  async listarOcorrencias(req: Request, res: Response) {
+    try {
+      const { telefone } = req.params;
+      const data = await clienteService.listarOcorrencias(telefone);
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao listar ocorrencias:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao listar ocorrências' } });
     }
   }
 }

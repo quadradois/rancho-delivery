@@ -6,16 +6,22 @@ import api, {
   AdminPedidoDetalhe,
   AdminPedidoListaItem,
   ClienteResumoAdmin,
+  ConversaNaoLida,
+  FilaUrgenteItem,
   LojaStatusAdmin,
   MensagemClienteAdmin,
   MotoboyAdmin,
+  MotoboyStatusAdmin,
   Produto,
+  RelatorioDia,
+  SugestaoIA,
 } from '@/lib/api';
 import { formatCurrency, formatTime } from '@/lib/utils';
 import { useToast } from '@/contexts/ToastContext';
 import useCockpitSocket from '@/hooks/useCockpitSocket';
 import useCockpitAudio from '@/hooks/useCockpitAudio';
 import {
+  CentralWhatsApp,
   CrmBadge,
   CrmButton,
   CrmCard,
@@ -26,6 +32,11 @@ import {
   CrmTabPanel,
   CrmTabTrigger,
   CrmTimer,
+  FilaUrgente,
+  ModalPedidoManual,
+  ModalRelatorio,
+  PainelIA,
+  PainelMotoboys,
 } from '@/components/crm';
 
 const STATUS_OPTIONS = [
@@ -120,6 +131,43 @@ export default function AdminPedidosPage() {
   const { muted, setMuted, playNewOrder, playMessage, playSla } = useCockpitAudio();
   const knownPedidoIdsRef = useRef<Set<string> | null>(null);
   const unreadTotalRef = useRef<number | null>(null);
+  const [filaUrgente, setFilaUrgente] = useState<FilaUrgenteItem[]>([]);
+  const [motoboyStatus, setMotoboyStatus] = useState<MotoboyStatusAdmin[]>([]);
+  const [conversas, setConversas] = useState<ConversaNaoLida[]>([]);
+  const [whatsappConectado, setWhatsappConectado] = useState(true);
+  const [abaCockpit, setAbaCockpit] = useState<'pedidos' | 'whatsapp'>('pedidos');
+  const [showRelatorioModal, setShowRelatorioModal] = useState(false);
+  const [relatorio, setRelatorio] = useState<RelatorioDia | null>(null);
+  const [relatorioHistorico, setRelatorioHistorico] = useState<RelatorioDia[]>([]);
+  const [carregandoRelatorio, setCarregandoRelatorio] = useState(false);
+  const [sugestoesIA, setSugestoesIA] = useState<SugestaoIA[]>([]);
+  const [carregandoIA, setCarregandoIA] = useState(false);
+  const [modoPico, setModoPico] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.localStorage.getItem('rancho:cockpit:modo-pico') === 'true';
+    }
+    return false;
+  });
+
+  const toggleModoPico = useCallback(() => {
+    setModoPico((prev) => {
+      const next = !prev;
+      window.localStorage.setItem('rancho:cockpit:modo-pico', String(next));
+      return next;
+    });
+  }, []);
+
+  // Auto-ativar modo pico quando há muitos pedidos ativos
+  useEffect(() => {
+    const ativos = pedidos.filter((p) =>
+      !['ENTREGUE', 'CANCELADO', 'EXPIRADO', 'ABANDONADO'].includes(p.status)
+    ).length;
+    if (ativos >= 8 && !modoPico) {
+      setModoPico(true);
+      window.localStorage.setItem('rancho:cockpit:modo-pico', 'true');
+    }
+  }, [pedidos, modoPico]);
+
   const [pedidos, setPedidos] = useState<AdminPedidoListaItem[]>([]);
   const [metricas, setMetricas] = useState<AdminMetricas | null>(null);
   const [pedidoDetalhe, setPedidoDetalhe] = useState<AdminPedidoDetalhe | null>(null);
@@ -161,6 +209,54 @@ export default function AdminPedidosPage() {
     valorDinheiro: '',
     observacao: '',
   });
+
+  const carregarFilaUrgente = useCallback(async () => {
+    try {
+      const data = await api.adminPedidos.obterFilaUrgente();
+      setFilaUrgente(data);
+    } catch {
+      // silencioso
+    }
+  }, []);
+
+  const carregarMotoboyStatus = useCallback(async () => {
+    try {
+      const data = await api.adminPedidos.obterStatusMotoboys();
+      setMotoboyStatus(data);
+    } catch {
+      // silencioso
+    }
+  }, []);
+
+  const carregarConversas = useCallback(async () => {
+    try {
+      const data = await api.adminClientes.obterConversasNaoLidas();
+      setConversas(data);
+    } catch {
+      // silencioso
+    }
+  }, []);
+
+  const carregarStatusWhatsApp = useCallback(async () => {
+    try {
+      const data = await api.adminClientes.statusWhatsApp();
+      setWhatsappConectado(data.conectado);
+    } catch {
+      setWhatsappConectado(false);
+    }
+  }, []);
+
+  const carregarSugestoesIA = useCallback(async () => {
+    setCarregandoIA(true);
+    try {
+      const data = await api.adminIa.obterSugestoes();
+      setSugestoesIA(data);
+    } catch {
+      // silencioso
+    } finally {
+      setCarregandoIA(false);
+    }
+  }, []);
 
   const carregarLista = useCallback(async (opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoadingList(true);
@@ -276,7 +372,12 @@ export default function AdminPedidosPage() {
     void carregarProdutos();
     void carregarStatusLoja();
     void carregarMetricas();
-  }, [carregarLista, carregarMotoboys, carregarProdutos, carregarStatusLoja, carregarMetricas]);
+    void carregarFilaUrgente();
+    void carregarMotoboyStatus();
+    void carregarConversas();
+    void carregarStatusWhatsApp();
+    void carregarSugestoesIA();
+  }, [carregarLista, carregarMotoboys, carregarProdutos, carregarStatusLoja, carregarMetricas, carregarFilaUrgente, carregarMotoboyStatus, carregarConversas, carregarStatusWhatsApp, carregarSugestoesIA]);
 
   useEffect(() => {
     if (selectedId) void carregarDetalhe(selectedId);
@@ -291,10 +392,14 @@ export default function AdminPedidosPage() {
     onPedidoNovo: () => {
       void carregarLista({ silent: true });
       void carregarMetricas();
+      void carregarFilaUrgente();
+      void carregarMotoboyStatus();
     },
     onPedidoAtualizado: (payload) => {
       void carregarLista({ silent: true });
       void carregarMetricas();
+      void carregarFilaUrgente();
+      void carregarMotoboyStatus();
       if (selectedId && payload?.id === selectedId) {
         void carregarDetalhe(selectedId, { silent: true });
       }
@@ -305,6 +410,8 @@ export default function AdminPedidosPage() {
       }
       void carregarLista({ silent: true });
       void carregarMetricas();
+      void carregarFilaUrgente();
+      void carregarConversas();
     },
     onMetricasAtualizadas: (payload) => {
       setMetricas(payload as AdminMetricas);
@@ -315,6 +422,8 @@ export default function AdminPedidosPage() {
     onFallbackPoll: () => {
       void carregarLista({ silent: true });
       void carregarMetricas();
+      void carregarFilaUrgente();
+      void carregarMotoboyStatus();
       if (selectedId) {
         void carregarDetalhe(selectedId, { silent: true });
       }
@@ -344,23 +453,107 @@ export default function AdminPedidosPage() {
     [pedidos]
   );
 
+  const pedidoSemMotoboy = useMemo(
+    () => pedidos.find((p) =>
+      (p.status === 'PREPARANDO' || p.status === 'SAIU_ENTREGA') &&
+      !motoboyStatus.some((m) => m.pedidosAtivos.includes(p.id))
+    )?.id ?? null,
+    [pedidos, motoboyStatus]
+  );
+
   const metricItems = useMemo(() => {
-    const data = metricas || {
+    const d = metricas || {
       aguardandoPagamento: pedidos.filter((p) => p.statusPagamento === 'PENDENTE').length,
       aguardandoAprovacao: resumo.aprovacao,
       emPreparo: resumo.preparo,
       emRota: pedidos.filter((p) => p.status === 'SAIU_ENTREGA').length,
       mensagensNaoLidas: unreadTotal,
-      receitaDia: pedidos.reduce((total, pedido) => total + pedido.total, 0),
+      receitaDia: pedidos.reduce((acc, p) => acc + p.total, 0),
+      receitaOntem: 0,
+      variacaoReceita: null as number | null,
+      taxaCancelamento: 0,
+      tempoMedioPreparo: null as number | null,
     };
 
+    // semáforo: retorna classe CSS baseada em thresholds
+    const semaforo = (valor: number, warn: number, danger: number) => {
+      if (valor >= danger) return 'border-[var(--color-danger)] bg-[var(--color-danger-muted)] text-[var(--color-danger-text)]';
+      if (valor >= warn)  return 'border-[var(--color-warning)] bg-[var(--color-warning-muted)] text-[var(--color-warning-text)]';
+      return 'border-[var(--color-success-subtle)] bg-[var(--color-success-muted)] text-[var(--color-success-text)]';
+    };
+
+    const variacaoStr = d.variacaoReceita !== null && d.variacaoReceita !== undefined
+      ? `${d.variacaoReceita >= 0 ? '+' : ''}${d.variacaoReceita}% vs ontem`
+      : null;
+
     return [
-      { label: 'Pagamento', value: data.aguardandoPagamento, className: 'border-[var(--color-warning-subtle)] bg-[var(--color-warning-muted)] text-[var(--color-warning-text)]' },
-      { label: 'Aprovação', value: data.aguardandoAprovacao, className: 'border-[var(--color-danger-subtle)] bg-[var(--color-danger-muted)] text-[var(--color-danger-text)]' },
-      { label: 'Preparo', value: data.emPreparo, className: 'border-[var(--color-info-subtle)] bg-[var(--color-info-muted)] text-[var(--color-info-text)]' },
-      { label: 'Em rota', value: data.emRota, className: 'border-[var(--color-success-subtle)] bg-[var(--color-success-muted)] text-[var(--color-success-text)]' },
-      { label: 'WhatsApp', value: data.mensagensNaoLidas, className: 'border-[var(--color-success-subtle)] bg-[var(--color-success-muted)] text-[var(--color-success-text)]' },
-      { label: 'Receita hoje', value: formatCurrency(data.receitaDia), className: 'border-[var(--color-border)] bg-[var(--color-surface-raised)] text-[var(--color-text-primary)]' },
+      {
+        label: 'Pagamento',
+        value: d.aguardandoPagamento,
+        sub: d.aguardandoPagamento > 0 ? 'aguardando confirmação' : 'em dia',
+        className: d.aguardandoPagamento >= 3
+          ? 'border-[var(--color-danger)] bg-[var(--color-danger-muted)] text-[var(--color-danger-text)]'
+          : d.aguardandoPagamento >= 1
+          ? 'border-[var(--color-warning)] bg-[var(--color-warning-muted)] text-[var(--color-warning-text)]'
+          : 'border-[var(--color-border)] bg-[var(--color-surface-raised)] text-[var(--color-text-primary)]',
+        pulse: d.aguardandoPagamento >= 3,
+      },
+      {
+        label: 'Aprovação',
+        value: d.aguardandoAprovacao,
+        sub: d.aguardandoAprovacao > 0 ? 'pedidos pagos esperando' : 'em dia',
+        className: d.aguardandoAprovacao >= 2
+          ? 'border-[var(--color-danger)] bg-[var(--color-danger-muted)] text-[var(--color-danger-text)]'
+          : d.aguardandoAprovacao >= 1
+          ? 'border-[var(--color-warning)] bg-[var(--color-warning-muted)] text-[var(--color-warning-text)]'
+          : 'border-[var(--color-border)] bg-[var(--color-surface-raised)] text-[var(--color-text-primary)]',
+        pulse: d.aguardandoAprovacao >= 1,
+      },
+      {
+        label: 'Preparo',
+        value: d.emPreparo,
+        sub: d.tempoMedioPreparo !== null && d.tempoMedioPreparo !== undefined ? `${d.tempoMedioPreparo}min médio` : 'na cozinha',
+        className: semaforo(d.emPreparo, 5, 10),
+        pulse: false,
+      },
+      {
+        label: 'Em rota',
+        value: d.emRota,
+        sub: 'motoboys na rua',
+        className: 'border-[var(--color-info-subtle)] bg-[var(--color-info-muted)] text-[var(--color-info-text)]',
+        pulse: false,
+      },
+      {
+        label: 'WhatsApp',
+        value: d.mensagensNaoLidas,
+        sub: d.mensagensNaoLidas > 0 ? 'sem resposta' : 'em dia',
+        className: d.mensagensNaoLidas >= 5
+          ? 'border-[var(--color-danger)] bg-[var(--color-danger-muted)] text-[var(--color-danger-text)]'
+          : d.mensagensNaoLidas >= 2
+          ? 'border-[var(--color-warning)] bg-[var(--color-warning-muted)] text-[var(--color-warning-text)]'
+          : 'border-[var(--color-border)] bg-[var(--color-surface-raised)] text-[var(--color-text-primary)]',
+        pulse: d.mensagensNaoLidas >= 5,
+      },
+      {
+        label: 'Receita hoje',
+        value: formatCurrency(d.receitaDia),
+        sub: variacaoStr,
+        className: d.variacaoReceita !== null && d.variacaoReceita !== undefined && d.variacaoReceita < -10
+          ? 'border-[var(--color-warning)] bg-[var(--color-warning-muted)] text-[var(--color-warning-text)]'
+          : 'border-[var(--color-border)] bg-[var(--color-surface-raised)] text-[var(--color-text-primary)]',
+        pulse: false,
+      },
+      {
+        label: 'Cancelamentos',
+        value: `${d.taxaCancelamento ?? 0}%`,
+        sub: 'do dia',
+        className: (d.taxaCancelamento ?? 0) >= 15
+          ? 'border-[var(--color-danger)] bg-[var(--color-danger-muted)] text-[var(--color-danger-text)]'
+          : (d.taxaCancelamento ?? 0) >= 8
+          ? 'border-[var(--color-warning)] bg-[var(--color-warning-muted)] text-[var(--color-warning-text)]'
+          : 'border-[var(--color-border)] bg-[var(--color-surface-raised)] text-[var(--color-text-primary)]',
+        pulse: false,
+      },
     ];
   }, [metricas, pedidos, resumo.aprovacao, resumo.preparo, unreadTotal]);
 
@@ -548,11 +741,67 @@ export default function AdminPedidosPage() {
     }
   }, [mensagemPausa, showSuccess, showError]);
 
+  const handleAtribuirMotoboy = useCallback(async (motoboyId: string, pedidoId: string) => {
+    try {
+      await api.adminPedidos.atribuirMotoboy(pedidoId, motoboyId);
+      await Promise.all([carregarMotoboyStatus(), carregarLista({ silent: true })]);
+      showSuccess('Motoboy atribuído');
+    } catch (error: any) {
+      showError('Falha ao atribuir motoboy', error?.message || 'Tente novamente.');
+    }
+  }, [carregarMotoboyStatus, carregarLista, showSuccess, showError]);
+
+  const handleAbrirRelatorio = useCallback(async () => {
+    setShowRelatorioModal(true);
+    setCarregandoRelatorio(true);
+    try {
+      const [rel, hist] = await Promise.all([
+        api.adminRelatorios.gerar(),
+        api.adminRelatorios.listar(30),
+      ]);
+      setRelatorio(rel);
+      setRelatorioHistorico(hist);
+    } catch {
+      // silencioso
+    } finally {
+      setCarregandoRelatorio(false);
+    }
+  }, []);
+
   const fecharLojaComConfirmacao = useCallback(async () => {
     const confirmar = window.confirm('Tem certeza que deseja fechar a loja agora?');
     if (!confirmar) return;
     await atualizarStatusLoja('FECHADO');
   }, [atualizarStatusLoja]);
+
+  const handleFilaAceitar = useCallback(async (id: string) => {
+    try {
+      await api.adminPedidos.atualizarStatus(id, 'CONFIRMADO');
+      await Promise.all([carregarLista(), carregarFilaUrgente(), carregarMetricas()]);
+      showSuccess('Pedido confirmado');
+    } catch (error: any) {
+      showError('Falha ao confirmar pedido', error?.message || 'Tente novamente.');
+    }
+  }, [carregarLista, carregarFilaUrgente, carregarMetricas, showSuccess, showError]);
+
+  const handleFilaVer = useCallback((id: string) => {
+    setSelectedId(id);
+  }, []);
+
+  const handleFilaResponder = useCallback((id: string) => {
+    setSelectedId(id);
+    // A aba WhatsApp será aberta pelo usuário após selecionar o pedido
+  }, []);
+
+  const handleFilaEstorno = useCallback(async (id: string) => {
+    try {
+      await api.adminPedidos.marcarEstorno(id);
+      await Promise.all([carregarFilaUrgente(), selectedId === id ? carregarDetalhe(id) : Promise.resolve()]);
+      showSuccess('Estorno marcado como realizado');
+    } catch (error: any) {
+      showError('Falha ao marcar estorno', error?.message || 'Tente novamente.');
+    }
+  }, [carregarFilaUrgente, carregarDetalhe, selectedId, showSuccess, showError]);
 
   return (
     <div className="p-5 md:p-6">
@@ -564,6 +813,36 @@ export default function AdminPedidosPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="flex rounded-md border border-[var(--color-border)] overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setAbaCockpit('pedidos')}
+              className={`px-3 py-1.5 text-sm font-semibold transition-colors ${abaCockpit === 'pedidos' ? 'bg-[var(--color-accent)] text-white' : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]'}`}
+            >
+              Pedidos
+            </button>
+            <button
+              type="button"
+              onClick={() => { setAbaCockpit('whatsapp'); void carregarConversas(); }}
+              className={`relative px-3 py-1.5 text-sm font-semibold transition-colors ${abaCockpit === 'whatsapp' ? 'bg-[var(--color-accent)] text-white' : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]'}`}
+            >
+              WhatsApp
+              {conversas.length > 0 && (
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-danger)] text-[9px] font-bold text-white">
+                  {conversas.length > 9 ? '9+' : conversas.length}
+                </span>
+              )}
+            </button>
+          </div>
+          <CrmButton size="sm" onClick={() => void handleAbrirRelatorio()}>Relatório</CrmButton>
+          <CrmButton
+            size="sm"
+            variant={modoPico ? 'danger' : 'ghost'}
+            onClick={toggleModoPico}
+            title={modoPico ? 'Desativar Modo Pico' : 'Ativar Modo Pico'}
+          >
+            {modoPico ? '⚡ Pico ON' : '⚡ Pico'}
+          </CrmButton>
           <CrmButton size="sm" variant={muted ? 'ghost' : 'primary'} onClick={() => setMuted(!muted)}>
             {muted ? 'Ligar som' : 'Desligar som'}
           </CrmButton>
@@ -575,16 +854,47 @@ export default function AdminPedidosPage() {
         </div>
       </div>
 
-      <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+      <FilaUrgente
+        itens={filaUrgente}
+        onAceitar={(id) => void handleFilaAceitar(id)}
+        onVer={handleFilaVer}
+        onResponder={handleFilaResponder}
+        onEstorno={(id) => void handleFilaEstorno(id)}
+      />
+
+      {motoboyStatus.length > 0 && (
+        <PainelMotoboys
+          motoboys={motoboyStatus}
+          pedidoSemMotoboyId={pedidoSemMotoboy}
+          onAtribuir={(motoboyId, pedidoId) => void handleAtribuirMotoboy(motoboyId, pedidoId)}
+          onVerPedido={handleFilaVer}
+        />
+      )}
+
+      <PainelIA
+        sugestoes={sugestoesIA}
+        carregando={carregandoIA}
+        onAtualizar={() => void carregarSugestoesIA()}
+        onAcao={(sugestao) => {
+          if (sugestao.tipo === 'WHATSAPP_ACUMULADO') {
+            setAbaCockpit('whatsapp');
+          } else if (sugestao.tipo === 'CLIENTE_INATIVO' && sugestao.dados?.telefones?.[0]) {
+            // navegar para o cliente — por ora apenas seleciona o primeiro pedido ativo
+          }
+        }}
+      />
+
+      <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
         {metricItems.map((item) => (
           <div
             key={item.label}
-            className={`rounded-md border px-3 py-2 ${item.className} ${
-              item.label === 'Aprovação' && Number(item.value) > 0 ? 'animate-pulse' : ''
-            }`}
+            className={`rounded-md border px-3 py-2 ${item.className} ${item.pulse ? 'animate-pulse' : ''}`}
           >
             <p className="text-[11px] font-semibold uppercase tracking-wide opacity-80">{item.label}</p>
             <p className="mt-1 font-sora text-lg font-bold">{item.value}</p>
+            {item.sub && (
+              <p className="mt-0.5 text-[10px] opacity-70">{item.sub}</p>
+            )}
           </div>
         ))}
       </div>
@@ -609,15 +919,31 @@ export default function AdminPedidosPage() {
         </div>
       </div>
 
-      <div className="grid min-h-[72vh] grid-cols-1 gap-4 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <CrmCard className="flex max-h-[72vh] min-h-[72vh] flex-col p-3">
+      {abaCockpit === 'whatsapp' ? (
+        <div className="min-h-[72vh]">
+          <CentralWhatsApp
+            conversas={conversas}
+            whatsappConectado={whatsappConectado}
+            onVerPedido={(pedidoId) => { setSelectedId(pedidoId); setAbaCockpit('pedidos'); }}
+            onCarregarMensagens={(telefone) => api.adminClientes.listarMensagens(telefone, true)}
+            onEnviarMensagem={async (telefone, texto, pedidoId) => {
+              await api.adminClientes.enviarMensagem(telefone, texto, pedidoId);
+              void carregarConversas();
+              void carregarMetricas();
+            }}
+          />
+        </div>
+      ) : (
+
+      <div className={`grid gap-4 ${modoPico ? 'min-h-[80vh] grid-cols-1 xl:grid-cols-[1fr_minmax(0,1fr)]' : 'min-h-[72vh] grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)]'}`}>
+        <CrmCard className={`flex flex-col p-3 ${modoPico ? 'max-h-[80vh] min-h-[80vh]' : 'max-h-[72vh] min-h-[72vh]'}`}>
           <div className="flex-1 overflow-auto">
             {loadingList ? (
               <p className="p-3 text-sm text-[var(--color-text-secondary)]">Carregando pedidos...</p>
             ) : pedidos.length === 0 ? (
               <p className="p-3 text-sm text-[var(--color-text-secondary)]">Sem pedidos para os filtros atuais.</p>
             ) : (
-              <div className="space-y-2">
+              <div className={`space-y-2 ${modoPico ? 'space-y-3' : ''}`}>
                 {pedidos.map((pedido) => {
                   const sla = slaByStatus(pedido.status);
                   return (
@@ -625,19 +951,19 @@ export default function AdminPedidosPage() {
                       key={pedido.id}
                       type="button"
                       onClick={() => setSelectedId(pedido.id)}
-                      className={`w-full rounded-md border p-3 text-left transition-colors ${
+                      className={`w-full rounded-md border text-left transition-colors ${modoPico ? 'p-4' : 'p-3'} ${
                         selectedId === pedido.id
                           ? 'border-[var(--color-accent)] bg-[var(--color-accent-muted)]'
                           : 'border-[var(--color-border)] bg-[var(--color-surface-raised)] hover:bg-[var(--color-surface-hover)]'
                       }`}
                     >
                       <div className="mb-1 flex items-center justify-between gap-2">
-                        <span className="font-mono-crm text-xs font-semibold text-[var(--color-text-secondary)]">#{pedido.numero}</span>
+                        <span className={`font-mono-crm font-semibold text-[var(--color-text-secondary)] ${modoPico ? 'text-sm' : 'text-xs'}`}>#{pedido.numero}</span>
                         <CrmTimer elapsedSeconds={pedido.tempoNoEstagio} warningAt={sla.warningAt} dangerAt={sla.dangerAt} blinkOnDanger />
                       </div>
-                      <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{pedido.clienteNome}</p>
-                      <p className="truncate text-xs text-[var(--color-text-secondary)]">{pedido.bairro}</p>
-                      <p className="mt-1 truncate text-xs text-[var(--color-text-tertiary)]">{pedido.itensResumo.join(' + ')}</p>
+                      <p className={`truncate font-semibold text-[var(--color-text-primary)] ${modoPico ? 'text-base' : 'text-sm'}`}>{pedido.clienteNome}</p>
+                      {!modoPico && <p className="truncate text-xs text-[var(--color-text-secondary)]">{pedido.bairro}</p>}
+                      <p className={`mt-1 truncate text-[var(--color-text-tertiary)] ${modoPico ? 'text-sm' : 'text-xs'}`}>{pedido.itensResumo.join(' + ')}</p>
                       <div className="mt-2 flex items-center justify-between">
                         <CrmBadge variant={pedido.statusPagamento === 'CONFIRMADO' ? 'paid' : pedido.statusPagamento === 'EXPIRADO' ? 'expired' : 'unpaid'}>
                           {paymentIcon(pedido.statusPagamento)} {pedido.statusPagamento}
@@ -707,16 +1033,26 @@ export default function AdminPedidosPage() {
                     await carregarLista();
                     await carregarMetricas();
                   }}>WhatsApp</CrmTabTrigger>
-                  <CrmTabTrigger value="cliente" onClick={() => void carregarResumoCliente(pedidoDetalhe.cliente.telefone)}>Cliente</CrmTabTrigger>
-                  <CrmTabTrigger value="timeline">Timeline</CrmTabTrigger>
-                  <CrmTabTrigger value="ia" disabled title="Em breve">IA</CrmTabTrigger>
+                  {!modoPico && (
+                    <CrmTabTrigger value="cliente" onClick={() => void carregarResumoCliente(pedidoDetalhe.cliente.telefone)}>Cliente</CrmTabTrigger>
+                  )}
+                  {!modoPico && (
+                    <CrmTabTrigger value="timeline">Timeline</CrmTabTrigger>
+                  )}
+                  {!modoPico && (
+                    <CrmTabTrigger value="ia" onClick={() => void carregarSugestoesIA()}>IA</CrmTabTrigger>
+                  )}
                 </CrmTabList>
 
                 <CrmTabPanel value="pedido">
                   <div className="space-y-4">
                     <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
                       <p className="mb-2 text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Fluxo de status</p>
-                      {clienteResumo?.emListaNegra && <div className="mb-2 rounded-md border border-[var(--color-danger)] bg-[var(--color-danger-muted)] p-2 text-xs text-[var(--color-danger-text)]">Cliente em lista negra: {clienteResumo.motivoListaNegra}</div>}
+                      {clienteResumo?.emListaNegra && (
+                        <div className="mb-2 rounded-md border border-[var(--color-danger)] bg-[var(--color-danger-muted)] p-2 text-xs text-[var(--color-danger-text)]">
+                          Lista negra · Nível {clienteResumo.nivelListaNegra} · {clienteResumo.motivoListaNegra}
+                        </div>
+                      )}
                       <div className="mb-3 flex flex-wrap items-center gap-2">
                         {STATUS_FLOW.map((status) => (
                           <CrmBadge
@@ -854,10 +1190,35 @@ export default function AdminPedidosPage() {
                         )}
                       </CrmCard>
                       {clienteResumo.emListaNegra ? (
-                        <CrmCard className="border-[var(--color-danger)] bg-[var(--color-danger-muted)] p-3">
-                          <p className="text-sm font-semibold text-[var(--color-danger-text)]">Cliente em lista negra</p>
-                          <p className="text-sm text-[var(--color-danger-text)]">{clienteResumo.motivoListaNegra}</p>
-                          <CrmButton variant="danger" size="sm" className="mt-2" onClick={() => void removerListaNegra()}>Remover da lista negra</CrmButton>
+                        <CrmCard className="border-[var(--color-danger)] bg-[var(--color-danger-muted)] p-3 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-semibold text-[var(--color-danger-text)]">
+                              Lista negra · Nível {clienteResumo.nivelListaNegra}/3
+                            </p>
+                            <span className="text-[10px] text-[var(--color-danger-text)] opacity-70">
+                              {clienteResumo.totalOcorrencias} ocorrência{clienteResumo.totalOcorrencias !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[var(--color-danger-text)]">{clienteResumo.motivoListaNegra}</p>
+                          <div className="flex gap-1">
+                            {[1, 2, 3].map((n) => (
+                              <CrmButton
+                                key={n}
+                                size="sm"
+                                variant={clienteResumo.nivelListaNegra === n ? 'danger' : 'ghost'}
+                                onClick={async () => {
+                                  await api.adminClientes.atualizarNivelListaNegra(pedidoDetalhe.cliente.telefone, n);
+                                  await carregarResumoCliente(pedidoDetalhe.cliente.telefone);
+                                  showSuccess(`Nível atualizado para ${n}`);
+                                }}
+                              >
+                                N{n}
+                              </CrmButton>
+                            ))}
+                            <CrmButton variant="ghost" size="sm" className="ml-auto" onClick={() => void removerListaNegra()}>
+                              Remover
+                            </CrmButton>
+                          </div>
                         </CrmCard>
                       ) : (
                         <CrmCard className="p-3">
@@ -873,11 +1234,25 @@ export default function AdminPedidosPage() {
                     <p className="text-sm text-[var(--color-text-secondary)]">Carregando cliente...</p>
                   )}
                 </CrmTabPanel>
+
+                <CrmTabPanel value="ia">
+                  <PainelIA
+                    sugestoes={sugestoesIA}
+                    carregando={carregandoIA}
+                    onAtualizar={() => void carregarSugestoesIA()}
+                    onAcao={(sugestao) => {
+                      if (sugestao.tipo === 'WHATSAPP_ACUMULADO') {
+                        setAbaCockpit('whatsapp');
+                      }
+                    }}
+                  />
+                </CrmTabPanel>
               </CrmTab>
             </>
           )}
         </CrmCard>
       </div>
+      )}
       <CrmModal open={showCancelModal} onClose={() => setShowCancelModal(false)} title="Cancelar pedido">
         <select value={motivoCancelamento} onChange={(e) => setMotivoCancelamento(e.target.value)} className="mb-3 h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-sm">
           {CANCEL_MOTIVOS.map((m) => <option key={m} value={m}>{m}</option>)}
@@ -898,38 +1273,51 @@ export default function AdminPedidosPage() {
         </div>
       </CrmModal>
 
-      <CrmModal open={showManualModal} onClose={() => setShowManualModal(false)} title="Pedido manual">
-        <div className="space-y-2">
-          <input placeholder="Nome" value={manualForm.nome} onChange={(e) => setManualForm((s) => ({ ...s, nome: e.target.value }))} className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-sm" />
-          <input placeholder="Telefone" value={manualForm.telefone} onChange={(e) => setManualForm((s) => ({ ...s, telefone: e.target.value }))} className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-sm" />
-          <input placeholder="Endereço" value={manualForm.endereco} onChange={(e) => setManualForm((s) => ({ ...s, endereco: e.target.value }))} className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-sm" />
-          <input placeholder="Bairro" value={manualForm.bairro} onChange={(e) => setManualForm((s) => ({ ...s, bairro: e.target.value }))} className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-sm" />
-          <select
-            value={manualForm.produtoId}
-            onChange={(e) => setManualForm((s) => ({ ...s, produtoId: e.target.value }))}
-            className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-sm"
-          >
-            {produtos.length === 0 ? (
-              <option value="">Carregando produtos...</option>
-            ) : (
-              produtos.map((produto) => (
-                <option key={produto.id} value={produto.id}>
-                  {produto.nome} · {formatCurrency(produto.preco)}
-                </option>
-              ))
-            )}
-          </select>
-          <div className="grid grid-cols-2 gap-2">
-            <CrmButton size="sm" variant={manualForm.pagamentoMetodo === 'PIX' ? 'primary' : 'ghost'} onClick={() => setManualForm((s) => ({ ...s, pagamentoMetodo: 'PIX' }))}>PIX</CrmButton>
-            <CrmButton size="sm" variant={manualForm.pagamentoMetodo === 'DINHEIRO' ? 'primary' : 'ghost'} onClick={() => setManualForm((s) => ({ ...s, pagamentoMetodo: 'DINHEIRO' }))}>Dinheiro</CrmButton>
-          </div>
-          {manualForm.pagamentoMetodo === 'DINHEIRO' && <input placeholder="Valor em dinheiro" value={manualForm.valorDinheiro} onChange={(e) => setManualForm((s) => ({ ...s, valorDinheiro: e.target.value }))} className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-sm" />}
-        </div>
-        <div className="mt-4 flex justify-end gap-2">
-          <CrmButton variant="ghost" onClick={() => setShowManualModal(false)}>Fechar</CrmButton>
-          <CrmButton onClick={() => void criarPedidoManual()}>Criar</CrmButton>
-        </div>
-      </CrmModal>
+      <ModalRelatorio
+        open={showRelatorioModal}
+        onClose={() => setShowRelatorioModal(false)}
+        relatorio={relatorio}
+        carregando={carregandoRelatorio}
+        historico={relatorioHistorico}
+        onGerar={async () => {
+          setCarregandoRelatorio(true);
+          try {
+            const rel = await api.adminRelatorios.gerar();
+            setRelatorio(rel);
+          } finally {
+            setCarregandoRelatorio(false);
+          }
+        }}
+        onVerHistorico={async (data) => {
+          setCarregandoRelatorio(true);
+          try {
+            const rel = await api.adminRelatorios.gerar(data);
+            setRelatorio(rel);
+          } finally {
+            setCarregandoRelatorio(false);
+          }
+        }}
+      />
+
+      <ModalPedidoManual
+        open={showManualModal}
+        onClose={() => setShowManualModal(false)}
+        produtos={produtos}
+        onBuscarCliente={(telefone) => api.adminClientes.buscarClienteRapido(telefone)}
+        onCriar={async (dados) => {
+          const result = await api.adminPedidos.criarManual({
+            cliente: dados.cliente,
+            itens: dados.itens,
+            pagamentoMetodo: dados.pagamentoMetodo,
+            valorDinheiro: dados.valorDinheiro,
+            observacao: dados.observacao,
+            origem: 'WHATSAPP',
+          });
+          await Promise.all([carregarLista(), carregarMetricas(), carregarFilaUrgente()]);
+          showSuccess('Pedido criado');
+          if (result?.linkPagamento) setManualPixLink(result.linkPagamento);
+        }}
+      />
 
       {manualPixLink && (
         <CrmModal open={Boolean(manualPixLink)} onClose={() => setManualPixLink(null)} title="Link PIX gerado">

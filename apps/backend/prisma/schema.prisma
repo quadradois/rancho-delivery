@@ -285,11 +285,31 @@ model ListaNegraCliente {
   id              String   @id @default(cuid())
   clienteTelefone String   @unique @map("cliente_telefone") @db.VarChar(20)
   motivo          String   @db.Text
+  nivel           Int      @default(1) // 1=Atenção, 2=Revisão, 3=Bloqueio
+  totalOcorrencias Int     @default(1) @map("total_ocorrencias")
+  registradoPor   String?  @map("registrado_por") @db.VarChar(100)
   criadoEm        DateTime @default(now()) @map("criado_em")
+  atualizadoEm    DateTime @updatedAt @map("atualizado_em")
 
   cliente         Cliente  @relation(fields: [clienteTelefone], references: [telefone], onDelete: Cascade)
+  ocorrencias     OcorrenciaListaNegra[]
 
   @@map("lista_negra_clientes")
+  @@index([criadoEm])
+  @@index([nivel])
+}
+
+model OcorrenciaListaNegra {
+  id              String   @id @default(cuid())
+  clienteTelefone String   @map("cliente_telefone") @db.VarChar(20)
+  motivo          String   @db.Text
+  registradoPor   String?  @map("registrado_por") @db.VarChar(100)
+  criadoEm        DateTime @default(now()) @map("criado_em")
+
+  listaNegra      ListaNegraCliente @relation(fields: [clienteTelefone], references: [clienteTelefone], onDelete: Cascade)
+
+  @@map("ocorrencias_lista_negra")
+  @@index([clienteTelefone])
   @@index([criadoEm])
 }
 
@@ -326,4 +346,38 @@ model LojaConfiguracao {
   atualizadoEm     DateTime   @updatedAt @map("atualizado_em")
 
   @@map("loja_configuracao")
+}
+
+model ConfiguracaoAlerta {
+  id         String   @id @default(cuid())
+  tipo       String   @unique @db.VarChar(60)
+  ativo      Boolean  @default(true)
+  threshold  Int      @default(0) // segundos ou minutos dependendo do tipo
+  acao       String   @db.VarChar(100) @default("som+badge")
+  criadoEm   DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  @@map("configuracoes_alerta")
+}
+
+model RelatorioDia {
+  id                   String   @id @default(cuid())
+  data                 DateTime @unique @db.Date
+  pedidosRecebidos     Int      @map("pedidos_recebidos")
+  pedidosEntregues     Int      @map("pedidos_entregues")
+  pedidosCancelados    Int      @map("pedidos_cancelados")
+  motivosCancelamento  Json?    @map("motivos_cancelamento")
+  tempoMedioPreparo    Int?     @map("tempo_medio_preparo")
+  tempoMedioEntrega    Int?     @map("tempo_medio_entrega")
+  receitaBruta         Decimal  @map("receita_bruta") @db.Decimal(10, 2)
+  ticketMedio          Decimal  @map("ticket_medio") @db.Decimal(10, 2)
+  receitaOntem         Decimal? @map("receita_ontem") @db.Decimal(10, 2)
+  mensagensRespondidas Int      @map("mensagens_respondidas")
+  mensagensTotal       Int      @map("mensagens_total")
+  piorHorario          String?  @map("pior_horario") @db.VarChar(20)
+  produtoMaisVendido   String?  @map("produto_mais_vendido") @db.VarChar(255)
+  criadoEm             DateTime @default(now()) @map("criado_em")
+
+  @@map("relatorios_dia")
+  @@index([data])
 }

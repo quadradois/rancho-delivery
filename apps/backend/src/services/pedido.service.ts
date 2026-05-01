@@ -753,6 +753,45 @@ export class PedidoService {
     return atualizado;
   }
 
+  async listarMotoboyStatus() {
+    const inicioDia = new Date();
+    inicioDia.setHours(0, 0, 0, 0);
+
+    const motoboys = await prisma.motoboy.findMany({
+      orderBy: [{ status: 'asc' }, { nome: 'asc' }],
+      include: {
+        pedidos: {
+          where: {
+            status: { in: [StatusPedido.SAIU_ENTREGA, StatusPedido.PREPARANDO, StatusPedido.CONFIRMADO] },
+          },
+          select: { id: true },
+        },
+      },
+    });
+
+    const entregasHoje = await prisma.pedido.groupBy({
+      by: ['motoboyId'],
+      where: {
+        motoboyId: { not: null },
+        status: StatusPedido.ENTREGUE,
+        atualizadoEm: { gte: inicioDia },
+      },
+      _count: { _all: true },
+    });
+
+    const entregasMap = new Map(entregasHoje.map((e) => [e.motoboyId, e._count._all]));
+
+    return motoboys.map((m) => ({
+      id: m.id,
+      nome: m.nome,
+      telefone: m.telefone,
+      status: m.status,
+      rotasAtivas: m.pedidos.length,
+      pedidosAtivos: m.pedidos.map((p) => p.id),
+      entregasHoje: entregasMap.get(m.id) || 0,
+    }));
+  }
+
   async listarMotoboys() {
     const motoboys = await prisma.motoboy.findMany({
       orderBy: [{ status: 'asc' }, { nome: 'asc' }],
@@ -1035,6 +1074,11 @@ export class PedidoService {
   async obterMetricasAdmin() {
     const inicioDia = new Date();
     inicioDia.setHours(0, 0, 0, 0);
+
+    const inicioOntem = new Date(inicioDia);
+    inicioOntem.setDate(inicioOntem.getDate() - 1);
+    const fimOntem = new Date(inicioDia);
+
     const statusesReceita: StatusPedido[] = [
       StatusPedido.CONFIRMADO,
       StatusPedido.PREPARANDO,
@@ -1042,29 +1086,30 @@ export class PedidoService {
       StatusPedido.ENTREGUE,
     ];
 
-    const [porStatus, receitaDia, pedidosHoje, mensagensNaoLidas] = await Promise.all([
+    const [porStatus, receitaDia, receitaOntem, pedidosHoje, mensagensNaoLidas, canceladosHoje, entreguesHoje, tempoPreparoRaw] = await Promise.all([
       prisma.pedido.groupBy({
         by: ['status'],
         _count: { _all: true },
       }),
       prisma.pedido.aggregate({
         _sum: { total: true },
-        where: {
-          criadoEm: { gte: inicioDia },
-          status: { in: statusesReceita },
-        },
+        where: { criadoEm: { gte: inicioDia }, status: { in: statusesReceita } },
       }),
-      prisma.pedido.count({
-        where: {
-          criadoEm: { gte: inicioDia },
-        },
+      prisma.pedido.aggregate({
+        _sum: { total: true },
+        where: { criadoEm: { gte: inicioOntem, lt: fimOntem }, status: { in: statusesReceita } },
       }),
-      prisma.mensagemCliente.count({
-        where: {
-          origem: 'HUMANO',
-          lida: false,
-        },
-      }),
+      prisma.pedido.count({ where: { criadoEm: { gte: inicioDia } } }),
+      prisma.mensagemCliente.count({ where: { origem: 'HUMANO', lida: false } }),
+      prisma.pedido.count({ where: { criadoEm: { gte: inicioDia }, status: StatusPedido.CANCELADO } }),
+      prisma.pedido.count({ where: { criadoEm: { gte: inicioDia }, status: StatusPedido.ENTREGUE } }),
+      // Tempo médio de preparo: diferença entre CONFIRMADO e SAIU_ENTREGA nos pedidos de hoje
+      prisma.$queryRaw<Array<{ avg_segundos: number | null }>>`
+        SELECT AVG(EXTRACT(EPOCH FROM (atualizado_em - status_mudou_em))) as avg_segundos
+        FROM pedidos
+        WHERE status = 'ENTREGUE'
+          AND criado_em >= ${inicioDia}
+      `,
     ]);
 
     const statusCounts = Object.fromEntries(
@@ -1075,10 +1120,24 @@ export class PedidoService {
       statusCounts[item.status] = item._count._all;
     }
 
+    const receitaDiaNum = Number(receitaDia._sum.total || 0);
+    const receitaOntemNum = Number(receitaOntem._sum.total || 0);
+    const variacaoReceita = receitaOntemNum > 0
+      ? Math.round(((receitaDiaNum - receitaOntemNum) / receitaOntemNum) * 100)
+      : null;
+
+    const totalHoje = pedidosHoje;
+    const taxaCancelamento = totalHoje > 0 ? Math.round((canceladosHoje / totalHoje) * 100) : 0;
+    const tempoMedioPreparo = tempoPreparoRaw[0]?.avg_segundos
+      ? Math.round(Number(tempoPreparoRaw[0].avg_segundos) / 60)
+      : null;
+
     return {
       total: Object.values(statusCounts).reduce((acc, value) => acc + value, 0),
       pedidosHoje,
-      receitaDia: Number(receitaDia._sum.total || 0),
+      receitaDia: receitaDiaNum,
+      receitaOntem: receitaOntemNum,
+      variacaoReceita,
       mensagensNaoLidas,
       aguardandoPagamento: statusCounts.AGUARDANDO_PAGAMENTO + statusCounts.PENDENTE,
       aguardandoAprovacao: statusCounts.CONFIRMADO,
@@ -1086,11 +1145,178 @@ export class PedidoService {
       aguardandoEntregador: 0,
       emRota: statusCounts.SAIU_ENTREGA,
       entregues: statusCounts.ENTREGUE,
+      entreguesHoje,
       cancelados: statusCounts.CANCELADO,
+      canceladosHoje,
+      taxaCancelamento,
+      tempoMedioPreparo,
       expirados: statusCounts.EXPIRADO + statusCounts.ABANDONADO,
       porStatus: statusCounts,
       atualizadoEm: new Date().toISOString(),
     };
+  }
+
+  async obterFilaUrgente() {
+    const agora = Date.now();
+
+    const pedidosAtivos = await prisma.pedido.findMany({
+      where: {
+        status: {
+          in: [
+            StatusPedido.AGUARDANDO_PAGAMENTO,
+            StatusPedido.PENDENTE,
+            StatusPedido.CONFIRMADO,
+            StatusPedido.PREPARANDO,
+            StatusPedido.SAIU_ENTREGA,
+          ],
+        },
+      },
+      include: {
+        cliente: { select: { nome: true, telefone: true } },
+        itens: { include: { produto: { select: { nome: true } } } },
+      },
+      orderBy: { statusMudouEm: 'asc' },
+    });
+
+    const slaThresholds: Record<string, { warningAt: number; dangerAt: number }> = {
+      CONFIRMADO:          { warningAt: 180,  dangerAt: 300  },
+      PREPARANDO:          { warningAt: 1500, dangerAt: 2100 },
+      SAIU_ENTREGA:        { warningAt: 3000, dangerAt: 3600 },
+      AGUARDANDO_PAGAMENTO:{ warningAt: 300,  dangerAt: 600  },
+      PENDENTE:            { warningAt: 300,  dangerAt: 600  },
+    };
+
+    const telefones = [...new Set(pedidosAtivos.map((p) => p.clienteTelefone))];
+    const mensagensSemResposta = telefones.length
+      ? await prisma.mensagemCliente.findMany({
+          where: {
+            clienteTelefone: { in: telefones },
+            origem: 'HUMANO',
+            lida: false,
+          },
+          orderBy: { criadoEm: 'asc' },
+          select: { clienteTelefone: true, criadoEm: true },
+        })
+      : [];
+
+    const primeiraMsg = new Map<string, Date>();
+    for (const msg of mensagensSemResposta) {
+      if (!primeiraMsg.has(msg.clienteTelefone)) {
+        primeiraMsg.set(msg.clienteTelefone, msg.criadoEm);
+      }
+    }
+
+    const estornosPendentes = await prisma.pedido.findMany({
+      where: { estornoNecessario: true, estornoRealizadoEm: null },
+      select: { id: true, clienteTelefone: true, atualizadoEm: true },
+      include: { cliente: { select: { nome: true } } },
+    });
+
+    type FilaItem = {
+      id: string;
+      numero: string;
+      clienteNome: string;
+      clienteTelefone: string;
+      tipo: 'PAGAMENTO_PENDENTE' | 'SLA_ESTOURADO' | 'MENSAGEM_SEM_RESPOSTA' | 'ESTORNO_PENDENTE';
+      tempoEsperaSegundos: number;
+      status: string;
+      itensResumo: string[];
+    };
+
+    const fila: FilaItem[] = [];
+    const tipoPrioridade = {
+      PAGAMENTO_PENDENTE: 0,
+      SLA_ESTOURADO: 1,
+      MENSAGEM_SEM_RESPOSTA: 2,
+      ESTORNO_PENDENTE: 3,
+    };
+
+    for (const pedido of pedidosAtivos) {
+      const baseStatus = pedido.statusMudouEm || pedido.atualizadoEm;
+      const tempoNoEstagio = Math.floor((agora - baseStatus.getTime()) / 1000);
+      const sla = slaThresholds[pedido.status];
+      const itensResumo = pedido.itens.slice(0, 2).map((i) => i.produto?.nome || 'Produto');
+      const numero = pedido.id.slice(-6).toUpperCase();
+
+      // Pagamento pendente: pago mas não confirmado pelo operador
+      if (
+        pedido.status === StatusPedido.AGUARDANDO_PAGAMENTO &&
+        pedido.statusPagamento === 'CONFIRMADO' &&
+        tempoNoEstagio >= 60
+      ) {
+        fila.push({
+          id: pedido.id,
+          numero,
+          clienteNome: pedido.cliente?.nome || 'Cliente',
+          clienteTelefone: pedido.clienteTelefone,
+          tipo: 'PAGAMENTO_PENDENTE',
+          tempoEsperaSegundos: tempoNoEstagio,
+          status: pedido.status,
+          itensResumo,
+        });
+        continue;
+      }
+
+      // SLA estourado
+      if (sla && tempoNoEstagio >= sla.dangerAt) {
+        fila.push({
+          id: pedido.id,
+          numero,
+          clienteNome: pedido.cliente?.nome || 'Cliente',
+          clienteTelefone: pedido.clienteTelefone,
+          tipo: 'SLA_ESTOURADO',
+          tempoEsperaSegundos: tempoNoEstagio,
+          status: pedido.status,
+          itensResumo,
+        });
+        continue;
+      }
+
+      // Mensagem sem resposta há mais de 10 min
+      const primeiraMsgData = primeiraMsg.get(pedido.clienteTelefone);
+      if (primeiraMsgData) {
+        const tempoMsg = Math.floor((agora - primeiraMsgData.getTime()) / 1000);
+        if (tempoMsg >= 600) {
+          fila.push({
+            id: pedido.id,
+            numero,
+            clienteNome: pedido.cliente?.nome || 'Cliente',
+            clienteTelefone: pedido.clienteTelefone,
+            tipo: 'MENSAGEM_SEM_RESPOSTA',
+            tempoEsperaSegundos: tempoMsg,
+            status: pedido.status,
+            itensResumo,
+          });
+        }
+      }
+    }
+
+    // Estornos pendentes (sem pedido ativo necessário)
+    for (const pedido of estornosPendentes) {
+      const jaNaFila = fila.some((f) => f.id === pedido.id);
+      if (!jaNaFila) {
+        const tempoEspera = Math.floor((agora - pedido.atualizadoEm.getTime()) / 1000);
+        fila.push({
+          id: pedido.id,
+          numero: pedido.id.slice(-6).toUpperCase(),
+          clienteNome: (pedido as any).cliente?.nome || 'Cliente',
+          clienteTelefone: pedido.clienteTelefone,
+          tipo: 'ESTORNO_PENDENTE',
+          tempoEsperaSegundos: tempoEspera,
+          status: 'CANCELADO',
+          itensResumo: [],
+        });
+      }
+    }
+
+    fila.sort((a, b) => {
+      const pa = tipoPrioridade[a.tipo];
+      const pb = tipoPrioridade[b.tipo];
+      if (pa !== pb) return pa - pb;
+      return b.tempoEsperaSegundos - a.tempoEsperaSegundos;
+    });
+
+    return fila;
   }
 
   async obterMetricasAbandono(dias = 7) {
