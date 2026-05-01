@@ -110,6 +110,7 @@ model Pedido {
   motoboy Motoboy?     @relation(fields: [motoboyId], references: [id], onDelete: SetNull)
   itens   ItemPedido[]
   mensagens MensagemCliente[]
+  timeline PedidoTimeline[]
   
   @@map("pedidos")
   @@index([clienteTelefone])
@@ -135,6 +136,20 @@ enum OrigemMensagem {
   HUMANO
   SISTEMA
   IA
+}
+
+model PedidoTimeline {
+  id        String   @id @default(cuid())
+  pedidoId  String   @map("pedido_id")
+  ator      String   @db.VarChar(40)
+  acao      String   @db.Text
+  criadoEm  DateTime @default(now()) @map("criado_em")
+
+  pedido    Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
+
+  @@map("pedido_timeline")
+  @@index([pedidoId])
+  @@index([criadoEm])
 }
 
 // Itens do pedido

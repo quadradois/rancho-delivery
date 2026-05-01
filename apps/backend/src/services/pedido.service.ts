@@ -80,6 +80,70 @@ export class PedidoService {
     return Number.isFinite(abandono) && abandono > 0 ? abandono : 30;
   }
 
+  private async registrarTimeline(pedidoId: string, ator: 'SISTEMA' | 'OPERADOR' | 'CLIENTE' | 'IA', acao: string) {
+    try {
+      await prisma.pedidoTimeline.create({
+        data: {
+          pedidoId,
+          ator,
+          acao,
+        },
+      });
+    } catch (error) {
+      logger.error('Erro ao registrar timeline do pedido:', { pedidoId, acao, error });
+    }
+  }
+
+  private montarTimeline(
+    pedido: {
+      criadoEm: Date;
+      atualizadoEm: Date;
+      status: StatusPedido;
+      canceladoMotivo?: string | null;
+      estornoNecessario?: boolean | null;
+      estornoRealizadoEm?: Date | null;
+      timeline?: Array<{ criadoEm: Date; ator: string; acao: string }>;
+    }
+  ) {
+    const registros = pedido.timeline?.map((item) => ({
+      timestamp: item.criadoEm.toISOString(),
+      ator: item.ator,
+      acao: item.acao,
+    })) || [];
+
+    if (registros.length === 0) {
+      registros.push({
+        timestamp: pedido.criadoEm.toISOString(),
+        ator: 'SISTEMA',
+        acao: 'Pedido criado',
+      });
+    }
+
+    if (pedido.canceladoMotivo) {
+      registros.push({
+        timestamp: pedido.atualizadoEm.toISOString(),
+        ator: 'OPERADOR',
+        acao: `Cancelamento: ${pedido.canceladoMotivo}`,
+      });
+    }
+
+    if (pedido.estornoRealizadoEm) {
+      registros.push({
+        timestamp: pedido.estornoRealizadoEm.toISOString(),
+        ator: 'OPERADOR',
+        acao: 'Estorno marcado como realizado',
+      });
+    } else if (pedido.estornoNecessario) {
+      registros.push({
+        timestamp: pedido.atualizadoEm.toISOString(),
+        ator: 'SISTEMA',
+        acao: 'Estorno necessário',
+      });
+    }
+
+    return registros.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }
+
   /**
    * Lista pedidos para o painel admin
    */
@@ -293,6 +357,16 @@ export class PedidoService {
             status: true,
           },
         },
+        timeline: {
+          orderBy: {
+            criadoEm: 'asc',
+          },
+          select: {
+            criadoEm: true,
+            ator: true,
+            acao: true,
+          },
+        },
       },
     });
 
@@ -345,18 +419,7 @@ export class PedidoService {
             status: pedido.motoboy.status,
           }
         : null,
-      timeline: [
-        {
-          timestamp: pedido.criadoEm.toISOString(),
-          ator: 'SISTEMA',
-          acao: 'Pedido criado',
-        },
-        {
-          timestamp: pedido.atualizadoEm.toISOString(),
-          ator: 'SISTEMA',
-          acao: `Status atual: ${pedido.status}`,
-        },
-      ],
+      timeline: this.montarTimeline(pedido),
     };
   }
 
@@ -456,6 +519,8 @@ export class PedidoService {
         },
       });
 
+      await this.registrarTimeline(pedido.id, 'SISTEMA', 'Pedido criado');
+
       // 6. Criar link de pagamento no InfinitePay
       try {
         const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -503,6 +568,8 @@ export class PedidoService {
           where: { id: pedido.id },
           data: { pagamentoId: linkPagamento.id || pedido.id },
         });
+
+        await this.registrarTimeline(pedido.id, 'SISTEMA', 'Link de pagamento PIX gerado');
 
         logger.info(`Link InfinitePay criado para pedido ${pedido.id}: ${linkPagamento.url}`);
 
@@ -588,6 +655,8 @@ export class PedidoService {
         },
       });
 
+      await this.registrarTimeline(id, 'SISTEMA', `Status -> ${status}`);
+
       logger.info(`Status do pedido ${id} atualizado para: ${status}`);
       return pedido;
     } catch (error) {
@@ -631,6 +700,8 @@ export class PedidoService {
       de: pedido.status,
       para: novoStatus,
     });
+
+    await this.registrarTimeline(id, 'OPERADOR', `Status -> ${novoStatus}`);
 
     const deveNotificarCliente =
       novoStatus === StatusPedido.CONFIRMADO ||
@@ -692,6 +763,12 @@ export class PedidoService {
       },
     });
 
+    await this.registrarTimeline(
+      pedidoId,
+      'OPERADOR',
+      atualizado.motoboy ? `Motoboy atribuido: ${atualizado.motoboy.nome}` : 'Motoboy removido'
+    );
+
     return {
       id: atualizado.id,
       motoboy: atualizado.motoboy,
@@ -715,6 +792,8 @@ export class PedidoService {
       },
     });
 
+    await this.registrarTimeline(pedidoId, 'OPERADOR', 'Endereco de entrega atualizado');
+
     const atualizado = await this.buscarPedidoAdminPorId(pedidoId);
     return atualizado;
   }
@@ -729,6 +808,7 @@ export class PedidoService {
           status: StatusPedido.CONFIRMADO,
         },
       });
+      await this.registrarTimeline(pedido.id, 'OPERADOR', 'Pedido manual em dinheiro confirmado');
       return {
         ...pedido,
         status: atualizado.status,
@@ -770,6 +850,11 @@ export class PedidoService {
       },
     });
 
+    await this.registrarTimeline(id, 'OPERADOR', `Pedido cancelado: ${motivo.trim()}`);
+    if (estornoNecessario) {
+      await this.registrarTimeline(id, 'SISTEMA', 'Estorno necessario');
+    }
+
     return {
       ...atualizado,
       atualizadoEm: atualizado.atualizadoEm.toISOString(),
@@ -799,6 +884,8 @@ export class PedidoService {
         atualizadoEm: true,
       },
     });
+
+    await this.registrarTimeline(id, 'OPERADOR', 'Estorno marcado como realizado');
 
     return {
       ...atualizado,
@@ -916,6 +1003,67 @@ export class PedidoService {
       logger.error('Erro na rotina de abandono:', error);
       throw error;
     }
+  }
+
+  async obterMetricasAdmin() {
+    const inicioDia = new Date();
+    inicioDia.setHours(0, 0, 0, 0);
+    const statusesReceita: StatusPedido[] = [
+      StatusPedido.CONFIRMADO,
+      StatusPedido.PREPARANDO,
+      StatusPedido.SAIU_ENTREGA,
+      StatusPedido.ENTREGUE,
+    ];
+
+    const [porStatus, receitaDia, pedidosHoje, mensagensNaoLidas] = await Promise.all([
+      prisma.pedido.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      }),
+      prisma.pedido.aggregate({
+        _sum: { total: true },
+        where: {
+          criadoEm: { gte: inicioDia },
+          status: { in: statusesReceita },
+        },
+      }),
+      prisma.pedido.count({
+        where: {
+          criadoEm: { gte: inicioDia },
+        },
+      }),
+      prisma.mensagemCliente.count({
+        where: {
+          origem: 'HUMANO',
+          lida: false,
+        },
+      }),
+    ]);
+
+    const statusCounts = Object.fromEntries(
+      Object.values(StatusPedido).map((status) => [status, 0])
+    ) as Record<StatusPedido, number>;
+
+    for (const item of porStatus) {
+      statusCounts[item.status] = item._count._all;
+    }
+
+    return {
+      total: Object.values(statusCounts).reduce((acc, value) => acc + value, 0),
+      pedidosHoje,
+      receitaDia: Number(receitaDia._sum.total || 0),
+      mensagensNaoLidas,
+      aguardandoPagamento: statusCounts.AGUARDANDO_PAGAMENTO + statusCounts.PENDENTE,
+      aguardandoAprovacao: statusCounts.CONFIRMADO,
+      emPreparo: statusCounts.PREPARANDO,
+      aguardandoEntregador: 0,
+      emRota: statusCounts.SAIU_ENTREGA,
+      entregues: statusCounts.ENTREGUE,
+      cancelados: statusCounts.CANCELADO,
+      expirados: statusCounts.EXPIRADO + statusCounts.ABANDONADO,
+      porStatus: statusCounts,
+      atualizadoEm: new Date().toISOString(),
+    };
   }
 
   async obterMetricasAbandono(dias = 7) {

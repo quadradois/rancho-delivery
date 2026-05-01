@@ -209,6 +209,23 @@ export interface LojaStatusAdmin {
   atualizadoEm: string;
 }
 
+export interface AdminMetricas {
+  total: number;
+  pedidosHoje: number;
+  receitaDia: number;
+  mensagensNaoLidas: number;
+  aguardandoPagamento: number;
+  aguardandoAprovacao: number;
+  emPreparo: number;
+  aguardandoEntregador: number;
+  emRota: number;
+  entregues: number;
+  cancelados: number;
+  expirados: number;
+  porStatus: Record<string, number>;
+  atualizadoEm: string;
+}
+
 export interface Bairro {
   id: string;
   nome: string;
@@ -312,6 +329,10 @@ export const adminPedidoService = {
 
   async atualizarStatusLoja(status: 'ABERTO' | 'FECHADO' | 'PAUSADO', mensagem?: string): Promise<LojaStatusAdmin> {
     return apiClient.patch<LojaStatusAdmin>('/admin/loja/status', { status, mensagem });
+  },
+
+  async obterMetricas(): Promise<AdminMetricas> {
+    return apiClient.get<AdminMetricas>('/admin/metricas');
   },
 };
 

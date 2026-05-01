@@ -9,6 +9,7 @@ const router: ExpressRouter = Router();
 router.use('/pedidos', adminPedidoRoutes);
 router.use('/', adminRealtimeRoutes);
 router.use('/', adminClienteRoutes);
+router.get('/metricas', adminPedidoController.metricas.bind(adminPedidoController));
 router.get('/motoboys', adminPedidoController.listarMotoboys.bind(adminPedidoController));
 router.get('/loja/status', adminPedidoController.obterStatusLoja.bind(adminPedidoController));
 router.patch('/loja/status', adminPedidoController.atualizarStatusLoja.bind(adminPedidoController));

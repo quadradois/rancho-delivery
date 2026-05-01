@@ -2,12 +2,13 @@
 
 import { useEffect, useRef } from 'react';
 
-type CockpitEventName = 'pedido:novo' | 'pedido:atualizado' | 'mensagem:nova';
+type CockpitEventName = 'pedido:novo' | 'pedido:atualizado' | 'mensagem:nova' | 'metricas:atualizadas';
 
 interface UseCockpitSocketOptions {
   onPedidoNovo?: (payload: any) => void;
   onPedidoAtualizado?: (payload: any) => void;
   onMensagemNova?: (payload: any) => void;
+  onMetricasAtualizadas?: (payload: any) => void;
   onFallbackPoll?: () => void;
   fallbackIntervalMs?: number;
 }
@@ -54,6 +55,7 @@ export function useCockpitSocket(options: UseCockpitSocketOptions) {
       onEvent('pedido:novo', optionsRef.current.onPedidoNovo);
       onEvent('pedido:atualizado', optionsRef.current.onPedidoAtualizado);
       onEvent('mensagem:nova', optionsRef.current.onMensagemNova);
+      onEvent('metricas:atualizadas', optionsRef.current.onMetricasAtualizadas);
 
       source.onerror = () => {
         source?.close();

@@ -5,6 +5,31 @@ import { StatusLoja, StatusPedido } from '@prisma/client';
 import realtimeService from '../services/realtime.service';
 
 export class AdminPedidoController {
+  private async emitirMetricasAtualizadas() {
+    try {
+      const metricas = await pedidoService.obterMetricasAdmin();
+      realtimeService.emit('metricas:atualizadas', metricas);
+    } catch (error) {
+      logger.error('Erro ao emitir metricas atualizadas:', error);
+    }
+  }
+
+  /**
+   * GET /api/admin/metricas
+   */
+  async metricas(_req: Request, res: Response) {
+    try {
+      const data = await pedidoService.obterMetricasAdmin();
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao buscar metricas admin:', error);
+      return res.status(500).json({
+        success: false,
+        error: { message: 'Erro ao buscar metricas do admin' },
+      });
+    }
+  }
+
   /**
    * GET /api/admin/pedidos
    */
@@ -71,6 +96,7 @@ export class AdminPedidoController {
 
       const data = await pedidoService.atualizarStatusAdmin(id, status, motivoCancelamento);
       realtimeService.emit('pedido:atualizado', { id, status: data.status });
+      void this.emitirMetricasAtualizadas();
       return res.json({ success: true, data });
     } catch (error: any) {
       if (error.message === 'PEDIDO_NAO_ENCONTRADO') {
@@ -198,6 +224,7 @@ export class AdminPedidoController {
       });
 
       realtimeService.emit('pedido:novo', { id: data.id, status: data.status });
+      void this.emitirMetricasAtualizadas();
       return res.status(201).json({ success: true, data });
     } catch (error: any) {
       logger.error('Erro ao criar pedido manual:', error);
@@ -223,6 +250,7 @@ export class AdminPedidoController {
       }
       const data = await pedidoService.cancelarPedidoAdmin(id, motivo);
       realtimeService.emit('pedido:atualizado', { id: data.id, status: data.status });
+      void this.emitirMetricasAtualizadas();
       return res.json({ success: true, data });
     } catch (error: any) {
       if (error.message === 'PEDIDO_NAO_ENCONTRADO') {
@@ -247,6 +275,7 @@ export class AdminPedidoController {
       const { id } = req.params;
       const data = await pedidoService.marcarEstornoAdmin(id);
       realtimeService.emit('pedido:atualizado', { id: data.id, estorno: true });
+      void this.emitirMetricasAtualizadas();
       return res.json({ success: true, data });
     } catch (error: any) {
       if (error.message === 'PEDIDO_NAO_ENCONTRADO') {

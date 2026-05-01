@@ -1,6 +1,6 @@
 import { EventEmitter } from 'events';
 
-export type RealtimeEventName = 'pedido:novo' | 'pedido:atualizado' | 'mensagem:nova';
+export type RealtimeEventName = 'pedido:novo' | 'pedido:atualizado' | 'mensagem:nova' | 'metricas:atualizadas';
 
 interface RealtimeEventPayload {
   type: RealtimeEventName;

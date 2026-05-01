@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import api, {
+  AdminMetricas,
   AdminPedidoDetalhe,
   AdminPedidoListaItem,
   ClienteResumoAdmin,
@@ -12,6 +13,7 @@ import api, {
 import { formatCurrency, formatTime } from '@/lib/utils';
 import { useToast } from '@/contexts/ToastContext';
 import useCockpitSocket from '@/hooks/useCockpitSocket';
+import useCockpitAudio from '@/hooks/useCockpitAudio';
 import {
   CrmBadge,
   CrmButton,
@@ -90,9 +92,28 @@ function slaByStatus(status: string) {
   }
 }
 
+function actorClass(ator: string) {
+  switch (ator) {
+    case 'OPERADOR':
+      return 'border-[var(--color-info-subtle)] bg-[var(--color-info-muted)] text-[var(--color-info-text)]';
+    case 'SISTEMA':
+      return 'border-[var(--color-border)] bg-[var(--color-surface-raised)] text-[var(--color-text-secondary)]';
+    case 'CLIENTE':
+      return 'border-[var(--color-success-subtle)] bg-[var(--color-success-muted)] text-[var(--color-success-text)]';
+    case 'IA':
+      return 'border-[var(--color-warning-subtle)] bg-[var(--color-warning-muted)] text-[var(--color-warning-text)]';
+    default:
+      return 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)]';
+  }
+}
+
 export default function AdminPedidosPage() {
   const { showSuccess, showError } = useToast();
+  const { muted, setMuted, playNewOrder, playMessage, playSla } = useCockpitAudio();
+  const knownPedidoIdsRef = useRef<Set<string> | null>(null);
+  const unreadTotalRef = useRef<number | null>(null);
   const [pedidos, setPedidos] = useState<AdminPedidoListaItem[]>([]);
+  const [metricas, setMetricas] = useState<AdminMetricas | null>(null);
   const [pedidoDetalhe, setPedidoDetalhe] = useState<AdminPedidoDetalhe | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loadingList, setLoadingList] = useState(true);
@@ -177,11 +198,17 @@ export default function AdminPedidosPage() {
     setMensagemPausa(data.mensagem || '');
   }, []);
 
+  const carregarMetricas = useCallback(async () => {
+    const data = await api.adminPedidos.obterMetricas();
+    setMetricas(data);
+  }, []);
+
   useEffect(() => {
     void carregarLista();
     void carregarMotoboys();
     void carregarStatusLoja();
-  }, [carregarLista, carregarMotoboys, carregarStatusLoja]);
+    void carregarMetricas();
+  }, [carregarLista, carregarMotoboys, carregarStatusLoja, carregarMetricas]);
 
   useEffect(() => {
     if (selectedId) void carregarDetalhe(selectedId);
@@ -194,22 +221,31 @@ export default function AdminPedidosPage() {
 
   useCockpitSocket({
     onPedidoNovo: () => {
+      playNewOrder();
       void carregarLista();
+      void carregarMetricas();
     },
     onPedidoAtualizado: (payload) => {
       void carregarLista();
+      void carregarMetricas();
       if (selectedId && payload?.id === selectedId) {
         void carregarDetalhe(selectedId);
       }
     },
     onMensagemNova: async (payload) => {
+      playMessage();
       if (pedidoDetalhe?.cliente?.telefone && payload?.telefone?.includes(pedidoDetalhe.cliente.telefone)) {
         await carregarMensagens(pedidoDetalhe.cliente.telefone, false);
       }
       void carregarLista();
+      void carregarMetricas();
+    },
+    onMetricasAtualizadas: (payload) => {
+      setMetricas(payload as AdminMetricas);
     },
     onFallbackPoll: () => {
       void carregarLista();
+      void carregarMetricas();
       if (selectedId) {
         void carregarDetalhe(selectedId);
       }
@@ -224,6 +260,72 @@ export default function AdminPedidosPage() {
     }),
     [pedidos]
   );
+
+  const unreadTotal = useMemo(
+    () => pedidos.reduce((total, pedido) => total + pedido.mensagensNaoLidas, 0),
+    [pedidos]
+  );
+
+  const hasSlaDanger = useMemo(
+    () => pedidos.some((pedido) => {
+      if (pedido.status === 'ENTREGUE' || pedido.status === 'CANCELADO') return false;
+      const sla = slaByStatus(pedido.status);
+      return pedido.tempoNoEstagio >= sla.dangerAt;
+    }),
+    [pedidos]
+  );
+
+  const metricItems = useMemo(() => {
+    const data = metricas || {
+      aguardandoPagamento: pedidos.filter((p) => p.statusPagamento === 'PENDENTE').length,
+      aguardandoAprovacao: resumo.aprovacao,
+      emPreparo: resumo.preparo,
+      emRota: pedidos.filter((p) => p.status === 'SAIU_ENTREGA').length,
+      mensagensNaoLidas: unreadTotal,
+      receitaDia: pedidos.reduce((total, pedido) => total + pedido.total, 0),
+    };
+
+    return [
+      { label: 'Pagamento', value: data.aguardandoPagamento, className: 'border-[var(--color-warning-subtle)] bg-[var(--color-warning-muted)] text-[var(--color-warning-text)]' },
+      { label: 'Aprovação', value: data.aguardandoAprovacao, className: 'border-[var(--color-danger-subtle)] bg-[var(--color-danger-muted)] text-[var(--color-danger-text)]' },
+      { label: 'Preparo', value: data.emPreparo, className: 'border-[var(--color-info-subtle)] bg-[var(--color-info-muted)] text-[var(--color-info-text)]' },
+      { label: 'Em rota', value: data.emRota, className: 'border-[var(--color-success-subtle)] bg-[var(--color-success-muted)] text-[var(--color-success-text)]' },
+      { label: 'WhatsApp', value: data.mensagensNaoLidas, className: 'border-[var(--color-success-subtle)] bg-[var(--color-success-muted)] text-[var(--color-success-text)]' },
+      { label: 'Receita hoje', value: formatCurrency(data.receitaDia), className: 'border-[var(--color-border)] bg-[var(--color-surface-raised)] text-[var(--color-text-primary)]' },
+    ];
+  }, [metricas, pedidos, resumo.aprovacao, resumo.preparo, unreadTotal]);
+
+  useEffect(() => {
+    const currentIds = new Set(pedidos.map((pedido) => pedido.id));
+    if (!knownPedidoIdsRef.current) {
+      knownPedidoIdsRef.current = currentIds;
+      return;
+    }
+
+    const hasNewOrder = [...currentIds].some((id) => !knownPedidoIdsRef.current?.has(id));
+    knownPedidoIdsRef.current = currentIds;
+    if (hasNewOrder) playNewOrder();
+  }, [pedidos, playNewOrder]);
+
+  useEffect(() => {
+    if (unreadTotalRef.current === null) {
+      unreadTotalRef.current = unreadTotal;
+      return;
+    }
+    if (unreadTotal > unreadTotalRef.current) {
+      playMessage();
+    }
+    unreadTotalRef.current = unreadTotal;
+  }, [playMessage, unreadTotal]);
+
+  useEffect(() => {
+    if (!hasSlaDanger || muted) return;
+    playSla();
+    const id = window.setInterval(() => {
+      playSla();
+    }, 30000);
+    return () => window.clearInterval(id);
+  }, [hasSlaDanger, muted, playSla]);
 
   const temBebida = useMemo(() => {
     if (!pedidoDetalhe) return false;
@@ -365,12 +467,29 @@ export default function AdminPedidosPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <CrmButton size="sm" variant={muted ? 'ghost' : 'primary'} onClick={() => setMuted(!muted)}>
+            {muted ? 'Som off' : 'Som on'}
+          </CrmButton>
           <CrmButton size="sm" onClick={() => setShowManualModal(true)}>Pedido manual</CrmButton>
           <CrmButton size="sm" variant={lojaStatus?.status === 'ABERTO' ? 'primary' : 'ghost'} onClick={() => void atualizarStatusLoja('ABERTO')}>Abrir</CrmButton>
           <CrmButton size="sm" variant={lojaStatus?.status === 'PAUSADO' ? 'danger' : 'ghost'} onClick={() => void atualizarStatusLoja('PAUSADO')}>Pausar</CrmButton>
           <CrmButton size="sm" variant={lojaStatus?.status === 'FECHADO' ? 'danger' : 'ghost'} onClick={() => void atualizarStatusLoja('FECHADO')}>Fechar</CrmButton>
           <CrmButton variant="ghost" onClick={() => void carregarLista()}>Atualizar</CrmButton>
         </div>
+      </div>
+
+      <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+        {metricItems.map((item) => (
+          <div
+            key={item.label}
+            className={`rounded-md border px-3 py-2 ${item.className} ${
+              item.label === 'Aprovação' && Number(item.value) > 0 ? 'animate-pulse' : ''
+            }`}
+          >
+            <p className="text-[11px] font-semibold uppercase tracking-wide opacity-80">{item.label}</p>
+            <p className="mt-1 font-sora text-lg font-bold">{item.value}</p>
+          </div>
+        ))}
       </div>
 
       {lojaStatus?.status === 'PAUSADO' && (
@@ -464,6 +583,7 @@ export default function AdminPedidosPage() {
                   <CrmTabTrigger value="whatsapp" onClick={async () => {
                     await carregarMensagens(pedidoDetalhe.cliente.telefone, true);
                     await carregarLista();
+                    await carregarMetricas();
                   }}>WhatsApp</CrmTabTrigger>
                   <CrmTabTrigger value="cliente" onClick={() => void carregarResumoCliente(pedidoDetalhe.cliente.telefone)}>Cliente</CrmTabTrigger>
                   <CrmTabTrigger value="timeline">Timeline</CrmTabTrigger>
@@ -540,10 +660,13 @@ export default function AdminPedidosPage() {
 
                 <CrmTabPanel value="timeline">
                   <div className="space-y-2">
-                    {pedidoDetalhe.timeline.map((item, index) => (
-                      <div key={`${item.timestamp}-${index}`} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
-                        <p className="text-xs text-[var(--color-text-tertiary)]">{formatTime(item.timestamp)} · {item.ator}</p>
-                        <p className="text-sm text-[var(--color-text-primary)]">{item.acao}</p>
+                    {[...pedidoDetalhe.timeline]
+                      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+                      .map((item, index) => (
+                      <div key={`${item.timestamp}-${index}`} className={`rounded-md border p-3 ${actorClass(item.ator)}`}>
+                        <p className="text-xs font-semibold uppercase tracking-wide">
+                          {formatTime(item.timestamp)} · {item.ator} · {item.acao}
+                        </p>
                       </div>
                     ))}
                   </div>

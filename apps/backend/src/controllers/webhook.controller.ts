@@ -70,6 +70,7 @@ export class WebhookController {
         await pedidoService.atualizarStatus(order_nsu, 'CONFIRMADO', order_nsu);
         realtimeService.emit('pedido:novo', { id: order_nsu, status: 'CONFIRMADO' });
         realtimeService.emit('pedido:atualizado', { id: order_nsu, status: 'CONFIRMADO' });
+        realtimeService.emit('metricas:atualizadas', await pedidoService.obterMetricasAdmin());
 
         logger.info('Pedido confirmado via webhook InfinitePay', {
           pedidoId: order_nsu,
@@ -130,6 +131,7 @@ export class WebhookController {
         texto,
         origem: 'WHATSAPP',
       });
+      realtimeService.emit('metricas:atualizadas', await pedidoService.obterMetricasAdmin());
 
       return res.status(200).json({
         success: true,

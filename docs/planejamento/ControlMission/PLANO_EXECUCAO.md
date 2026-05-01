@@ -309,22 +309,22 @@
 
 ### Frontend
 
-- [ ] **F2 — Top Bar métricas**
+- [x] **F2 — Top Bar métricas**
   - 6 contadores com cores corretas
   - "Aguardando Aprovação" pisca quando > 0
 
-- [ ] **F9 — Alertas sonoros**
+- [x] **F9 — Alertas sonoros**
   - Web Audio API: sino (pedido novo), notificação curta (WhatsApp), bip suave/repetido (SLA)
   - Service Worker para funcionar com aba em background
   - Toggle mute/unmute no cockpit
 
-- [ ] **F8 — Aba Timeline**
+- [x] **F8 — Aba Timeline**
   - Log cronológico imutável
   - Formato: `HH:mm · Ator · Ação` com diferenciação visual por ator
 
 ### Backend
 
-- [ ] **B11** `GET /api/admin/metricas`
+- [x] **B11** `GET /api/admin/metricas`
   - Query única retornando todos os contadores por status + receita do dia
   - Consumido pelo WebSocket/SSE para push em tempo real
 
@@ -333,17 +333,17 @@
 ## Critério de Pronto (aceite final)
 
 - [x] Pedido novo aparece na lista em tempo real sem recarregar a página
-- [ ] Botão CONFIRMAR bloqueado para pedidos com pagamento pendente
+- [x] Botão CONFIRMAR bloqueado para pedidos com pagamento pendente
 - [ ] Mudar para Confirmado dispara mensagem automática no WhatsApp
 - [ ] Mudar para Em Rota dispara mensagem automática no WhatsApp
 - [ ] Mudar para Entregue dispara mensagem automática no WhatsApp
 - [x] Cancelamento com pagamento confirmado exibe alerta de estorno
-- [ ] SLA muda cor do timer conforme tabela de tempos
-- [ ] Som toca quando chega pedido novo (funciona com aba em background)
-- [ ] Som toca quando chega mensagem WhatsApp
+- [x] SLA muda cor do timer conforme tabela de tempos
+- [x] Som toca quando chega pedido novo (funciona com aba em background)
+- [x] Som toca quando chega mensagem WhatsApp
 - [x] Operador responde WhatsApp sem sair do cockpit
 - [x] Pedido manual funciona nos dois fluxos (Pix e dinheiro)
-- [ ] Timeline registra todas as ações com timestamp e ator
+- [x] Timeline registra todas as ações com timestamp e ator
 - [ ] Botão Abrir/Fechar/Pausar loja reflete no site em tempo real
 - [x] Lista negra alerta operador antes de confirmar pedido
 - [x] Aba IA visível e desativada com label "em breve"
