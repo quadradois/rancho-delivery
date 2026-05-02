@@ -1,6 +1,6 @@
 import prisma from '../config/database';
 import { logger } from '../config/logger';
-import { StatusPedido, StatusPagamento } from '@prisma/client';
+import { StatusPedido } from '@prisma/client';
 
 export class RelatorioService {
   async gerarRelatorioDia(data?: Date): Promise<any> {

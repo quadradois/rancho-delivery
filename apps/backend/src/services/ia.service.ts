@@ -65,8 +65,12 @@ export class IaService {
         status: StatusPedido.PREPARANDO,
         motoboyId: null,
       },
-      select: { id: true, bairroEntrega: true, clienteTelefone: true },
-      include: { cliente: { select: { bairro: true } } },
+      select: {
+        id: true,
+        bairroEntrega: true,
+        clienteTelefone: true,
+        cliente: { select: { bairro: true } },
+      },
     });
 
     const porBairro: Record<string, number> = {};
@@ -92,13 +96,10 @@ export class IaService {
       by: ['clienteTelefone'],
       _max: { criadoEm: true },
       _count: { _all: true },
-      having: {
-        _count: { _all: { gte: 3 } },
-      },
     });
 
     const inativos = clientesInativos.filter(
-      (c) => c._max.criadoEm && c._max.criadoEm < limite21dias
+      (c) => (c._count?._all ?? 0) >= 3 && c._max?.criadoEm && c._max.criadoEm < limite21dias
     );
 
     if (inativos.length > 0) {

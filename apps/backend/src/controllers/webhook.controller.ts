@@ -20,7 +20,7 @@ export class WebhookController {
         order_nsu: body?.order_nsu || body?.data?.order_nsu,
       });
 
-      // Validar assinatura do webhook
+      // Validar assinatura do webhook (token simples ou HMAC-SHA256 do body)
       const token = (
         req.headers['x-infinitepay-signature'] ||
         req.headers['x-infinitepay-webhook-signature'] ||
@@ -31,7 +31,9 @@ export class WebhookController {
         req.headers['authorization']
       ) as string;
 
-      if (!infinitePayService.validarWebhook(token)) {
+      const rawBody: Buffer | undefined = (req as any).rawBody;
+
+      if (!infinitePayService.validarWebhook(token, rawBody)) {
         logger.warn('Webhook InfinitePay rejeitado: token inválido', {
           hasXInfinitepaySignature: Boolean(req.headers['x-infinitepay-signature']),
           hasXInfinitepayWebhookSignature: Boolean(req.headers['x-infinitepay-webhook-signature']),

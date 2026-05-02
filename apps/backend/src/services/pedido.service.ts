@@ -1,10 +1,11 @@
+import crypto from 'crypto';
 import prisma from '../config/database';
 import { logger } from '../config/logger';
 import clienteService from './cliente.service';
 import bairroService from './bairro.service';
-import produtoService from './produto.service';
 import infinitePayService from './infinitepay.service';
 import evolutionService from './evolution.service';
+import realtimeService from './realtime.service';
 import { Origem, StatusLoja, StatusPagamento, StatusPedido } from '@prisma/client';
 
 interface ItemPedidoInput {
@@ -27,6 +28,9 @@ interface CriarPedidoInput {
 }
 
 export class PedidoService {
+  private ultimaExecucaoExpiracaoMs = 0;
+  private processandoExpiracao = false;
+  private cacheEstimativa: { valor: number; atualizadoEm: number } | null = null;
   private transicoesPermitidas: Record<StatusPedido, StatusPedido[]> = {
     PENDENTE: [StatusPedido.CONFIRMADO, StatusPedido.CANCELADO],
     AGUARDANDO_PAGAMENTO: [StatusPedido.CONFIRMADO, StatusPedido.CANCELADO, StatusPedido.EXPIRADO],
@@ -95,7 +99,7 @@ export class PedidoService {
     return Number.isFinite(abandono) && abandono > 0 ? abandono : 30;
   }
 
-  private async registrarTimeline(pedidoId: string, ator: 'SISTEMA' | 'OPERADOR' | 'CLIENTE' | 'IA', acao: string) {
+  private async registrarTimeline(pedidoId: string, ator: string, acao: string) {
     try {
       await prisma.pedidoTimeline.create({
         data: {
@@ -107,6 +111,39 @@ export class PedidoService {
     } catch (error) {
       logger.error('Erro ao registrar timeline do pedido:', { pedidoId, acao, error });
     }
+  }
+
+  private async obterTempoMedioPreparoMin(): Promise<number> {
+    const now = Date.now();
+    if (this.cacheEstimativa && now - this.cacheEstimativa.atualizadoEm < 60_000) {
+      return this.cacheEstimativa.valor;
+    }
+
+    const media = await prisma.$queryRaw<Array<{ avg_segundos: number | null }>>`
+      SELECT AVG(EXTRACT(EPOCH FROM (atualizado_em - status_mudou_em))) as avg_segundos
+      FROM pedidos
+      WHERE status = 'ENTREGUE'
+        AND criado_em >= NOW() - INTERVAL '7 days'
+    `;
+
+    const min = media[0]?.avg_segundos ? Math.max(10, Math.round(Number(media[0].avg_segundos) / 60)) : 30;
+    this.cacheEstimativa = { valor: min, atualizadoEm: now };
+    return min;
+  }
+
+  private async calcularTempoEstimadoMin(pedido: { status: StatusPedido; bairroEntrega?: string | null }): Promise<number> {
+    if (pedido.status === StatusPedido.ENTREGUE) return 0;
+    if (pedido.status === StatusPedido.SAIU_ENTREGA) {
+      const bairro = pedido.bairroEntrega
+        ? await prisma.bairro.findFirst({
+            where: { nome: { equals: pedido.bairroEntrega, mode: 'insensitive' }, ativo: true },
+            select: { tempoEntrega: true },
+          })
+        : null;
+      return Math.max(5, bairro?.tempoEntrega || 20);
+    }
+    const basePreparo = await this.obterTempoMedioPreparoMin();
+    return basePreparo;
   }
 
   private montarTimeline(
@@ -454,8 +491,15 @@ export class PedidoService {
    * Cria novo pedido
    */
   async criarPedido(dados: CriarPedidoInput) {
+    const inicioMs = Date.now();
     try {
       const { cliente: dadosCliente, itens, observacao, origem = 'SITE' } = dados;
+      const telefoneMascarado = dadosCliente.telefone.replace(/\D/g, '').replace(/^(\d{0,7})/, (m) => '*'.repeat(m.length));
+      logger.info('pedido.criar.inicio', {
+        telefone: telefoneMascarado || 'anon',
+        bairro: dadosCliente.bairro,
+        qtdItens: itens.length,
+      });
 
       // 1. Validar bairro e obter taxa
       const validacaoBairro = await bairroService.validarBairro(dadosCliente.bairro);
@@ -466,7 +510,14 @@ export class PedidoService {
 
       const taxaEntrega = validacaoBairro.taxa!;
 
-      // 2. Validar produtos e calcular subtotal
+      // 2. Validar produtos e calcular subtotal (batch — evita N+1)
+      const produtoIds = [...new Set(itens.map((i) => i.produtoId))];
+      const produtos = await prisma.produto.findMany({
+        where: { id: { in: produtoIds } },
+        select: { id: true, nome: true, preco: true, disponivel: true },
+      });
+      const produtoMap = new Map(produtos.map((p) => [p.id, p]));
+
       let subtotal = 0;
       const itensValidados: Array<{
         produtoId: string;
@@ -477,8 +528,8 @@ export class PedidoService {
       }> = [];
 
       for (const item of itens) {
-        const produto = await produtoService.buscarProdutoPorId(item.produtoId);
-        
+        const produto = produtoMap.get(item.produtoId);
+
         if (!produto) {
           throw new Error(`Produto não encontrado: ${item.produtoId}`);
         }
@@ -511,6 +562,7 @@ export class PedidoService {
 
       // 5. Criar pedido com itens (transação)
       const pagamentoExpiraEm = new Date(Date.now() + this.getCheckoutTtlMinutes() * 60 * 1000);
+      const tokenAcesso = crypto.randomBytes(32).toString('hex');
       const pedido = await prisma.pedido.create({
         data: {
           clienteTelefone: cliente.telefone,
@@ -524,6 +576,7 @@ export class PedidoService {
           statusMudouEm: new Date(),
           pagamentoExpiraEm,
           observacao,
+          tokenAcesso,
           itens: {
             create: itensValidados,
           },
@@ -551,6 +604,7 @@ export class PedidoService {
       });
 
       await this.registrarTimeline(pedido.id, 'SISTEMA', 'Pedido criado');
+      realtimeService.emit('pedido:novo', { id: pedido.id, status: pedido.status });
 
       // 6. Criar link de pagamento no InfinitePay
       try {
@@ -602,7 +656,15 @@ export class PedidoService {
 
         await this.registrarTimeline(pedido.id, 'SISTEMA', 'Link de pagamento PIX gerado');
 
-        logger.info(`Link InfinitePay criado para pedido ${pedido.id}: ${linkPagamento.url}`);
+        logger.info('infinitepay.link.criado', {
+          pedidoId: pedido.id,
+          tempoMs: Date.now() - inicioMs,
+        });
+        logger.info('pedido.criar.sucesso', {
+          pedidoId: pedido.id,
+          total,
+          tempoMs: Date.now() - inicioMs,
+        });
 
         return {
           ...pedido,
@@ -610,12 +672,23 @@ export class PedidoService {
           linkPagamento: linkPagamento.url,
         };
       } catch (error) {
-        logger.error('Erro ao criar link InfinitePay:', error);
+        logger.warn('infinitepay.link.falha', {
+          pedidoId: pedido.id,
+          erro: error instanceof Error ? error.message : String(error),
+        });
+        logger.info('pedido.criar.sucesso_sem_link', {
+          pedidoId: pedido.id,
+          total,
+          tempoMs: Date.now() - inicioMs,
+        });
         // Pedido já foi criado — retorna sem link de pagamento
         return pedido;
       }
     } catch (error) {
-      logger.error('Erro ao criar pedido:', error);
+      logger.error('pedido.criar.falha', {
+        erro: error instanceof Error ? error.message : String(error),
+        tempoMs: Date.now() - inicioMs,
+      });
       throw error;
     }
   }
@@ -656,7 +729,16 @@ export class PedidoService {
       }
 
       logger.info(`Pedido encontrado: ${id}`);
-      return pedido;
+      const tempoEstimadoMin = await this.calcularTempoEstimadoMin({
+        status: pedido.status,
+        bairroEntrega: pedido.bairroEntrega,
+      });
+      return {
+        ...pedido,
+        clienteNome: pedido.cliente?.nome || 'Cliente',
+        clienteTelefone: pedido.cliente?.telefone || '',
+        tempoEstimadoMin,
+      };
     } catch (error) {
       logger.error(`Erro ao buscar pedido ${id}:`, error);
       throw new Error('Erro ao buscar pedido');
@@ -667,6 +749,7 @@ export class PedidoService {
    * Atualiza status do pedido
    */
   async atualizarStatus(id: string, status: string, pagamentoId?: string) {
+    const inicioMs = Date.now();
     try {
       const pedidoAtual = await prisma.pedido.findUnique({
         where: { id },
@@ -692,8 +775,15 @@ export class PedidoService {
 
       const novoStatus = status as StatusPedido;
       await this.notificarMudancaStatus(id, novoStatus);
+      realtimeService.emit('pedido:atualizado', { id, status: novoStatus });
 
-      logger.info(`Status do pedido ${id} atualizado para: ${status}`);
+      logger.info('pedido.status.transicao', {
+        pedidoId: id,
+        de: pedidoAtual?.status,
+        para: novoStatus,
+        ator: 'SISTEMA',
+        tempoMs: Date.now() - inicioMs,
+      });
       return pedido;
     } catch (error) {
       logger.error(`Erro ao atualizar status do pedido ${id}:`, error);
@@ -701,7 +791,8 @@ export class PedidoService {
     }
   }
 
-  async atualizarStatusAdmin(id: string, novoStatus: StatusPedido, motivoCancelamento?: string) {
+  async atualizarStatusAdmin(id: string, novoStatus: StatusPedido, motivoCancelamento?: string, operadorNome?: string) {
+    const inicioMs = Date.now();
     const pedido = await prisma.pedido.findUnique({
       where: { id },
       select: { id: true, status: true, statusPagamento: true },
@@ -740,15 +831,18 @@ export class PedidoService {
       select: { id: true, status: true, atualizadoEm: true },
     });
 
-    logger.info('Status alterado pelo admin', {
+    logger.info('pedido.status.transicao', {
       pedidoId: id,
       de: pedido.status,
       para: novoStatus,
+      ator: operadorNome ?? 'OPERADOR',
+      tempoMs: Date.now() - inicioMs,
     });
 
-    await this.registrarTimeline(id, 'OPERADOR', `Status -> ${novoStatus}`);
+    await this.registrarTimeline(id, operadorNome ?? 'OPERADOR', `Status -> ${novoStatus}`);
 
     await this.notificarMudancaStatus(id, novoStatus, motivoCancelamento);
+    realtimeService.emit('pedido:atualizado', { id, status: novoStatus });
 
     return atualizado;
   }
@@ -804,7 +898,7 @@ export class PedidoService {
     }));
   }
 
-  async atribuirMotoboy(pedidoId: string, motoboyId: string | null, observacaoEntrega?: string) {
+  async atribuirMotoboy(pedidoId: string, motoboyId: string | null, observacaoEntrega?: string, operadorNome?: string) {
     const pedido = await prisma.pedido.findUnique({ where: { id: pedidoId }, select: { id: true } });
     if (!pedido) throw new Error('PEDIDO_NAO_ENCONTRADO');
 
@@ -826,7 +920,7 @@ export class PedidoService {
 
     await this.registrarTimeline(
       pedidoId,
-      'OPERADOR',
+      operadorNome ?? 'OPERADOR',
       atualizado.motoboy ? `Motoboy atribuido: ${atualizado.motoboy.nome}` : 'Motoboy removido'
     );
 
@@ -838,28 +932,35 @@ export class PedidoService {
     };
   }
 
-  async atualizarEnderecoEntrega(pedidoId: string, endereco: string, bairro: string) {
+  async atualizarEnderecoEntrega(pedidoId: string, endereco: string, bairro: string, operadorNome?: string) {
     const pedido = await prisma.pedido.findUnique({
       where: { id: pedidoId },
       select: { id: true },
     });
     if (!pedido) throw new Error('PEDIDO_NAO_ENCONTRADO');
 
+    const validacaoBairro = await bairroService.validarBairro(bairro.trim());
+    if (!validacaoBairro.valido) {
+      throw new Error('BAIRRO_NAO_ATENDIDO');
+    }
+
     await prisma.pedido.update({
       where: { id: pedidoId },
       data: {
         enderecoEntrega: endereco.trim(),
         bairroEntrega: bairro.trim(),
+        taxaEntrega: validacaoBairro.taxa ?? 0,
       },
     });
 
-    await this.registrarTimeline(pedidoId, 'OPERADOR', 'Endereco de entrega atualizado');
+    await this.registrarTimeline(pedidoId, operadorNome ?? 'OPERADOR', 'Endereco de entrega atualizado');
+    realtimeService.emit('pedido:atualizado', { id: pedidoId });
 
     const atualizado = await this.buscarPedidoAdminPorId(pedidoId);
     return atualizado;
   }
 
-  async criarPedidoManual(dados: CriarPedidoInput & { pagamentoMetodo: 'PIX' | 'DINHEIRO'; valorDinheiro?: number }) {
+  async criarPedidoManual(dados: CriarPedidoInput & { pagamentoMetodo: 'PIX' | 'DINHEIRO'; valorDinheiro?: number; operadorNome?: string }) {
     const pedido = await this.criarPedido(dados);
 
     if (dados.pagamentoMetodo === 'DINHEIRO') {
@@ -871,7 +972,7 @@ export class PedidoService {
           statusMudouEm: new Date(),
         },
       });
-      await this.registrarTimeline(pedido.id, 'OPERADOR', 'Pedido manual em dinheiro confirmado');
+      await this.registrarTimeline(pedido.id, dados.operadorNome ?? 'OPERADOR', 'Pedido manual em dinheiro confirmado');
       return {
         ...pedido,
         status: atualizado.status,
@@ -886,7 +987,7 @@ export class PedidoService {
     };
   }
 
-  async cancelarPedidoAdmin(id: string, motivo: string) {
+  async cancelarPedidoAdmin(id: string, motivo: string, operadorNome?: string) {
     const pedido = await prisma.pedido.findUnique({
       where: { id },
       select: { id: true, status: true, statusPagamento: true },
@@ -914,7 +1015,7 @@ export class PedidoService {
       },
     });
 
-    await this.registrarTimeline(id, 'OPERADOR', `Pedido cancelado: ${motivo.trim()}`);
+    await this.registrarTimeline(id, operadorNome ?? 'OPERADOR', `Pedido cancelado: ${motivo.trim()}`);
     if (estornoNecessario) {
       await this.registrarTimeline(id, 'SISTEMA', 'Estorno necessario');
     }
@@ -926,7 +1027,7 @@ export class PedidoService {
     };
   }
 
-  async marcarEstornoAdmin(id: string) {
+  async marcarEstornoAdmin(id: string, operadorNome?: string) {
     const pedido = await prisma.pedido.findUnique({
       where: { id },
       select: { id: true, status: true, estornoNecessario: true },
@@ -949,7 +1050,7 @@ export class PedidoService {
       },
     });
 
-    await this.registrarTimeline(id, 'OPERADOR', 'Estorno marcado como realizado');
+    await this.registrarTimeline(id, operadorNome ?? 'OPERADOR', 'Estorno marcado como realizado');
 
     return {
       ...atualizado,
@@ -1029,6 +1130,78 @@ export class PedidoService {
     }
   }
 
+  async registrarNps(pedidoId: string, nota: number, feedback?: string) {
+    const pedido = await prisma.pedido.findUnique({
+      where: { id: pedidoId },
+      select: { id: true, status: true },
+    });
+    if (!pedido) throw new Error('PEDIDO_NAO_ENCONTRADO');
+    if (pedido.status !== StatusPedido.ENTREGUE) throw new Error('NPS_APENAS_ENTREGUE');
+
+    const atualizado = await prisma.pedido.update({
+      where: { id: pedidoId },
+      data: {
+        npsNota: nota,
+        npsFeedback: feedback?.trim() || null,
+        npsEnviadoEm: new Date(),
+      },
+      select: {
+        id: true,
+        npsNota: true,
+        npsFeedback: true,
+        atualizadoEm: true,
+      },
+    });
+
+    await this.registrarTimeline(pedidoId, 'CLIENTE', `NPS registrado: ${nota} estrela(s)`);
+    return {
+      ...atualizado,
+      atualizadoEm: atualizado.atualizadoEm.toISOString(),
+    };
+  }
+
+  async criarReorder(pedidoId: string) {
+    const pedido = await prisma.pedido.findUnique({
+      where: { id: pedidoId },
+      include: {
+        cliente: {
+          select: {
+            telefone: true,
+            nome: true,
+            endereco: true,
+            bairro: true,
+          },
+        },
+        itens: {
+          select: {
+            produtoId: true,
+            quantidade: true,
+            observacao: true,
+          },
+        },
+      },
+    });
+
+    if (!pedido || !pedido.cliente) throw new Error('PEDIDO_NAO_ENCONTRADO');
+    if (!pedido.itens.length) throw new Error('PEDIDO_SEM_ITENS_REORDER');
+
+    return this.criarPedido({
+      cliente: {
+        telefone: pedido.cliente.telefone,
+        nome: pedido.cliente.nome,
+        endereco: pedido.enderecoEntrega || pedido.cliente.endereco,
+        bairro: pedido.bairroEntrega || pedido.cliente.bairro,
+      },
+      itens: pedido.itens.map((item) => ({
+        produtoId: item.produtoId,
+        quantidade: item.quantidade,
+        observacao: item.observacao || undefined,
+      })),
+      observacao: `Reorder do pedido ${pedido.id}`,
+      origem: Origem.SITE,
+    });
+  }
+
   async processarExpiracoesEAbandonos() {
     try {
       const agora = new Date();
@@ -1068,6 +1241,222 @@ export class PedidoService {
     } catch (error) {
       logger.error('Erro na rotina de abandono:', error);
       throw error;
+    }
+  }
+
+  async reprocessarPedidosSemLink() {
+    const atrasoMin = Number(process.env.PIX_REPROCESS_DELAY_MINUTES || 2);
+    const limite = new Date(Date.now() - atrasoMin * 60 * 1000);
+
+    const pedidosSemLink = await prisma.pedido.findMany({
+      where: {
+        status: StatusPedido.AGUARDANDO_PAGAMENTO,
+        pagamentoId: null,
+        criadoEm: { lte: limite },
+      },
+      include: {
+        itens: {
+          include: {
+            produto: {
+              select: { nome: true },
+            },
+          },
+        },
+        cliente: {
+          select: {
+            nome: true,
+            telefone: true,
+            endereco: true,
+            bairro: true,
+          },
+        },
+      },
+      take: 50,
+      orderBy: { criadoEm: 'asc' },
+    });
+
+    if (pedidosSemLink.length === 0) return { total: 0, reprocessados: 0, falhas: 0 };
+
+    let reprocessados = 0;
+    let falhas = 0;
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const webhookUrl = process.env.INFINITEPAY_WEBHOOK_URL || `${baseUrl}/webhook/infinitepay`;
+
+    for (const pedido of pedidosSemLink) {
+      try {
+        const redirectUrl = `${baseUrl}/pedido/${pedido.id}`;
+        const telefoneNumeros = pedido.cliente?.telefone?.replace(/\D/g, '') || '';
+        const telefoneFormatado = telefoneNumeros ? `+55${telefoneNumeros}` : undefined;
+
+        const itensInfinitePay = pedido.itens.map((item) => ({
+          quantity: item.quantidade,
+          price: infinitePayService.reaisParaCentavos(Number(item.precoUnit)),
+          description: item.produto?.nome || `Produto ${item.produtoId}`,
+        }));
+
+        if (Number(pedido.taxaEntrega) > 0) {
+          itensInfinitePay.push({
+            quantity: 1,
+            price: infinitePayService.reaisParaCentavos(Number(pedido.taxaEntrega)),
+            description: 'Taxa de entrega',
+          });
+        }
+
+        const linkPagamento = await infinitePayService.criarLinkPagamento({
+          itens: itensInfinitePay,
+          order_nsu: pedido.id,
+          redirect_url: redirectUrl,
+          webhook_url: webhookUrl,
+          customer: {
+            name: pedido.cliente?.nome || undefined,
+            phone_number: telefoneFormatado,
+          },
+          address: {
+            street: pedido.enderecoEntrega || pedido.cliente?.endereco || undefined,
+            neighborhood: pedido.bairroEntrega || pedido.cliente?.bairro || undefined,
+          },
+        });
+
+        const atualizado = await prisma.pedido.updateMany({
+          where: { id: pedido.id, pagamentoId: null },
+          data: { pagamentoId: linkPagamento.id || pedido.id },
+        });
+
+        if (atualizado.count > 0) {
+          reprocessados += 1;
+          await this.registrarTimeline(pedido.id, 'SISTEMA', 'Link de pagamento PIX reprocessado');
+          logger.info('Link PIX reprocessado com sucesso', {
+            pedidoId: pedido.id,
+            pagamentoId: linkPagamento.id || pedido.id,
+          });
+        }
+      } catch (error) {
+        falhas += 1;
+        logger.warn('Falha ao reprocessar link PIX', {
+          pedidoId: pedido.id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    return { total: pedidosSemLink.length, reprocessados, falhas };
+  }
+
+  async recuperarCarrinhosAbandonados() {
+    if ((process.env.RECOVERY_ENABLED || 'false').toLowerCase() !== 'true') {
+      return { total: 0, enviados: 0, falhas: 0 };
+    }
+
+    const abandonados = await prisma.pedido.findMany({
+      where: {
+        status: StatusPedido.ABANDONADO,
+        tentativasRecuperacao: { lt: 1 },
+      },
+      include: {
+        cliente: { select: { telefone: true, nome: true } },
+      },
+      take: 30,
+      orderBy: { abandonadoEm: 'asc' },
+    });
+
+    let enviados = 0;
+    let falhas = 0;
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+    for (const pedido of abandonados) {
+      try {
+        if (!pedido.cliente?.telefone) continue;
+        const link = `${baseUrl}/pedido/${pedido.id}?token=${pedido.tokenAcesso || ''}`;
+        const nome = pedido.cliente.nome || 'cliente';
+        const mensagem = `Oi ${nome}, seu pedido ficou pendente e foi pausado. Se quiser retomar rapidinho, use este link: ${link}`;
+        const ok = await evolutionService.enviarMensagem({ numero: pedido.cliente.telefone, mensagem });
+        if (!ok) {
+          falhas += 1;
+          continue;
+        }
+
+        enviados += 1;
+        await prisma.pedido.update({
+          where: { id: pedido.id },
+          data: {
+            tentativasRecuperacao: { increment: 1 },
+          },
+        });
+      } catch (error) {
+        falhas += 1;
+        logger.warn('Falha ao enviar recovery de carrinho abandonado', {
+          pedidoId: pedido.id,
+          erro: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    return { total: abandonados.length, enviados, falhas };
+  }
+
+  async enviarNpsPosEntrega() {
+    if ((process.env.NPS_ENABLED || 'false').toLowerCase() !== 'true') {
+      return { total: 0, enviados: 0, falhas: 0 };
+    }
+
+    const atrasoMin = Number(process.env.NPS_DELAY_MINUTES || 120);
+    const limite = new Date(Date.now() - atrasoMin * 60 * 1000);
+    const elegiveis = await prisma.pedido.findMany({
+      where: {
+        status: StatusPedido.ENTREGUE,
+        statusMudouEm: { lte: limite },
+        npsEnviadoEm: null,
+      },
+      include: {
+        cliente: { select: { telefone: true, nome: true } },
+      },
+      take: 30,
+      orderBy: { statusMudouEm: 'asc' },
+    });
+
+    let enviados = 0;
+    let falhas = 0;
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    for (const pedido of elegiveis) {
+      try {
+        if (!pedido.cliente?.telefone) continue;
+        const nome = pedido.cliente.nome || 'cliente';
+        const link = `${baseUrl}/pedido/${pedido.id}?token=${pedido.tokenAcesso || ''}#avaliacao`;
+        const texto = `Oi ${nome}! Como foi seu pedido? Avalie de 1 a 5 estrelas: ${link}`;
+        const ok = await evolutionService.enviarMensagem({ numero: pedido.cliente.telefone, mensagem: texto });
+        if (!ok) {
+          falhas += 1;
+          continue;
+        }
+
+        enviados += 1;
+        await prisma.pedido.update({
+          where: { id: pedido.id },
+          data: { npsEnviadoEm: new Date() },
+        });
+      } catch (error) {
+        falhas += 1;
+      }
+    }
+
+    return { total: elegiveis.length, enviados, falhas };
+  }
+
+  async sincronizarExpiracoesCheckout() {
+    const intervaloMs = Number(process.env.EXPIRACAO_SYNC_INTERVAL_MS || 15000);
+    const agora = Date.now();
+    if (this.processandoExpiracao) return;
+    if (agora - this.ultimaExecucaoExpiracaoMs < intervaloMs) return;
+
+    this.processandoExpiracao = true;
+    this.ultimaExecucaoExpiracaoMs = agora;
+    try {
+      await this.processarExpiracoesEAbandonos();
+      await this.reprocessarPedidosSemLink();
+      await this.recuperarCarrinhosAbandonados();
+      await this.enviarNpsPosEntrega();
+    } finally {
+      this.processandoExpiracao = false;
     }
   }
 
@@ -1208,8 +1597,12 @@ export class PedidoService {
 
     const estornosPendentes = await prisma.pedido.findMany({
       where: { estornoNecessario: true, estornoRealizadoEm: null },
-      select: { id: true, clienteTelefone: true, atualizadoEm: true },
-      include: { cliente: { select: { nome: true } } },
+      select: {
+        id: true,
+        clienteTelefone: true,
+        atualizadoEm: true,
+        cliente: { select: { nome: true } },
+      },
     });
 
     type FilaItem = {

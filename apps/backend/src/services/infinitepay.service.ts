@@ -32,29 +32,116 @@ interface LinkPagamentoResponse {
   order_nsu?: string;
 }
 
+// ─── Circuit Breaker ────────────────────────────────────────────────────────
+
+type CircuitState = 'CLOSED' | 'OPEN' | 'HALF_OPEN';
+
+class CircuitBreaker {
+  private state: CircuitState = 'CLOSED';
+  private falhas = 0;
+  private sucessos = 0;
+  private ultimaFalhaEm = 0;
+
+  constructor(
+    private readonly limiarFalhas: number = 3,
+    private readonly timeoutMs: number = 30_000,
+    private readonly limiarSucessos: number = 2,
+  ) {}
+
+  get aberto() { return this.state === 'OPEN'; }
+
+  async executar<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.state === 'OPEN') {
+      const tempoDecorrido = Date.now() - this.ultimaFalhaEm;
+      if (tempoDecorrido < this.timeoutMs) {
+        throw new Error(`Circuit breaker ABERTO — aguarde ${Math.ceil((this.timeoutMs - tempoDecorrido) / 1000)}s`);
+      }
+      this.state = 'HALF_OPEN';
+      logger.info('InfinitePay circuit breaker → HALF_OPEN (testando recuperação)');
+    }
+
+    try {
+      const resultado = await fn();
+      this.onSucesso();
+      return resultado;
+    } catch (err) {
+      this.onFalha();
+      throw err;
+    }
+  }
+
+  private onSucesso() {
+    if (this.state === 'HALF_OPEN') {
+      this.sucessos++;
+      if (this.sucessos >= this.limiarSucessos) {
+        this.state = 'CLOSED';
+        this.falhas = 0;
+        this.sucessos = 0;
+        logger.info('InfinitePay circuit breaker → CLOSED (serviço recuperado)');
+      }
+    } else {
+      this.falhas = 0;
+    }
+  }
+
+  private onFalha() {
+    this.falhas++;
+    this.ultimaFalhaEm = Date.now();
+    if (this.state === 'HALF_OPEN' || this.falhas >= this.limiarFalhas) {
+      this.state = 'OPEN';
+      this.sucessos = 0;
+      logger.warn(`InfinitePay circuit breaker → OPEN (${this.falhas} falhas consecutivas)`);
+    }
+  }
+}
+
+// ─── Retry com backoff exponencial ──────────────────────────────────────────
+
+async function comRetry<T>(fn: () => Promise<T>, tentativas = 2, delayBaseMs = 1_000): Promise<T> {
+  let ultimoErro: unknown;
+  for (let i = 0; i <= tentativas; i++) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      ultimoErro = err;
+      // Não faz retry para erros 4xx (cliente) ou circuit breaker aberto
+      const status = err?.response?.status;
+      if ((status >= 400 && status < 500) || err?.message?.includes('circuit breaker')) {
+        throw err;
+      }
+      if (i < tentativas) {
+        const delay = delayBaseMs * 2 ** i;
+        logger.warn(`InfinitePay: tentativa ${i + 1}/${tentativas} falhou — retry em ${delay}ms`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+  }
+  throw ultimoErro;
+}
+
+// ─── Service ────────────────────────────────────────────────────────────────
+
 export class InfinitePayService {
   private api: AxiosInstance;
   private handle: string;
+  private breaker = new CircuitBreaker(3, 30_000, 2);
 
   constructor() {
     this.handle = process.env.INFINITEPAY_HANDLE || 'orancho-comida';
 
     this.api = axios.create({
       baseURL: 'https://api.infinitepay.io/invoices/public/checkout',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 10_000,
     });
 
     logger.info(`InfinitePayService inicializado — handle: ${this.handle}`);
   }
 
-  /**
-   * Cria link de pagamento no InfinitePay
-   * Preços devem ser enviados em centavos (R$ 10,00 = 1000)
-   */
+  get circuitAberto() { return this.breaker.aberto; }
+
   async criarLinkPagamento(dados: CriarLinkInput): Promise<LinkPagamentoResponse> {
-    try {
+    return comRetry(() => this.breaker.executar(async () => {
       const payload = {
         handle: this.handle,
         items: dados.itens,
@@ -75,7 +162,6 @@ export class InfinitePayService {
       });
 
       const response = await this.api.post('/links', payload);
-
       const linkUrl = response.data?.url || response.data?.link || response.data?.checkout_url;
 
       if (!linkUrl) {
@@ -90,24 +176,14 @@ export class InfinitePayService {
         url: linkUrl,
         order_nsu: dados.order_nsu,
       };
-    } catch (error: any) {
-      logger.error('Erro ao criar link InfinitePay:', error.response?.data || error.message);
-      throw new Error('Erro ao gerar link de pagamento');
-    }
+    }));
   }
 
-  /**
-   * Converte valor em reais para centavos
-   */
   reaisParaCentavos(valor: number): number {
     return Math.round(valor * 100);
   }
 
-  /**
-   * Valida assinatura do webhook InfinitePay
-   * A InfinitePay envia um header de autenticação configurável
-   */
-  validarWebhook(token: string | string[] | undefined): boolean {
+  validarWebhook(token: string | string[] | undefined, rawBody?: Buffer): boolean {
     const webhookSecretRaw = process.env.INFINITEPAY_WEBHOOK_SECRET;
 
     if (!webhookSecretRaw) {
@@ -124,13 +200,23 @@ export class InfinitePayService {
       .map((s) => s.trim())
       .filter(Boolean);
 
+    // Validação HMAC: se o header começa com "sha256=", verificar integridade do body
+    if (semBearer.startsWith('sha256=') && rawBody) {
+      const assinaturaRecebida = semBearer.slice('sha256='.length);
+      return segredosEsperados.some(secret => {
+        const crypto = require('crypto') as typeof import('crypto');
+        const esperado = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+        const recebidoBuf = Buffer.from(assinaturaRecebida, 'hex');
+        const esperadoBuf = Buffer.from(esperado, 'hex');
+        return recebidoBuf.length === esperadoBuf.length &&
+          crypto.timingSafeEqual(recebidoBuf, esperadoBuf);
+      });
+    }
+
+    // Validação por token simples (compatibilidade retroativa)
     return segredosEsperados.includes(semBearer);
   }
 
-  /**
-   * Processa evento de webhook InfinitePay
-   * Eventos possíveis: payment.approved, payment.refused, payment.cancelled
-   */
   processarEvento(body: any): {
     evento: string;
     order_nsu: string;

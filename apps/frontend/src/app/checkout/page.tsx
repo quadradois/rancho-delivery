@@ -383,6 +383,9 @@ export default function CheckoutPage() {
       };
 
       const pedido = await api.pedidos.criar(pedidoData);
+      if ((pedido as any).tokenAcesso) {
+        api.pedidos.setTokenByPedidoId(pedido.id, (pedido as any).tokenAcesso);
+      }
       showSuccess('Pedido realizado!', `Pedido #${pedido.id.slice(-8)}`);
 
       if (pedido.linkPagamento) {

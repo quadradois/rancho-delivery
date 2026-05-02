@@ -242,6 +242,8 @@ describe('PedidoController - Testes de Regressão', () => {
     it('deve retornar pedido quando encontrado', async () => {
       // Arrange
       mockRequest.params = { id: 'pedido-123' };
+      // Admin autenticado tem acesso irrestrito sem token de pedido
+      mockRequest.adminUser = { username: 'admin-test', role: 'admin' } as any;
 
       const mockPedido = {
         id: 'pedido-123',

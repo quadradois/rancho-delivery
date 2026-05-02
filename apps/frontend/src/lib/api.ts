@@ -80,6 +80,7 @@ export interface Pedido {
   observacoes?: string;
   pagamentoId?: string;
   linkPagamento?: string;
+  tokenAcesso?: string;
   endereco: {
     rua: string;
     numero: string;
@@ -376,18 +377,41 @@ export const produtoService = {
  * Serviço de Pedidos
  */
 export const pedidoService = {
+  getTokenByPedidoId(id: string): string | null {
+    if (typeof window === 'undefined') return null;
+    return window.localStorage.getItem(`rancho:pedido:token:${id}`);
+  },
+
+  setTokenByPedidoId(id: string, token: string) {
+    if (typeof window === 'undefined' || !token) return;
+    window.localStorage.setItem(`rancho:pedido:token:${id}`, token);
+  },
+
   /**
    * Cria novo pedido
    */
   async criar(dados: CriarPedidoDTO): Promise<Pedido> {
-    return apiClient.post<Pedido>('/pedidos', dados);
+    const key = typeof window !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `idem-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const pedido = await apiClient.postWithHeaders<Pedido>('/pedidos', dados, {
+      'Idempotency-Key': key,
+    });
+    if ((pedido as any).tokenAcesso) {
+      this.setTokenByPedidoId(pedido.id, (pedido as any).tokenAcesso);
+    }
+    return pedido;
   },
 
   /**
    * Busca pedido por ID
    */
   async buscarPorId(id: string): Promise<Pedido> {
-    return apiClient.get<Pedido>(`/pedidos/${id}`);
+    const token = this.getTokenByPedidoId(id);
+    const endpoint = token
+      ? `/pedidos/${id}?token=${encodeURIComponent(token)}`
+      : `/pedidos/${id}`;
+    return apiClient.get<Pedido>(endpoint);
   },
 
   /**
@@ -395,6 +419,29 @@ export const pedidoService = {
    */
   async listarPorCliente(telefone: string): Promise<Pedido[]> {
     return apiClient.get<Pedido[]>(`/pedidos/cliente/${telefone}`);
+  },
+
+  async reorder(id: string): Promise<Pedido> {
+    const token = this.getTokenByPedidoId(id);
+    const endpoint = token
+      ? `/pedidos/reorder/${id}?token=${encodeURIComponent(token)}`
+      : `/pedidos/reorder/${id}`;
+    const key = typeof window !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `idem-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const novo = await apiClient.postWithHeaders<Pedido>(endpoint, {}, { 'Idempotency-Key': key });
+    if ((novo as any).tokenAcesso) {
+      this.setTokenByPedidoId(novo.id, (novo as any).tokenAcesso);
+    }
+    return novo;
+  },
+
+  async avaliarNps(id: string, nota: number, feedback?: string): Promise<{ id: string; npsNota: number; npsFeedback?: string | null; atualizadoEm: string }> {
+    const token = this.getTokenByPedidoId(id);
+    const endpoint = token
+      ? `/pedidos/${id}/nps?token=${encodeURIComponent(token)}`
+      : `/pedidos/${id}/nps`;
+    return apiClient.post(endpoint, { nota, feedback });
   },
 };
 

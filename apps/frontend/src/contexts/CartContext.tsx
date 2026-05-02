@@ -43,8 +43,26 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const stored = localStorage.getItem(STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
-        setItems(parsed.items || []);
-        setDeliveryFeeState(parsed.deliveryFee || 0);
+        if (Array.isArray(parsed.items)) {
+          setItems(parsed.items);
+        } else if (Array.isArray(parsed.itens)) {
+          const legacyItems: CartItem[] = parsed.itens.map((item: any) => ({
+            id: item.produto.id,
+            name: item.produto.nome,
+            description: item.produto.descricao,
+            price: item.produto.preco,
+            quantity: item.quantidade,
+            imageUrl: item.produto.midia,
+            observacao: item.observacao,
+          }));
+          setItems(legacyItems);
+        }
+
+        if (typeof parsed.deliveryFee === 'number') {
+          setDeliveryFeeState(parsed.deliveryFee);
+        } else if (typeof parsed.taxaEntrega === 'number') {
+          setDeliveryFeeState(parsed.taxaEntrega);
+        }
       }
     } catch {
       // ignora erros de parse
@@ -54,7 +72,28 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   // Persiste no localStorage sempre que mudar
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ items, deliveryFee }));
+      const legacyItens = items.map((item) => ({
+        produto: {
+          id: item.id,
+          nome: item.name,
+          preco: item.price,
+          midia: item.imageUrl || '',
+          descricao: item.description || '',
+          categoria: '',
+        },
+        quantidade: item.quantity,
+        observacao: item.observacao,
+      }));
+
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          items,
+          deliveryFee,
+          itens: legacyItens,
+          taxaEntrega: deliveryFee,
+        }),
+      );
     } catch {
       // ignora erros de storage
     }

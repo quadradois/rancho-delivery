@@ -15,7 +15,7 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
-  private async request<T>(
+  async request<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
@@ -92,6 +92,21 @@ class ApiClient {
 
   async delete<T>(endpoint: string): Promise<T> {
     return this.request<T>(endpoint, { method: 'DELETE' });
+  }
+
+  async postWithHeaders<T>(endpoint: string, data: unknown, headers: Record<string, string>): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getWithHeaders<T>(endpoint: string, headers: Record<string, string>): Promise<T> {
+    return this.request<T>(endpoint, {
+      method: 'GET',
+      headers,
+    });
   }
 }
 

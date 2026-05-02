@@ -36,28 +36,31 @@ export class EvolutionService {
    * Envia mensagem de texto via WhatsApp
    */
   async enviarMensagem(dados: EnviarMensagemInput): Promise<boolean> {
-    try {
-      const { numero, mensagem } = dados;
+    const numeroFormatado = dados.numero.replace(/\D/g, '');
+    const payload = { number: numeroFormatado, text: dados.mensagem };
 
-      // Formatar número (remover caracteres especiais)
-      const numeroFormatado = numero.replace(/\D/g, '');
-
-      const payload = {
-        number: numeroFormatado,
-        text: mensagem,
-      };
-
-      const response = await this.api.post(
-        `/message/sendText/${this.instanceName}`,
-        payload
-      );
-
-      logger.info(`Mensagem WhatsApp enviada para ${numeroFormatado}`);
-      return response.status === 200 || response.status === 201;
-    } catch (error: any) {
-      logger.error('Erro ao enviar mensagem WhatsApp:', error.response?.data || error.message);
-      return false;
+    for (let tentativa = 0; tentativa <= 2; tentativa++) {
+      try {
+        const response = await this.api.post(`/message/sendText/${this.instanceName}`, payload);
+        logger.info(`Mensagem WhatsApp enviada para ${numeroFormatado}`);
+        return response.status === 200 || response.status === 201;
+      } catch (error: any) {
+        const status = error?.response?.status;
+        // Não faz retry em erros do cliente (4xx) — só em falhas de rede e 5xx
+        if (status >= 400 && status < 500) {
+          logger.error('Erro ao enviar mensagem WhatsApp (4xx, sem retry):', error.response?.data || error.message);
+          return false;
+        }
+        if (tentativa < 2) {
+          const delay = 800 * 2 ** tentativa; // 800ms → 1600ms
+          logger.warn(`WhatsApp: tentativa ${tentativa + 1}/2 falhou — retry em ${delay}ms`);
+          await new Promise(r => setTimeout(r, delay));
+        } else {
+          logger.error('Erro ao enviar mensagem WhatsApp após retries:', error.response?.data || error.message);
+        }
+      }
     }
+    return false;
   }
 
   /**

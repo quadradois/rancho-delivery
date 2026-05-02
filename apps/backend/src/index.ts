@@ -72,7 +72,12 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 // Middlewares de parsing
-app.use(express.json());
+// A função verify captura o body bruto para validação HMAC nos webhooks
+app.use(express.json({
+  verify: (req: any, _res, buf) => {
+    req.rawBody = buf;
+  },
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // Middleware de log de requisições

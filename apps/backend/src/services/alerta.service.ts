@@ -1,5 +1,4 @@
 import prisma from '../config/database';
-import { logger } from '../config/logger';
 
 export const ALERTAS_PADRAO = [
   { tipo: 'PAGAMENTO_SEM_CONFIRMACAO', threshold: 180,  acao: 'som+badge',  ativo: true },

@@ -105,22 +105,30 @@ model Pedido {
   abandonadoEm    DateTime?     @map("abandonado_em")
   recuperadoEm    DateTime?     @map("recuperado_em")
   tentativasRecuperacao Int     @default(0) @map("tentativas_recuperacao")
+  npsEnviadoEm    DateTime?     @map("nps_enviado_em")
+  npsNota         Int?          @map("nps_nota")
+  npsFeedback     String?       @map("nps_feedback") @db.Text
   observacao      String?       @db.Text
+  tokenAcesso     String?       @unique @map("token_acesso") @db.VarChar(64)
   criadoEm        DateTime      @default(now()) @map("criado_em")
   atualizadoEm    DateTime      @updatedAt @map("atualizado_em")
-  
+
   // Relações
   cliente Cliente      @relation(fields: [clienteTelefone], references: [telefone])
   motoboy Motoboy?     @relation(fields: [motoboyId], references: [id], onDelete: SetNull)
   itens   ItemPedido[]
   mensagens MensagemCliente[]
   timeline PedidoTimeline[]
-  
+
   @@map("pedidos")
   @@index([clienteTelefone])
   @@index([status])
   @@index([motoboyId])
   @@index([criadoEm])
+  @@index([statusPagamento])
+  @@index([pagamentoExpiraEm])
+  @@index([estornoNecessario])
+  @@index([status, criadoEm])
 }
 
 enum StatusPagamento {

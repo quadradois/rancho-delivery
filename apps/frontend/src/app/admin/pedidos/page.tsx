@@ -25,106 +25,32 @@ import {
   CrmBadge,
   CrmButton,
   CrmCard,
-  CrmInput,
   CrmModal,
   CrmTab,
   CrmTabList,
   CrmTabPanel,
   CrmTabTrigger,
-  CrmTimer,
   FilaUrgente,
   ModalPedidoManual,
   ModalRelatorio,
   PainelIA,
   PainelMotoboys,
 } from '@/components/crm';
+import { CockpitHeader } from './_components/CockpitHeader';
+import { MetricasBar } from './_components/MetricasBar';
+import { FiltrosBusca } from './_components/FiltrosBusca';
+import { ListaPedidos } from './_components/ListaPedidos';
+import { ModalCancelar } from './_components/ModalCancelar';
+import {
+  CANCEL_MOTIVOS,
+  STATUS_FLOW,
+  actorClass,
+  flowBadgeClass,
+  labelStatus,
+  slaByStatus,
+  toBadgeVariant,
+} from './_components/_utils';
 
-const STATUS_OPTIONS = [
-  { value: 'todos', label: 'Todos' },
-  { value: 'AGUARDANDO_PAGAMENTO', label: 'Pag. Pendente' },
-  { value: 'CONFIRMADO', label: 'Aprovação' },
-  { value: 'PREPARANDO', label: 'Preparo' },
-  { value: 'SAIU_ENTREGA', label: 'Em rota' },
-  { value: 'ENTREGUE', label: 'Entregue' },
-  { value: 'CANCELADO', label: 'Cancelado' },
-];
-const STATUS_FLOW = ['AGUARDANDO_PAGAMENTO', 'CONFIRMADO', 'PREPARANDO', 'SAIU_ENTREGA', 'ENTREGUE'] as const;
-const CANCEL_MOTIVOS = ['Cliente desistiu', 'Sem entregador disponível', 'Fora de área', 'Item indisponível', 'Pagamento não aprovado', 'Erro operacional'];
-
-function toBadgeVariant(status: string) {
-  switch (status) {
-    case 'AGUARDANDO_PAGAMENTO':
-    case 'PENDENTE':
-      return 'pending' as const;
-    case 'CONFIRMADO':
-      return 'waiting' as const;
-    case 'PREPARANDO':
-      return 'preparing' as const;
-    case 'SAIU_ENTREGA':
-      return 'on-route' as const;
-    case 'ENTREGUE':
-      return 'delivered' as const;
-    case 'CANCELADO':
-      return 'cancelled' as const;
-    case 'EXPIRADO':
-    case 'ABANDONADO':
-      return 'expired' as const;
-    default:
-      return 'unpaid' as const;
-  }
-}
-
-function labelStatus(status: string) {
-  switch (status) {
-    case 'AGUARDANDO_PAGAMENTO':
-      return 'Aguard. pagamento';
-    case 'SAIU_ENTREGA':
-      return 'Em rota';
-    default:
-      return status.replace('_', ' ').toLowerCase();
-  }
-}
-
-function paymentIcon(statusPagamento: 'PENDENTE' | 'CONFIRMADO' | 'EXPIRADO') {
-  if (statusPagamento === 'CONFIRMADO') return '🔒';
-  if (statusPagamento === 'EXPIRADO') return '❌';
-  return '⏳';
-}
-
-function slaByStatus(status: string) {
-  switch (status) {
-    case 'CONFIRMADO':
-      return { warningAt: 180, dangerAt: 300 };
-    case 'PREPARANDO':
-      return { warningAt: 1500, dangerAt: 2100 };
-    case 'SAIU_ENTREGA':
-      return { warningAt: 3000, dangerAt: 3600 };
-    default:
-      return { warningAt: 300, dangerAt: 600 };
-  }
-}
-
-function actorClass(ator: string) {
-  switch (ator) {
-    case 'OPERADOR':
-      return 'border-[var(--color-info-subtle)] bg-[var(--color-info-muted)] text-[var(--color-info-text)]';
-    case 'SISTEMA':
-      return 'border-[var(--color-border)] bg-[var(--color-surface-raised)] text-[var(--color-text-secondary)]';
-    case 'CLIENTE':
-      return 'border-[var(--color-success-subtle)] bg-[var(--color-success-muted)] text-[var(--color-success-text)]';
-    case 'IA':
-      return 'border-[var(--color-warning-subtle)] bg-[var(--color-warning-muted)] text-[var(--color-warning-text)]';
-    default:
-      return 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)]';
-  }
-}
-
-function flowBadgeClass(flowStatus: string, currentStatus: string) {
-  if (flowStatus === currentStatus) {
-    return 'ring-2 ring-[var(--color-accent)] ring-offset-1 ring-offset-[var(--color-surface)]';
-  }
-  return 'opacity-70';
-}
 
 export default function AdminPedidosPage() {
   const { showSuccess, showError } = useToast();
@@ -156,17 +82,6 @@ export default function AdminPedidosPage() {
       return next;
     });
   }, []);
-
-  // Auto-ativar modo pico quando há muitos pedidos ativos
-  useEffect(() => {
-    const ativos = pedidos.filter((p) =>
-      !['ENTREGUE', 'CANCELADO', 'EXPIRADO', 'ABANDONADO'].includes(p.status)
-    ).length;
-    if (ativos >= 8 && !modoPico) {
-      setModoPico(true);
-      window.localStorage.setItem('rancho:cockpit:modo-pico', 'true');
-    }
-  }, [pedidos, modoPico]);
 
   const [pedidos, setPedidos] = useState<AdminPedidoListaItem[]>([]);
   const [metricas, setMetricas] = useState<AdminMetricas | null>(null);
@@ -209,6 +124,17 @@ export default function AdminPedidosPage() {
     valorDinheiro: '',
     observacao: '',
   });
+
+  // Auto-ativar modo pico quando há muitos pedidos ativos
+  useEffect(() => {
+    const ativos = pedidos.filter((p) =>
+      !['ENTREGUE', 'CANCELADO', 'EXPIRADO', 'ABANDONADO'].includes(p.status)
+    ).length;
+    if (ativos >= 8 && !modoPico) {
+      setModoPico(true);
+      window.localStorage.setItem('rancho:cockpit:modo-pico', 'true');
+    }
+  }, [pedidos, modoPico]);
 
   const carregarFilaUrgente = useCallback(async () => {
     try {
@@ -805,54 +731,24 @@ export default function AdminPedidosPage() {
 
   return (
     <div className="p-5 md:p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="font-sora text-2xl font-bold text-[var(--color-text-primary)]">Cockpit de Pedidos</h1>
-          <p className="text-sm text-[var(--color-text-secondary)]">
-            {totalPedidos} pedidos · {resumo.aprovacao} aguardando aprovação · {resumo.preparo} em preparo
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex rounded-md border border-[var(--color-border)] overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setAbaCockpit('pedidos')}
-              className={`px-3 py-1.5 text-sm font-semibold transition-colors ${abaCockpit === 'pedidos' ? 'bg-[var(--color-accent)] text-white' : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]'}`}
-            >
-              Pedidos
-            </button>
-            <button
-              type="button"
-              onClick={() => { setAbaCockpit('whatsapp'); void carregarConversas(); }}
-              className={`relative px-3 py-1.5 text-sm font-semibold transition-colors ${abaCockpit === 'whatsapp' ? 'bg-[var(--color-accent)] text-white' : 'bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]'}`}
-            >
-              WhatsApp
-              {conversas.length > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--color-danger)] text-[9px] font-bold text-white">
-                  {conversas.length > 9 ? '9+' : conversas.length}
-                </span>
-              )}
-            </button>
-          </div>
-          <CrmButton size="sm" onClick={() => void handleAbrirRelatorio()}>Relatório</CrmButton>
-          <CrmButton
-            size="sm"
-            variant={modoPico ? 'danger' : 'ghost'}
-            onClick={toggleModoPico}
-            title={modoPico ? 'Desativar Modo Pico' : 'Ativar Modo Pico'}
-          >
-            {modoPico ? '⚡ Pico ON' : '⚡ Pico'}
-          </CrmButton>
-          <CrmButton size="sm" variant={muted ? 'ghost' : 'primary'} onClick={() => setMuted(!muted)}>
-            {muted ? 'Ligar som' : 'Desligar som'}
-          </CrmButton>
-          <CrmButton size="sm" onClick={() => setShowManualModal(true)}>Pedido manual</CrmButton>
-          <CrmButton size="sm" variant={lojaStatus?.status === 'ABERTO' ? 'primary' : 'ghost'} onClick={() => void atualizarStatusLoja('ABERTO')}>Abrir</CrmButton>
-          <CrmButton size="sm" variant={lojaStatus?.status === 'PAUSADO' ? 'danger' : 'ghost'} onClick={() => void atualizarStatusLoja('PAUSADO')}>Pausar</CrmButton>
-          <CrmButton size="sm" variant={lojaStatus?.status === 'FECHADO' ? 'danger' : 'ghost'} onClick={() => void fecharLojaComConfirmacao()}>Fechar</CrmButton>
-          <CrmButton variant="ghost" onClick={() => void carregarLista()}>Atualizar</CrmButton>
-        </div>
-      </div>
+      <CockpitHeader
+        totalPedidos={totalPedidos}
+        resumo={resumo}
+        abaCockpit={abaCockpit}
+        onAbaChange={setAbaCockpit}
+        conversas={conversas}
+        onAbrirRelatorio={() => void handleAbrirRelatorio()}
+        modoPico={modoPico}
+        onToggleModoPico={toggleModoPico}
+        muted={muted}
+        onToggleMuted={() => setMuted(!muted)}
+        onNovoPedidoManual={() => setShowManualModal(true)}
+        lojaStatus={lojaStatus}
+        onAtualizarStatusLoja={(s) => void atualizarStatusLoja(s)}
+        onFecharLoja={() => void fecharLojaComConfirmacao()}
+        onAtualizar={() => void carregarLista()}
+        onCarregarConversas={() => void carregarConversas()}
+      />
 
       <FilaUrgente
         itens={filaUrgente}
@@ -884,20 +780,7 @@ export default function AdminPedidosPage() {
         }}
       />
 
-      <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
-        {metricItems.map((item) => (
-          <div
-            key={item.label}
-            className={`rounded-md border px-3 py-2 ${item.className} ${item.pulse ? 'animate-pulse' : ''}`}
-          >
-            <p className="text-[11px] font-semibold uppercase tracking-wide opacity-80">{item.label}</p>
-            <p className="mt-1 font-sora text-lg font-bold">{item.value}</p>
-            {item.sub && (
-              <p className="mt-0.5 text-[10px] opacity-70">{item.sub}</p>
-            )}
-          </div>
-        ))}
-      </div>
+      <MetricasBar items={metricItems} />
 
       {lojaStatus?.status === 'PAUSADO' && (
         <div className="mb-4 flex gap-2">
@@ -906,18 +789,12 @@ export default function AdminPedidosPage() {
         </div>
       )}
 
-      <div className="mb-4 flex flex-col gap-3 md:flex-row">
-        <div className="md:w-80">
-          <CrmInput placeholder="Buscar cliente, telefone ou ID..." value={busca} onChange={(e) => setBusca(e.target.value)} />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {STATUS_OPTIONS.map((opt) => (
-            <CrmButton key={opt.value} variant={statusFiltro === opt.value ? 'primary' : 'ghost'} size="sm" onClick={() => setStatusFiltro(opt.value)}>
-              {opt.label}
-            </CrmButton>
-          ))}
-        </div>
-      </div>
+      <FiltrosBusca
+        busca={busca}
+        onBuscaChange={setBusca}
+        statusFiltro={statusFiltro}
+        onStatusChange={setStatusFiltro}
+      />
 
       {abaCockpit === 'whatsapp' ? (
         <div className="min-h-[72vh]">
@@ -936,78 +813,18 @@ export default function AdminPedidosPage() {
       ) : (
 
       <div className={`grid gap-4 ${modoPico ? 'min-h-[80vh] grid-cols-1 xl:grid-cols-[1fr_minmax(0,1fr)]' : 'min-h-[72vh] grid-cols-1 xl:grid-cols-[320px_minmax(0,1fr)]'}`}>
-        <CrmCard className={`flex flex-col p-3 ${modoPico ? 'max-h-[80vh] min-h-[80vh]' : 'max-h-[72vh] min-h-[72vh]'}`}>
-          <div className="flex-1 overflow-auto">
-            {loadingList ? (
-              <p className="p-3 text-sm text-[var(--color-text-secondary)]">Carregando pedidos...</p>
-            ) : pedidos.length === 0 ? (
-              <p className="p-3 text-sm text-[var(--color-text-secondary)]">Sem pedidos para os filtros atuais.</p>
-            ) : (
-              <div className={`space-y-2 ${modoPico ? 'space-y-3' : ''}`}>
-                {pedidos.map((pedido) => {
-                  const sla = slaByStatus(pedido.status);
-                  return (
-                    <button
-                      key={pedido.id}
-                      type="button"
-                      onClick={() => setSelectedId(pedido.id)}
-                      className={`w-full rounded-md border text-left transition-colors ${modoPico ? 'p-4' : 'p-3'} ${
-                        selectedId === pedido.id
-                          ? 'border-[var(--color-accent)] bg-[var(--color-accent-muted)]'
-                          : 'border-[var(--color-border)] bg-[var(--color-surface-raised)] hover:bg-[var(--color-surface-hover)]'
-                      }`}
-                    >
-                      <div className="mb-1 flex items-center justify-between gap-2">
-                        <span className={`font-mono-crm font-semibold text-[var(--color-text-secondary)] ${modoPico ? 'text-sm' : 'text-xs'}`}>#{pedido.numero}</span>
-                        <CrmTimer elapsedSeconds={pedido.tempoNoEstagio} warningAt={sla.warningAt} dangerAt={sla.dangerAt} blinkOnDanger />
-                      </div>
-                      <p className={`truncate font-semibold text-[var(--color-text-primary)] ${modoPico ? 'text-base' : 'text-sm'}`}>{pedido.clienteNome}</p>
-                      {!modoPico && <p className="truncate text-xs text-[var(--color-text-secondary)]">{pedido.bairro}</p>}
-                      <p className={`mt-1 truncate text-[var(--color-text-tertiary)] ${modoPico ? 'text-sm' : 'text-xs'}`}>{pedido.itensResumo.join(' + ')}</p>
-                      <div className="mt-2 flex items-center justify-between">
-                        <CrmBadge variant={pedido.statusPagamento === 'CONFIRMADO' ? 'paid' : pedido.statusPagamento === 'EXPIRADO' ? 'expired' : 'unpaid'}>
-                          {paymentIcon(pedido.statusPagamento)} {pedido.statusPagamento}
-                        </CrmBadge>
-                        <span className="text-sm font-semibold text-[var(--color-accent)]">{formatCurrency(pedido.total)}</span>
-                      </div>
-                      {pedido.mensagensNaoLidas > 0 && (
-                        <div className="mt-2"><CrmBadge variant="waiting">{pedido.mensagensNaoLidas} msg</CrmBadge></div>
-                      )}
-                      <div className="mt-2">
-                        <CrmButton
-                          size="sm"
-                          className="w-full"
-                          disabled={pedido.statusPagamento !== 'CONFIRMADO' || pedido.status !== 'AGUARDANDO_PAGAMENTO'}
-                          title={pedido.statusPagamento !== 'CONFIRMADO' ? 'Aguardando pagamento' : 'Confirmar pedido'}
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            void confirmarPedido(pedido.id);
-                          }}
-                        >
-                          Confirmar
-                        </CrmButton>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-          <div className="mt-3 flex items-center justify-between border-t border-[var(--color-border)] pt-3">
-            <p className="text-xs text-[var(--color-text-secondary)]">
-              Página {page} · {pedidos.length} de {totalPedidos}
-            </p>
-            <div className="flex gap-2">
-              <CrmButton size="sm" variant="ghost" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-                Anterior
-              </CrmButton>
-              <CrmButton size="sm" variant="ghost" disabled={page * pageSize >= totalPedidos} onClick={() => setPage((p) => p + 1)}>
-                Próxima
-              </CrmButton>
-            </div>
-          </div>
-        </CrmCard>
+        <ListaPedidos
+          pedidos={pedidos}
+          loading={loadingList}
+          modoPico={modoPico}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onConfirmar={(id) => void confirmarPedido(id)}
+          page={page}
+          totalPedidos={totalPedidos}
+          pageSize={pageSize}
+          onPageChange={setPage}
+        />
 
         <CrmCard className="p-5">
           {!selectedId ? (
@@ -1253,25 +1070,20 @@ export default function AdminPedidosPage() {
         </CrmCard>
       </div>
       )}
-      <CrmModal open={showCancelModal} onClose={() => setShowCancelModal(false)} title="Cancelar pedido">
-        <select value={motivoCancelamento} onChange={(e) => setMotivoCancelamento(e.target.value)} className="mb-3 h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-sm">
-          {CANCEL_MOTIVOS.map((m) => <option key={m} value={m}>{m}</option>)}
-        </select>
-        {pedidoDetalhe?.statusPagamento === 'CONFIRMADO' && <p className="mb-3 text-sm text-[var(--color-warning-text)]">Pagamento confirmado: estorno será marcado como necessário.</p>}
-        {pedidoDetalhe?.estornoNecessario && (
-          <div className="mb-3">
-            <CrmButton size="sm" variant="ghost" onClick={async () => {
-              await api.adminPedidos.marcarEstorno(pedidoDetalhe.id);
-              await carregarDetalhe(pedidoDetalhe.id);
-              showSuccess('Estorno marcado como realizado');
-            }}>Marcar estorno realizado</CrmButton>
-          </div>
-        )}
-        <div className="flex justify-end gap-2">
-          <CrmButton variant="ghost" onClick={() => setShowCancelModal(false)}>Fechar</CrmButton>
-          <CrmButton variant="danger" onClick={() => void cancelarPedido()}>Confirmar</CrmButton>
-        </div>
-      </CrmModal>
+      <ModalCancelar
+        open={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        pedidoDetalhe={pedidoDetalhe}
+        motivoCancelamento={motivoCancelamento}
+        onMotivoChange={setMotivoCancelamento}
+        onConfirmar={() => void cancelarPedido()}
+        onEstornoRealizado={async () => {
+          if (pedidoDetalhe) {
+            await carregarDetalhe(pedidoDetalhe.id);
+            showSuccess('Estorno marcado como realizado');
+          }
+        }}
+      />
 
       <ModalRelatorio
         open={showRelatorioModal}

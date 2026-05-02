@@ -1,8 +1,60 @@
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import pedidoService from '../services/pedido.service';
 import { logger } from '../config/logger';
 import { StatusLoja, StatusPedido } from '@prisma/client';
 import realtimeService from '../services/realtime.service';
+
+const schemaAtualizarStatus = z.object({
+  status: z.string().min(1),
+  motivoCancelamento: z.string().trim().optional(),
+});
+
+const schemaAtribuirMotoboy = z.object({
+  motoboyId: z.string().nullable().optional(),
+  observacaoEntrega: z.string().optional(),
+});
+
+const schemaAtualizarEndereco = z.object({
+  endereco: z.string().trim().min(1, 'Endereço obrigatório'),
+  bairro: z.string().trim().min(1, 'Bairro obrigatório'),
+});
+
+const schemaCriarManual = z.object({
+  pagamentoMetodo: z.enum(['PIX', 'DINHEIRO']),
+  cliente: z.object({
+    nome: z.string().trim().min(1),
+    telefone: z.string().trim().min(1),
+    endereco: z.string().trim().min(1),
+    bairro: z.string().trim().min(1),
+  }),
+  itens: z.array(z.object({
+    produtoId: z.string().min(1),
+    quantidade: z.number().int().min(1),
+    observacao: z.string().optional(),
+  })).min(1),
+  observacao: z.string().optional(),
+  origem: z.enum(['SITE', 'WHATSAPP', 'MINERACAO', 'INDICACAO', 'CAMPANHA']).optional(),
+  valorDinheiro: z.number().optional(),
+});
+
+const schemaCancelar = z.object({
+  motivo: z.string().trim().min(1, 'Motivo obrigatório'),
+});
+
+const schemaStatusLoja = z.object({
+  status: z.string().min(1),
+  mensagem: z.string().optional(),
+});
+
+function validar<T>(schema: z.ZodType<T>, data: unknown): { data: T } | { error: string } {
+  const result = schema.safeParse(data);
+  if (!result.success) {
+    const msg = result.error.errors.map(e => e.message).join('; ');
+    return { error: msg };
+  }
+  return { data: result.data };
+}
 
 export class AdminPedidoController {
   private async emitirMetricasAtualizadas() {
@@ -19,6 +71,7 @@ export class AdminPedidoController {
    */
   async filaUrgente(_req: Request, res: Response) {
     try {
+      await pedidoService.sincronizarExpiracoesCheckout();
       const data = await pedidoService.obterFilaUrgente();
       return res.json({ success: true, data });
     } catch (error) {
@@ -35,6 +88,7 @@ export class AdminPedidoController {
    */
   async metricas(_req: Request, res: Response) {
     try {
+      await pedidoService.sincronizarExpiracoesCheckout();
       const data = await pedidoService.obterMetricasAdmin();
       return res.json({ success: true, data });
     } catch (error) {
@@ -51,6 +105,7 @@ export class AdminPedidoController {
    */
   async listar(req: Request, res: Response) {
     try {
+      await pedidoService.sincronizarExpiracoesCheckout();
       const { status, busca, page, limit } = req.query;
       const data = await pedidoService.listarPedidosAdmin({
         status: typeof status === 'string' ? status : undefined,
@@ -74,6 +129,7 @@ export class AdminPedidoController {
    */
   async buscarPorId(req: Request, res: Response) {
     try {
+      await pedidoService.sincronizarExpiracoesCheckout();
       const { id } = req.params;
       const pedido = await pedidoService.buscarPedidoAdminPorId(id);
 
@@ -100,19 +156,21 @@ export class AdminPedidoController {
   async atualizarStatus(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const status = String(req.body?.status || '').toUpperCase() as StatusPedido;
-      const motivoCancelamento =
-        typeof req.body?.motivoCancelamento === 'string' ? req.body.motivoCancelamento.trim() : undefined;
+      const parsed = validar(schemaAtualizarStatus, { ...req.body, status: String(req.body?.status || '').toUpperCase() });
+      if ('error' in parsed) {
+        return res.status(400).json({ success: false, error: { message: parsed.error, code: 'VALIDACAO_INVALIDA' } });
+      }
 
+      const { status, motivoCancelamento } = parsed.data;
       const validos = Object.values(StatusPedido);
-      if (!validos.includes(status)) {
+      if (!validos.includes(status as StatusPedido)) {
         return res.status(400).json({
           success: false,
           error: { message: 'Status inválido', code: 'STATUS_INVALIDO' },
         });
       }
 
-      const data = await pedidoService.atualizarStatusAdmin(id, status, motivoCancelamento);
+      const data = await pedidoService.atualizarStatusAdmin(id, status as StatusPedido, motivoCancelamento, req.adminUser?.username);
       realtimeService.emit('pedido:atualizado', { id, status: data.status });
       void this.emitirMetricasAtualizadas();
       return res.json({ success: true, data });
@@ -177,9 +235,12 @@ export class AdminPedidoController {
   async atribuirMotoboy(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const motoboyId = typeof req.body?.motoboyId === 'string' ? req.body.motoboyId : null;
-      const observacaoEntrega = typeof req.body?.observacaoEntrega === 'string' ? req.body.observacaoEntrega : undefined;
-      const data = await pedidoService.atribuirMotoboy(id, motoboyId, observacaoEntrega);
+      const parsed = validar(schemaAtribuirMotoboy, req.body);
+      if ('error' in parsed) {
+        return res.status(400).json({ success: false, error: { message: parsed.error, code: 'VALIDACAO_INVALIDA' } });
+      }
+      const { motoboyId = null, observacaoEntrega } = parsed.data;
+      const data = await pedidoService.atribuirMotoboy(id, motoboyId ?? null, observacaoEntrega, req.adminUser?.username);
       realtimeService.emit('pedido:atualizado', { id: data.id, motoboyId: data.motoboy?.id || null });
       return res.json({ success: true, data });
     } catch (error: any) {
@@ -209,15 +270,12 @@ export class AdminPedidoController {
   async atualizarEnderecoEntrega(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const endereco = typeof req.body?.endereco === 'string' ? req.body.endereco.trim() : '';
-      const bairro = typeof req.body?.bairro === 'string' ? req.body.bairro.trim() : '';
-      if (!endereco || !bairro) {
-        return res.status(400).json({
-          success: false,
-          error: { message: 'Endereço e bairro são obrigatórios', code: 'ENDERECO_INVALIDO' },
-        });
+      const parsed = validar(schemaAtualizarEndereco, req.body);
+      if ('error' in parsed) {
+        return res.status(400).json({ success: false, error: { message: parsed.error, code: 'ENDERECO_INVALIDO' } });
       }
-      const data = await pedidoService.atualizarEnderecoEntrega(id, endereco, bairro);
+      const { endereco, bairro } = parsed.data;
+      const data = await pedidoService.atualizarEnderecoEntrega(id, endereco, bairro, req.adminUser?.username);
       realtimeService.emit('pedido:atualizado', { id });
       return res.json({ success: true, data });
     } catch (error: any) {
@@ -225,6 +283,12 @@ export class AdminPedidoController {
         return res.status(404).json({
           success: false,
           error: { message: 'Pedido não encontrado', code: 'PEDIDO_NAO_ENCONTRADO' },
+        });
+      }
+      if (error.message === 'BAIRRO_NAO_ATENDIDO') {
+        return res.status(400).json({
+          success: false,
+          error: { message: 'Bairro não atendido', code: 'BAIRRO_NAO_ATENDIDO' },
         });
       }
       logger.error('Erro ao atualizar endereço de entrega:', error);
@@ -240,21 +304,15 @@ export class AdminPedidoController {
    */
   async criarManual(req: Request, res: Response) {
     try {
-      const pagamentoMetodo = String(req.body?.pagamentoMetodo || '').toUpperCase();
-      if (pagamentoMetodo !== 'PIX' && pagamentoMetodo !== 'DINHEIRO') {
-        return res.status(400).json({
-          success: false,
-          error: { message: 'Método de pagamento inválido', code: 'PAGAMENTO_INVALIDO' },
-        });
+      const rawBody = { ...req.body, pagamentoMetodo: String(req.body?.pagamentoMetodo || '').toUpperCase() };
+      const parsed = validar(schemaCriarManual, rawBody);
+      if ('error' in parsed) {
+        return res.status(400).json({ success: false, error: { message: parsed.error, code: 'VALIDACAO_INVALIDA' } });
       }
 
       const data = await pedidoService.criarPedidoManual({
-        cliente: req.body?.cliente,
-        itens: req.body?.itens,
-        observacao: req.body?.observacao,
-        origem: req.body?.origem,
-        pagamentoMetodo,
-        valorDinheiro: req.body?.valorDinheiro,
+        ...parsed.data,
+        operadorNome: req.adminUser?.username,
       });
 
       realtimeService.emit('pedido:novo', { id: data.id, status: data.status });
@@ -275,14 +333,12 @@ export class AdminPedidoController {
   async cancelar(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const motivo = typeof req.body?.motivo === 'string' ? req.body.motivo.trim() : '';
-      if (!motivo) {
-        return res.status(400).json({
-          success: false,
-          error: { message: 'Motivo é obrigatório', code: 'MOTIVO_OBRIGATORIO' },
-        });
+      const parsed = validar(schemaCancelar, req.body);
+      if ('error' in parsed) {
+        return res.status(400).json({ success: false, error: { message: parsed.error, code: 'MOTIVO_OBRIGATORIO' } });
       }
-      const data = await pedidoService.cancelarPedidoAdmin(id, motivo);
+      const { motivo } = parsed.data;
+      const data = await pedidoService.cancelarPedidoAdmin(id, motivo, req.adminUser?.username);
       realtimeService.emit('pedido:atualizado', { id: data.id, status: data.status });
       void this.emitirMetricasAtualizadas();
       return res.json({ success: true, data });
@@ -307,7 +363,7 @@ export class AdminPedidoController {
   async marcarEstorno(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const data = await pedidoService.marcarEstornoAdmin(id);
+      const data = await pedidoService.marcarEstornoAdmin(id, req.adminUser?.username);
       realtimeService.emit('pedido:atualizado', { id: data.id, estorno: true });
       void this.emitirMetricasAtualizadas();
       return res.json({ success: true, data });
@@ -353,16 +409,19 @@ export class AdminPedidoController {
    */
   async atualizarStatusLoja(req: Request, res: Response) {
     try {
-      const status = String(req.body?.status || '').toUpperCase() as StatusLoja;
-      const mensagem = typeof req.body?.mensagem === 'string' ? req.body.mensagem : undefined;
+      const parsed = validar(schemaStatusLoja, { ...req.body, status: String(req.body?.status || '').toUpperCase() });
+      if ('error' in parsed) {
+        return res.status(400).json({ success: false, error: { message: parsed.error, code: 'STATUS_LOJA_INVALIDO' } });
+      }
+      const { status, mensagem } = parsed.data;
       const validos = Object.values(StatusLoja);
-      if (!validos.includes(status)) {
+      if (!validos.includes(status as StatusLoja)) {
         return res.status(400).json({
           success: false,
           error: { message: 'Status de loja inválido', code: 'STATUS_LOJA_INVALIDO' },
         });
       }
-      const data = await pedidoService.atualizarStatusLoja(status, mensagem);
+      const data = await pedidoService.atualizarStatusLoja(status as StatusLoja, mensagem);
       realtimeService.emit('loja:status', data);
       return res.json({ success: true, data });
     } catch (error: any) {

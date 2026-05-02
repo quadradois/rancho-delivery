@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import AppBar from '@/components/layout/AppBar';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -18,15 +18,24 @@ interface OrderPageProps {
 
 export default function OrderPage({ params }: OrderPageProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { showError } = useToast();
   const [pedido, setPedido] = useState<Pedido | null>(null);
   const [loading, setLoading] = useState(true);
+  const [npsEnviado, setNpsEnviado] = useState(false);
 
   const statusNormalizado = (pedido?.status || '').toString().toLowerCase();
   const formaPagamentoTexto = (pedido?.formaPagamento || 'pix').toString().replace('_', ' ');
   const enderecoTexto = pedido?.cliente?.endereco || '';
   const bairroTexto = pedido?.cliente?.bairro || '';
   const criadoEm = pedido?.createdAt || pedido?.criadoEm || '';
+
+  useEffect(() => {
+    const token = searchParams.get('token');
+    if (token) {
+      api.pedidos.setTokenByPedidoId(params.id, token);
+    }
+  }, [params.id, searchParams]);
 
   useEffect(() => {
     const loadPedido = async () => {
@@ -44,9 +53,35 @@ export default function OrderPage({ params }: OrderPageProps) {
 
     loadPedido();
 
-    // Atualizar a cada 30 segundos
-    const interval = setInterval(loadPedido, 30000);
-    return () => clearInterval(interval);
+    const token = api.pedidos.getTokenByPedidoId(params.id);
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const streamUrl = token
+      ? `${apiBase}/api/pedidos/${params.id}/eventos?token=${encodeURIComponent(token)}`
+      : `${apiBase}/api/pedidos/${params.id}/eventos`;
+    const es = new EventSource(streamUrl);
+
+    es.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data);
+        if (data?.type === 'pedido:atualizado') {
+          void loadPedido();
+        }
+      } catch {
+        // noop
+      }
+    };
+
+    let fallbackInterval: ReturnType<typeof setInterval> | null = null;
+    es.onerror = () => {
+      if (!fallbackInterval) {
+        fallbackInterval = setInterval(loadPedido, 30000);
+      }
+    };
+
+    return () => {
+      es.close();
+      if (fallbackInterval) clearInterval(fallbackInterval);
+    };
   }, [params.id, showError]);
 
   const getStatusSteps = () => {
@@ -266,6 +301,51 @@ export default function OrderPage({ params }: OrderPageProps) {
 
           {/* Actions */}
           <div className="space-y-3">
+            {statusNormalizado === 'entregue' && !npsEnviado && (
+              <div id="avaliacao" className="rounded-2xl p-4" style={{ background: '#251208', border: '1px solid #3E2214' }}>
+                <p className="text-sm text-[#F4E8CC] mb-3">Como foi seu pedido?</p>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((nota) => (
+                    <button
+                      key={nota}
+                      type="button"
+                      className="px-3 py-2 rounded-lg text-sm font-bold"
+                      style={{ background: '#3E2214', color: '#F4E8CC' }}
+                      onClick={async () => {
+                        try {
+                          await api.pedidos.avaliarNps(params.id, nota);
+                          setNpsEnviado(true);
+                        } catch (error) {
+                          showError('Erro ao enviar avaliação', error instanceof Error ? error.message : 'Tente novamente');
+                        }
+                      }}
+                    >
+                      {nota}★
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {statusNormalizado === 'entregue' && (
+              <Button
+                size="lg"
+                className="w-full"
+                onClick={async () => {
+                  try {
+                    const novo = await api.pedidos.reorder(params.id);
+                    if (novo.linkPagamento) {
+                      window.location.href = novo.linkPagamento;
+                      return;
+                    }
+                    router.push(`/pedido/${novo.id}`);
+                  } catch (error) {
+                    showError('Erro ao repetir pedido', error instanceof Error ? error.message : 'Tente novamente');
+                  }
+                }}
+              >
+                Pedir novamente
+              </Button>
+            )}
             <Button variant="outline" size="lg" className="w-full" onClick={() => router.push('/')}>
               Fazer Novo Pedido
             </Button>
