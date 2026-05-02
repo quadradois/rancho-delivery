@@ -116,3 +116,19 @@ Unitários:
 - Prisma Client regenerado com novos campos de NPS.
 - Backend: `46` testes passando nas suítes impactadas (`pedido.service`, `pedido.controller`, `pedido.integration`).
 - Frontend: `42` testes passando nas suítes de carrinho após mudanças de compatibilidade.
+
+---
+
+## Status de execução — Hotfix Produção (02/05/2026)
+
+- [x] Corrigido erro `500` em `GET /api/admin/clientes/:telefone` causado por divergência de schema (`lista_negra_clientes.nivel` ausente no banco de produção).
+- [x] Migration corretiva aplicada: `20260502233000_fix_lista_negra_columns` com inclusão idempotente de `nivel`, `total_ocorrencias`, `registrado_por`, `atualizado_em`, índice de `nivel` e estrutura de `ocorrencias_lista_negra`.
+- [x] Validação pós-migração concluída: colunas críticas presentes em produção e schema Prisma alinhado para o módulo administrativo de clientes.
+
+---
+
+## Status de execução — Hotfix Produção (02/05/2026)
+
+- [x] Corrigido erro `500` em `GET /api/admin/clientes/:telefone` causado por divergência de schema (`lista_negra_clientes.nivel` ausente no banco de produção).
+- [x] Migration corretiva aplicada: `20260502233000_fix_lista_negra_columns` com inclusão idempotente de `nivel`, `total_ocorrencias`, `registrado_por`, `atualizado_em`, índice de `nivel` e estrutura de `ocorrencias_lista_negra`.
+- [x] Validação pós-migração concluída: colunas críticas presentes em produção e schema Prisma alinhado para o módulo administrativo de clientes.
