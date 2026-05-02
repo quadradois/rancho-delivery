@@ -16,9 +16,14 @@ export const loginLimiter = rateLimit({
 // 100 requisições por IP a cada 15 minutos para rotas admin
 export const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => {
+    const ip = req.ip || req.socket?.remoteAddress || '0.0.0.0';
+    return ipKeyGenerator(ip);
+  },
+  skip: (req) => req.method === 'OPTIONS' || req.path === '/health',
   message: {
     error: 'Muitas requisições. Tente novamente em instantes.',
     code: 'RATE_LIMIT_ADMIN',

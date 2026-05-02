@@ -15,6 +15,9 @@ const app: Application = express();
 const PORT = process.env.PORT || 3001;
 const HOST = process.env.HOST || '127.0.0.1';
 
+// Necessário em produção atrás de proxy (nginx/cloudflare) para req.ip refletir cliente real.
+app.set('trust proxy', true);
+
 function getFrontendOrigins() {
   const frontendUrl = process.env.FRONTEND_URL;
   if (!frontendUrl) return [];
