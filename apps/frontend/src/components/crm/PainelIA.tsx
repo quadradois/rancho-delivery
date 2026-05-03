@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { SugestaoIA } from '@/lib/api';
 import { CrmButton, CrmCard } from '@/components/crm';
 
@@ -27,53 +27,81 @@ const ACAO_LABEL: Partial<Record<SugestaoIA['tipo'], string>> = {
 };
 
 export default function PainelIA({ sugestoes, carregando, onAtualizar, onAcao }: PainelIAProps) {
-  return (
-    <CrmCard className="p-3">
-      <div className="mb-2 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-base">🤖</span>
-          <p className="font-sora text-sm font-bold text-[var(--color-text-primary)]">
-            Sugestões IA
-          </p>
-          {sugestoes.length > 0 && (
-            <span className="rounded-full bg-[var(--color-accent)] px-1.5 py-0.5 text-[10px] font-bold text-white">
-              {sugestoes.length}
-            </span>
-          )}
-        </div>
-        <CrmButton size="sm" variant="ghost" onClick={onAtualizar} disabled={carregando}>
-          {carregando ? '...' : 'Atualizar'}
-        </CrmButton>
-      </div>
+  const [aberto, setAberto] = useState(false);
+  const total = sugestoes.length;
+  const destaque = useMemo(() => sugestoes.some((s) => s.tipo === 'CANCELAMENTOS_ITEM' || s.tipo === 'PREPARO_ACIMA_MEDIA'), [sugestoes]);
 
-      {sugestoes.length === 0 ? (
-        <p className="text-xs text-[var(--color-text-tertiary)]">
-          {carregando ? 'Analisando operação...' : 'Nenhuma sugestão no momento. Operação saudável!'}
-        </p>
-      ) : (
-        <div className="space-y-2">
-          {sugestoes.map((s) => {
-            const cfg = TIPO_CONFIG[s.tipo];
-            const acaoLabel = ACAO_LABEL[s.tipo];
-            return (
-              <div
-                key={s.id}
-                className={`flex items-start justify-between gap-3 rounded-md border px-3 py-2 ${cfg.cor}`}
-              >
-                <div className="flex min-w-0 flex-1 items-start gap-2">
-                  <span className="mt-0.5 shrink-0 text-sm">{cfg.icone}</span>
-                  <p className="text-xs leading-relaxed">{s.texto}</p>
-                </div>
-                {acaoLabel && (
-                  <CrmButton size="sm" variant="ghost" className="shrink-0" onClick={() => onAcao(s)}>
-                    {acaoLabel}
-                  </CrmButton>
-                )}
-              </div>
-            );
-          })}
-        </div>
+  return (
+    <div className="fixed bottom-5 right-5 z-[70] flex max-w-[calc(100vw-2rem)] flex-col items-end gap-2">
+      {aberto && (
+        <CrmCard className="w-[min(440px,92vw)] p-3 shadow-2xl">
+          <div className="mb-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-base">🤖</span>
+              <p className="font-sora text-sm font-bold text-[var(--color-text-primary)]">
+                Sugestões IA
+              </p>
+              {total > 0 && (
+                <span className="rounded-full bg-[var(--color-accent)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                  {total}
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              <CrmButton size="sm" variant="ghost" onClick={onAtualizar} disabled={carregando}>
+                {carregando ? '...' : 'Atualizar'}
+              </CrmButton>
+              <CrmButton size="sm" variant="ghost" onClick={() => setAberto(false)}>
+                Fechar
+              </CrmButton>
+            </div>
+          </div>
+
+          {total === 0 ? (
+            <p className="text-xs text-[var(--color-text-tertiary)]">
+              {carregando ? 'Analisando operação...' : 'Nenhuma sugestão no momento. Operação saudável!'}
+            </p>
+          ) : (
+            <div className="max-h-[52vh] space-y-2 overflow-auto pr-1">
+              {sugestoes.map((s) => {
+                const cfg = TIPO_CONFIG[s.tipo];
+                const acaoLabel = ACAO_LABEL[s.tipo];
+                return (
+                  <div
+                    key={s.id}
+                    className={`flex items-start justify-between gap-3 rounded-md border px-3 py-2 ${cfg.cor}`}
+                  >
+                    <div className="flex min-w-0 flex-1 items-start gap-2">
+                      <span className="mt-0.5 shrink-0 text-sm">{cfg.icone}</span>
+                      <p className="text-xs leading-relaxed">{s.texto}</p>
+                    </div>
+                    {acaoLabel && (
+                      <CrmButton size="sm" variant="ghost" className="shrink-0" onClick={() => onAcao(s)}>
+                        {acaoLabel}
+                      </CrmButton>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CrmCard>
       )}
-    </CrmCard>
+
+      <button
+        type="button"
+        onClick={() => setAberto((v) => !v)}
+        className={`relative flex h-14 items-center gap-2 rounded-full border px-4 shadow-xl transition hover:scale-[1.02] ${destaque ? 'border-[var(--color-warning)] bg-[var(--color-warning-muted)] text-[var(--color-warning-text)]' : 'border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)]'}`}
+        aria-label={aberto ? 'Fechar sugestões de IA' : 'Abrir sugestões de IA'}
+      >
+        <span className="text-lg">🤖</span>
+        <span className="font-sora text-sm font-bold">{aberto ? 'IA aberta' : 'IA'}</span>
+        {total > 0 && (
+          <span className="absolute -right-1 -top-1 rounded-full bg-[var(--color-danger)] px-1.5 py-0.5 text-[10px] font-bold text-white">
+            {total}
+          </span>
+        )}
+      </button>
+    </div>
   );
 }
