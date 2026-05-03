@@ -4,12 +4,12 @@ import express, { Express } from 'express';
 import crypto from 'crypto';
 import webhookRoutes from '../../routes/webhook.routes';
 import pedidoService from '../../services/pedido.service';
-import infinitePayService from '../../services/infinitepay.service';
+import mercadoPagoService from '../../services/mercadopago.service';
 import evolutionService from '../../services/evolution.service';
 import realtimeService from '../../services/realtime.service';
 
 vi.mock('../../services/pedido.service');
-vi.mock('../../services/infinitepay.service');
+vi.mock('../../services/mercadopago.service');
 vi.mock('../../services/evolution.service');
 vi.mock('../../services/realtime.service', () => ({
   default: { emit: vi.fn() },
@@ -34,21 +34,21 @@ function hmacSignature(body: object): string {
   return `sha256=${sig}`;
 }
 
-describe('Webhook InfinitePay — integração', () => {
+describe('Webhook Mercado Pago — integração', () => {
   let app: Express;
 
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.INFINITEPAY_WEBHOOK_SECRET = WEBHOOK_SECRET;
+    process.env.MERCADOPAGO_WEBHOOK_SECRET = WEBHOOK_SECRET;
     app = buildApp();
   });
 
   describe('Autenticação', () => {
     it('rejeita requisição sem token (401)', async () => {
-      vi.mocked(infinitePayService.validarWebhook).mockReturnValue(false);
+      vi.mocked(mercadoPagoService.validarWebhook).mockReturnValue(false);
 
       const res = await request(app)
-        .post('/webhook/infinitepay')
+        .post('/webhook/mercadopago')
         .send({ event: 'payment.approved' });
 
       expect(res.status).toBe(401);
@@ -56,11 +56,11 @@ describe('Webhook InfinitePay — integração', () => {
     });
 
     it('rejeita token inválido (401)', async () => {
-      vi.mocked(infinitePayService.validarWebhook).mockReturnValue(false);
+      vi.mocked(mercadoPagoService.validarWebhook).mockReturnValue(false);
 
       const res = await request(app)
-        .post('/webhook/infinitepay')
-        .set('x-infinitepay-signature', 'token-invalido')
+        .post('/webhook/mercadopago')
+        .set('x-mercadopago-signature', 'token-invalido')
         .send({ event: 'payment.approved' });
 
       expect(res.status).toBe(401);
@@ -68,16 +68,16 @@ describe('Webhook InfinitePay — integração', () => {
 
     it('aceita HMAC-SHA256 válido', async () => {
       const body = { event: 'payment.approved', order_nsu: 'pedido-abc', data: {} };
-      vi.mocked(infinitePayService.validarWebhook).mockReturnValue(true);
-      vi.mocked(infinitePayService.processarEvento).mockReturnValue({ aprovado: false, order_nsu: null, evento: 'outro' });
+      vi.mocked(mercadoPagoService.validarWebhook).mockReturnValue(true);
+      vi.mocked(mercadoPagoService.processarEvento).mockReturnValue({ aprovado: false, order_nsu: null, evento: 'outro' });
 
       const res = await request(app)
-        .post('/webhook/infinitepay')
-        .set('x-infinitepay-signature', hmacSignature(body))
+        .post('/webhook/mercadopago')
+        .set('x-mercadopago-signature', hmacSignature(body))
         .send(body);
 
       expect(res.status).toBe(200);
-      expect(infinitePayService.validarWebhook).toHaveBeenCalled();
+      expect(mercadoPagoService.validarWebhook).toHaveBeenCalled();
     });
   });
 
@@ -86,8 +86,8 @@ describe('Webhook InfinitePay — integração', () => {
       const pedidoId = 'pedido-xyz-123';
       const mockPedido = { id: pedidoId, status: 'AGUARDANDO_PAGAMENTO', cliente: { telefone: '5562999990000' } };
 
-      vi.mocked(infinitePayService.validarWebhook).mockReturnValue(true);
-      vi.mocked(infinitePayService.processarEvento).mockReturnValue({ aprovado: true, order_nsu: pedidoId, evento: 'payment.approved' });
+      vi.mocked(mercadoPagoService.validarWebhook).mockReturnValue(true);
+      vi.mocked(mercadoPagoService.processarEvento).mockReturnValue({ aprovado: true, order_nsu: pedidoId, evento: 'payment.approved' });
       vi.mocked(pedidoService.buscarPedidoPorId).mockResolvedValue(mockPedido as any);
       vi.mocked(pedidoService.atualizarStatus).mockResolvedValue(undefined as any);
       vi.mocked(pedidoService.obterMetricasAdmin).mockResolvedValue({} as any);
@@ -95,8 +95,8 @@ describe('Webhook InfinitePay — integração', () => {
 
       const body = { event: 'payment.approved', order_nsu: pedidoId };
       const res = await request(app)
-        .post('/webhook/infinitepay')
-        .set('x-infinitepay-signature', 'valido')
+        .post('/webhook/mercadopago')
+        .set('x-mercadopago-signature', 'valido')
         .send(body);
 
       expect(res.status).toBe(200);
@@ -108,13 +108,13 @@ describe('Webhook InfinitePay — integração', () => {
 
     it('é idempotente — ignora pedido já CONFIRMADO', async () => {
       const pedidoId = 'pedido-ja-confirmado';
-      vi.mocked(infinitePayService.validarWebhook).mockReturnValue(true);
-      vi.mocked(infinitePayService.processarEvento).mockReturnValue({ aprovado: true, order_nsu: pedidoId, evento: 'payment.approved' });
+      vi.mocked(mercadoPagoService.validarWebhook).mockReturnValue(true);
+      vi.mocked(mercadoPagoService.processarEvento).mockReturnValue({ aprovado: true, order_nsu: pedidoId, evento: 'payment.approved' });
       vi.mocked(pedidoService.buscarPedidoPorId).mockResolvedValue({ id: pedidoId, status: 'CONFIRMADO' } as any);
 
       const res = await request(app)
-        .post('/webhook/infinitepay')
-        .set('x-infinitepay-signature', 'valido')
+        .post('/webhook/mercadopago')
+        .set('x-mercadopago-signature', 'valido')
         .send({ event: 'payment.approved', order_nsu: pedidoId });
 
       expect(res.status).toBe(200);
@@ -123,12 +123,12 @@ describe('Webhook InfinitePay — integração', () => {
     });
 
     it('ignora eventos que não são aprovação de pagamento', async () => {
-      vi.mocked(infinitePayService.validarWebhook).mockReturnValue(true);
-      vi.mocked(infinitePayService.processarEvento).mockReturnValue({ aprovado: false, order_nsu: null, evento: 'payment.refunded' });
+      vi.mocked(mercadoPagoService.validarWebhook).mockReturnValue(true);
+      vi.mocked(mercadoPagoService.processarEvento).mockReturnValue({ aprovado: false, order_nsu: null, evento: 'payment.refunded' });
 
       const res = await request(app)
-        .post('/webhook/infinitepay')
-        .set('x-infinitepay-signature', 'valido')
+        .post('/webhook/mercadopago')
+        .set('x-mercadopago-signature', 'valido')
         .send({ event: 'payment.refunded' });
 
       expect(res.status).toBe(200);
@@ -136,13 +136,13 @@ describe('Webhook InfinitePay — integração', () => {
     });
 
     it('retorna 200 mesmo em caso de erro interno (evita reenvio)', async () => {
-      vi.mocked(infinitePayService.validarWebhook).mockReturnValue(true);
-      vi.mocked(infinitePayService.processarEvento).mockReturnValue({ aprovado: true, order_nsu: 'ped-err', evento: 'payment.approved' });
+      vi.mocked(mercadoPagoService.validarWebhook).mockReturnValue(true);
+      vi.mocked(mercadoPagoService.processarEvento).mockReturnValue({ aprovado: true, order_nsu: 'ped-err', evento: 'payment.approved' });
       vi.mocked(pedidoService.buscarPedidoPorId).mockRejectedValue(new Error('DB down'));
 
       const res = await request(app)
-        .post('/webhook/infinitepay')
-        .set('x-infinitepay-signature', 'valido')
+        .post('/webhook/mercadopago')
+        .set('x-mercadopago-signature', 'valido')
         .send({ event: 'payment.approved', order_nsu: 'ped-err' });
 
       expect(res.status).toBe(200);

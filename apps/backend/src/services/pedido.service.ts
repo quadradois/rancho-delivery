@@ -3,7 +3,7 @@ import prisma from '../config/database';
 import { logger } from '../config/logger';
 import clienteService from './cliente.service';
 import bairroService from './bairro.service';
-import infinitePayService from './infinitepay.service';
+import mercadoPagoService from './mercadopago.service';
 import evolutionService from './evolution.service';
 import realtimeService from './realtime.service';
 import { FormaPagamentoPedido, Origem, StatusLoja, StatusPagamento, StatusPedido, TipoAtendimentoPedido } from '@prisma/client';
@@ -675,46 +675,39 @@ export class PedidoService {
         return pedido;
       }
 
-      // 6. Criar link de pagamento no InfinitePay
+      // 6. Criar link de pagamento no Mercado Pago
       try {
         const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         const redirectUrl = `${baseUrl}/pedido/${pedido.id}`;
-        const webhookUrl = process.env.INFINITEPAY_WEBHOOK_URL || `${baseUrl}/webhook/infinitepay`;
+        const webhookUrl = process.env.MERCADOPAGO_WEBHOOK_URL || `${baseUrl}/webhook/mercadopago`;
         const telefoneNumeros = pedido.cliente?.telefone?.replace(/\D/g, '') || '';
         const telefoneFormatado = telefoneNumeros ? `+55${telefoneNumeros}` : undefined;
         const customer = {
           name: pedido.cliente?.nome || undefined,
           phone_number: telefoneFormatado,
         };
-        const address = {
-          cep: dadosCliente.cep?.replace(/\D/g, '') || undefined,
-          street: pedido.cliente?.endereco || undefined,
-          neighborhood: pedido.cliente?.bairro || undefined,
-        };
-
-        // Montar itens para InfinitePay (preço em centavos)
-        const itensInfinitePay = pedido.itens.map((item) => ({
+        // Montar itens para Mercado Pago (preço em centavos)
+        const itensMercadoPago = pedido.itens.map((item) => ({
           quantity: item.quantidade,
-          price: infinitePayService.reaisParaCentavos(Number(item.precoUnit)),
+          price: mercadoPagoService.reaisParaCentavos(Number(item.precoUnit)),
           description: item.produto?.nome || `Produto ${item.produtoId}`,
         }));
 
         // Adicionar taxa de entrega como item se > 0
         if (taxaEntrega > 0) {
-          itensInfinitePay.push({
+          itensMercadoPago.push({
             quantity: 1,
-            price: infinitePayService.reaisParaCentavos(taxaEntrega),
+            price: mercadoPagoService.reaisParaCentavos(taxaEntrega),
             description: 'Taxa de entrega',
           });
         }
 
-        const linkPagamento = await infinitePayService.criarLinkPagamento({
-          itens: itensInfinitePay,
+        const linkPagamento = await mercadoPagoService.criarLinkPagamento({
+          itens: itensMercadoPago,
           order_nsu: pedido.id,
           redirect_url: redirectUrl,
           webhook_url: webhookUrl,
           customer,
-          address,
         });
 
         // Atualizar pedido com ID do pagamento
@@ -725,7 +718,7 @@ export class PedidoService {
 
         await this.registrarTimeline(pedido.id, 'SISTEMA', 'Link de pagamento PIX gerado');
 
-        logger.info('infinitepay.link.criado', {
+        logger.info('mercadopago.link.criado', {
           pedidoId: pedido.id,
           tempoMs: Date.now() - inicioMs,
         });
@@ -741,7 +734,7 @@ export class PedidoService {
           linkPagamento: linkPagamento.url,
         };
       } catch (error) {
-        logger.warn('infinitepay.link.falha', {
+        logger.warn('mercadopago.link.falha', {
           pedidoId: pedido.id,
           erro: error instanceof Error ? error.message : String(error),
         });
@@ -1355,7 +1348,7 @@ export class PedidoService {
     let reprocessados = 0;
     let falhas = 0;
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const webhookUrl = process.env.INFINITEPAY_WEBHOOK_URL || `${baseUrl}/webhook/infinitepay`;
+    const webhookUrl = process.env.MERCADOPAGO_WEBHOOK_URL || `${baseUrl}/webhook/mercadopago`;
 
     for (const pedido of pedidosSemLink) {
       try {
@@ -1363,32 +1356,28 @@ export class PedidoService {
         const telefoneNumeros = pedido.cliente?.telefone?.replace(/\D/g, '') || '';
         const telefoneFormatado = telefoneNumeros ? `+55${telefoneNumeros}` : undefined;
 
-        const itensInfinitePay = pedido.itens.map((item) => ({
+        const itensMercadoPago = pedido.itens.map((item) => ({
           quantity: item.quantidade,
-          price: infinitePayService.reaisParaCentavos(Number(item.precoUnit)),
+          price: mercadoPagoService.reaisParaCentavos(Number(item.precoUnit)),
           description: item.produto?.nome || `Produto ${item.produtoId}`,
         }));
 
         if (Number(pedido.taxaEntrega) > 0) {
-          itensInfinitePay.push({
+          itensMercadoPago.push({
             quantity: 1,
-            price: infinitePayService.reaisParaCentavos(Number(pedido.taxaEntrega)),
+            price: mercadoPagoService.reaisParaCentavos(Number(pedido.taxaEntrega)),
             description: 'Taxa de entrega',
           });
         }
 
-        const linkPagamento = await infinitePayService.criarLinkPagamento({
-          itens: itensInfinitePay,
+        const linkPagamento = await mercadoPagoService.criarLinkPagamento({
+          itens: itensMercadoPago,
           order_nsu: pedido.id,
           redirect_url: redirectUrl,
           webhook_url: webhookUrl,
           customer: {
             name: pedido.cliente?.nome || undefined,
             phone_number: telefoneFormatado,
-          },
-          address: {
-            street: pedido.enderecoEntrega || pedido.cliente?.endereco || undefined,
-            neighborhood: pedido.bairroEntrega || pedido.cliente?.bairro || undefined,
           },
         });
 

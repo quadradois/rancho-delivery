@@ -3,19 +3,19 @@ import pedidoService from '../../services/pedido.service';
 import prisma from '../../config/database';
 import clienteService from '../../services/cliente.service';
 import bairroService from '../../services/bairro.service';
-import infinitePayService from '../../services/infinitepay.service';
+import mercadoPagoService from '../../services/mercadopago.service';
 import { FormaPagamentoPedido, StatusPagamento, StatusPedido, TipoAtendimentoPedido } from '@prisma/client';
 
 vi.mock('../../services/cliente.service');
 vi.mock('../../services/bairro.service');
-vi.mock('../../services/infinitepay.service');
+vi.mock('../../services/mercadopago.service');
 vi.mock('../../services/evolution.service');
 
 describe('PedidoService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.FRONTEND_URL = 'https://rancho.delivery';
-    process.env.INFINITEPAY_WEBHOOK_URL = 'https://rancho.delivery/webhook/infinitepay';
+    process.env.MERCADOPAGO_WEBHOOK_URL = 'https://rancho.delivery/webhook/mercadopago';
   });
 
   const dadosPedidoValido = {
@@ -46,7 +46,7 @@ describe('PedidoService', () => {
     { id: 'prod-2', nome: 'Refrigerante', preco: 5, disponivel: true },
   ];
 
-  it('cria pedido com sucesso e gera link no InfinitePay', async () => {
+  it('cria pedido com sucesso e gera link no Mercado Pago', async () => {
     vi.mocked(bairroService.validarBairro).mockResolvedValue({ valido: true, taxa: 6 });
     vi.mocked(prisma.produto.findMany).mockResolvedValue(mockProdutos as any);
     vi.mocked(clienteService.criarOuAtualizar).mockResolvedValue(mockCliente as any);
@@ -67,10 +67,10 @@ describe('PedidoService', () => {
 
     vi.mocked(prisma.pedido.create).mockResolvedValue(mockPedidoCriado as any);
 
-    vi.mocked(infinitePayService.reaisParaCentavos).mockImplementation((v: number) => Math.round(v * 100));
-    vi.mocked(infinitePayService.criarLinkPagamento).mockResolvedValue({
+    vi.mocked(mercadoPagoService.reaisParaCentavos).mockImplementation((v: number) => Math.round(v * 100));
+    vi.mocked(mercadoPagoService.criarLinkPagamento).mockResolvedValue({
       id: 'link-123',
-      url: 'https://infinitepay.io/checkout/123',
+      url: 'https://mercadopago.com/checkout/123',
       order_nsu: 'pedido-123',
     });
 
@@ -79,14 +79,14 @@ describe('PedidoService', () => {
     const resultado = await pedidoService.criarPedido(dadosPedidoValido as any);
 
     expect(resultado.id).toBe('pedido-123');
-    expect((resultado as any).linkPagamento).toContain('infinitepay');
+    expect((resultado as any).linkPagamento).toContain('mercadopago');
     expect(prisma.produto.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { id: { in: ['prod-1', 'prod-2'] } },
     }));
-    expect(infinitePayService.criarLinkPagamento).toHaveBeenCalledWith(expect.objectContaining({
+    expect(mercadoPagoService.criarLinkPagamento).toHaveBeenCalledWith(expect.objectContaining({
       order_nsu: 'pedido-123',
       redirect_url: 'https://rancho.delivery/pedido/pedido-123',
-      webhook_url: 'https://rancho.delivery/webhook/infinitepay',
+      webhook_url: 'https://rancho.delivery/webhook/mercadopago',
     }));
   });
 
@@ -215,7 +215,7 @@ describe('PedidoService', () => {
     };
 
     vi.mocked(prisma.pedido.create).mockResolvedValue(mockPedidoCriado as any);
-    vi.mocked(infinitePayService.criarLinkPagamento).mockRejectedValue(new Error('gateway indisponível'));
+    vi.mocked(mercadoPagoService.criarLinkPagamento).mockRejectedValue(new Error('gateway indisponível'));
 
     await pedidoService.criarPedido(pedidoComProdutoRepetido as any);
 
@@ -242,7 +242,7 @@ describe('PedidoService', () => {
     };
 
     vi.mocked(prisma.pedido.create).mockResolvedValue(mockPedidoCriado as any);
-    vi.mocked(infinitePayService.criarLinkPagamento).mockRejectedValue(new Error('gateway indisponível'));
+    vi.mocked(mercadoPagoService.criarLinkPagamento).mockRejectedValue(new Error('gateway indisponível'));
 
     const resultado = await pedidoService.criarPedido(dadosPedidoValido as any);
     expect(resultado.id).toBe('pedido-123');
@@ -268,10 +268,10 @@ describe('PedidoService', () => {
     };
 
     vi.mocked(prisma.pedido.findMany).mockResolvedValue([pedidoSemLink] as any);
-    vi.mocked(infinitePayService.reaisParaCentavos).mockImplementation((v: number) => Math.round(v * 100));
-    vi.mocked(infinitePayService.criarLinkPagamento).mockResolvedValue({
+    vi.mocked(mercadoPagoService.reaisParaCentavos).mockImplementation((v: number) => Math.round(v * 100));
+    vi.mocked(mercadoPagoService.criarLinkPagamento).mockResolvedValue({
       id: 'pix-reprocessado-1',
-      url: 'https://infinitepay.io/checkout/reproc',
+      url: 'https://mercadopago.com/checkout/reproc',
       order_nsu: 'pedido-sem-link',
     } as any);
     vi.mocked(prisma.pedidoTimeline.create).mockResolvedValue({} as any);
@@ -304,8 +304,8 @@ describe('PedidoService', () => {
     };
 
     vi.mocked(prisma.pedido.findMany).mockResolvedValue([pedidoSemLink] as any);
-    vi.mocked(infinitePayService.reaisParaCentavos).mockImplementation((v: number) => Math.round(v * 100));
-    vi.mocked(infinitePayService.criarLinkPagamento).mockRejectedValue(new Error('gateway off'));
+    vi.mocked(mercadoPagoService.reaisParaCentavos).mockImplementation((v: number) => Math.round(v * 100));
+    vi.mocked(mercadoPagoService.criarLinkPagamento).mockRejectedValue(new Error('gateway off'));
 
     const resultado = await pedidoService.reprocessarPedidosSemLink();
 
@@ -534,7 +534,7 @@ describe('PedidoService', () => {
       itens: [],
       cliente: mockCliente,
     } as any);
-    vi.mocked(infinitePayService.criarLinkPagamento).mockRejectedValue(new Error('gateway indisponível'));
+    vi.mocked(mercadoPagoService.criarLinkPagamento).mockRejectedValue(new Error('gateway indisponível'));
 
     const novo = await pedidoService.criarReorder('pedido-original');
     expect(novo.id).toBe('pedido-reorder');

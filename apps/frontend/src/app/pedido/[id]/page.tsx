@@ -87,6 +87,11 @@ export default function OrderPage({ params }: OrderPageProps) {
   const getStatusSteps = () => {
     if (!pedido) return [];
 
+    const aguardandoAprovacao = ['pendente', 'aguardando_pagamento', 'expirado', 'abandonado'].includes(statusNormalizado);
+    const confirmadoOuAcima = ['confirmado', 'preparando', 'pronto', 'saiu_entrega', 'entregue'].includes(statusNormalizado);
+    const preparandoOuAcima = ['preparando', 'pronto', 'saiu_entrega', 'entregue'].includes(statusNormalizado);
+    const saiuEntregaOuAcima = ['saiu_entrega', 'entregue'].includes(statusNormalizado);
+
     const steps = [
       {
         id: 'pendente',
@@ -98,25 +103,33 @@ export default function OrderPage({ params }: OrderPageProps) {
         id: 'confirmado',
         label: 'Confirmado',
         icon: '✓',
-        status: statusNormalizado === 'pendente' ? 'pending' as const : 'done' as const,
+        status: aguardandoAprovacao
+          ? 'pending' as const
+          : confirmadoOuAcima
+          ? 'done' as const
+          : 'pending' as const,
       },
       {
         id: 'preparando',
         label: 'Preparando',
         icon: '👨‍🍳',
-        status: 
-          statusNormalizado === 'preparando' ? 'active' as const :
-          ['saiu_entrega', 'entregue'].includes(statusNormalizado) ? 'done' as const :
-          'pending' as const,
+        status:
+          statusNormalizado === 'preparando'
+            ? 'active' as const
+            : preparandoOuAcima
+            ? 'done' as const
+            : 'pending' as const,
       },
       {
         id: 'saiu_entrega',
         label: 'A caminho',
         icon: '🛵',
-        status: 
-          statusNormalizado === 'saiu_entrega' ? 'active' as const :
-          statusNormalizado === 'entregue' ? 'done' as const :
-          'pending' as const,
+        status:
+          statusNormalizado === 'saiu_entrega'
+            ? 'active' as const
+            : saiuEntregaOuAcima
+            ? 'done' as const
+            : 'pending' as const,
       },
       {
         id: 'entregue',
@@ -134,10 +147,14 @@ export default function OrderPage({ params }: OrderPageProps) {
 
     const statusMap: Record<string, { variant: 'gold' | 'green' | 'brand' | 'red'; text: string }> = {
       pendente: { variant: 'gold' as const, text: 'Aguardando' },
+      aguardando_pagamento: { variant: 'gold' as const, text: 'Aguardando pagamento' },
       confirmado: { variant: 'green' as const, text: 'Confirmado' },
       preparando: { variant: 'gold' as const, text: 'Em Preparo' },
+      pronto: { variant: 'brand' as const, text: 'Pronto' },
       saiu_entrega: { variant: 'brand' as const, text: 'A Caminho' },
       entregue: { variant: 'green' as const, text: 'Entregue' },
+      expirado: { variant: 'red' as const, text: 'Pagamento expirado' },
+      abandonado: { variant: 'red' as const, text: 'Pagamento abandonado' },
       cancelado: { variant: 'red' as const, text: 'Cancelado' },
     };
 
@@ -194,8 +211,16 @@ export default function OrderPage({ params }: OrderPageProps) {
                 <polyline points="20 6 9 17 4 12" />
               </svg>
             </div>
-            <h2 className="font-display text-2xl text-[#F4E8CC] mb-2">Pedido Confirmado!</h2>
-            <p className="text-[#9A7B5C] mb-4">Seu pedido foi recebido e está sendo preparado com carinho</p>
+            <h2 className="font-display text-2xl text-[#F4E8CC] mb-2">
+              {['confirmado', 'preparando', 'pronto', 'saiu_entrega', 'entregue'].includes(statusNormalizado)
+                ? 'Pedido Confirmado!'
+                : 'Pedido Recebido!'}
+            </h2>
+            <p className="text-[#9A7B5C] mb-4">
+              {statusNormalizado === 'aguardando_pagamento'
+                ? 'Aguardando confirmação do pagamento para iniciar o preparo'
+                : 'Seu pedido foi recebido e está sendo preparado com carinho'}
+            </p>
             {getStatusBadge()}
           </div>
 

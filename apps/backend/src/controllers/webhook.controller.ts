@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import infinitePayService from '../services/infinitepay.service';
+import mercadoPagoService from '../services/mercadopago.service';
 import pedidoService from '../services/pedido.service';
 import evolutionService from '../services/evolution.service';
 import { logger } from '../config/logger';
@@ -8,39 +8,29 @@ import clienteService from '../services/cliente.service';
 
 export class WebhookController {
   /**
-   * POST /webhook/infinitepay
-   * Recebe notificações de pagamento do InfinitePay
+   * POST /webhook/mercadopago
+   * Recebe notificações de pagamento do Mercado Pago
    */
-  async infinitepay(req: Request, res: Response) {
+  async mercadopago(req: Request, res: Response) {
     try {
       const body = req.body;
 
-      logger.info('Webhook InfinitePay recebido:', {
-        event: body?.event || body?.type,
-        order_nsu: body?.order_nsu || body?.data?.order_nsu,
+      logger.info('Webhook Mercado Pago recebido:', {
+        event: body?.event || body?.type || body?.action,
+        order_nsu: body?.external_reference || body?.data?.external_reference || body?.order_nsu || body?.data?.order_nsu,
       });
 
-      // Validar assinatura do webhook (token simples ou HMAC-SHA256 do body)
+      // Validação opcional por secret estático
       const token = (
-        req.headers['x-infinitepay-signature'] ||
-        req.headers['x-infinitepay-webhook-signature'] ||
+        req.headers['x-mercadopago-signature'] ||
         req.headers['x-webhook-secret'] ||
-        req.headers['x-webhook-token'] ||
-        req.headers['x-signature'] ||
-        req.headers['signature'] ||
         req.headers['authorization']
       ) as string;
 
-      const rawBody: Buffer | undefined = (req as any).rawBody;
-
-      if (!infinitePayService.validarWebhook(token, rawBody)) {
-        logger.warn('Webhook InfinitePay rejeitado: token inválido', {
-          hasXInfinitepaySignature: Boolean(req.headers['x-infinitepay-signature']),
-          hasXInfinitepayWebhookSignature: Boolean(req.headers['x-infinitepay-webhook-signature']),
+      if (!mercadoPagoService.validarWebhook(token)) {
+        logger.warn('Webhook Mercado Pago rejeitado: token inválido', {
+          hasXMercadoPagoSignature: Boolean(req.headers['x-mercadopago-signature']),
           hasXWebhookSecret: Boolean(req.headers['x-webhook-secret']),
-          hasXWebhookToken: Boolean(req.headers['x-webhook-token']),
-          hasXSignature: Boolean(req.headers['x-signature']),
-          hasSignature: Boolean(req.headers['signature']),
           hasAuthorization: Boolean(req.headers['authorization']),
         });
         return res.status(401).json({
@@ -50,14 +40,21 @@ export class WebhookController {
       }
 
       // Processar evento
-      const { aprovado, order_nsu, evento } = infinitePayService.processarEvento(body);
+      let { aprovado, order_nsu, evento } = mercadoPagoService.processarEvento(body);
+      if ((!order_nsu || !aprovado) && body?.data?.id) {
+        const pagamento = await mercadoPagoService.buscarPagamento(String(body.data.id));
+        if (pagamento) {
+          order_nsu = pagamento.external_reference || order_nsu;
+          aprovado = pagamento.status === 'approved';
+        }
+      }
 
       if (aprovado && order_nsu) {
         const pedidoAtual = await pedidoService.buscarPedidoPorId(order_nsu);
 
         // Idempotência: não reprocesse pedidos já confirmados
         if (pedidoAtual?.status === 'CONFIRMADO') {
-          logger.info('Webhook InfinitePay ignorado por idempotência', {
+          logger.info('Webhook Mercado Pago ignorado por idempotência', {
             pedidoId: order_nsu,
             evento,
           });
@@ -74,7 +71,7 @@ export class WebhookController {
         realtimeService.emit('pedido:atualizado', { id: order_nsu, status: 'CONFIRMADO' });
         realtimeService.emit('metricas:atualizadas', await pedidoService.obterMetricasAdmin());
 
-        logger.info('Pedido confirmado via webhook InfinitePay', {
+        logger.info('Pedido confirmado via webhook Mercado Pago', {
           pedidoId: order_nsu,
           evento,
         });
@@ -86,7 +83,7 @@ export class WebhookController {
           await evolutionService.notificarNovoPedido(pedidoCompleto);
         }
       } else {
-        logger.info(`Evento InfinitePay ignorado: ${evento} — não é aprovação`);
+        logger.info(`Evento Mercado Pago ignorado: ${evento} — não é aprovação`);
       }
 
       // Sempre responder 200 para evitar reenvio
@@ -95,7 +92,7 @@ export class WebhookController {
         message: 'Webhook processado com sucesso',
       });
     } catch (error: any) {
-      logger.error('Erro ao processar webhook InfinitePay:', error);
+      logger.error('Erro ao processar webhook Mercado Pago:', error);
 
       // Mesmo com erro, retornar 200 para não reenviar webhook
       return res.status(200).json({

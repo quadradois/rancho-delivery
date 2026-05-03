@@ -14,6 +14,7 @@
     "test:coverage": "vitest --coverage"
   },
   "dependencies": {
+    "@mercadopago/sdk-js": "^0.0.3",
     "@rancho-delivery/shared": "workspace:*",
     "axios": "^1.15.2",
     "clsx": "^2.1.0",

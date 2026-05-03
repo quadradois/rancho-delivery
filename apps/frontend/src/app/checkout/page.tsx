@@ -10,6 +10,7 @@ import { useToast } from '@/contexts/ToastContext';
 import useLojaStatus from '@/hooks/useLojaStatus';
 import { formatCurrency } from '@/lib/utils';
 import api, { CriarPedidoDTO } from '@/lib/api';
+import { initMercadoPagoSdk } from '@/lib/mercadopago';
 import { getCepValidado, salvarCepValidado } from '@/components/ui/ModalVerificacaoCep';
 import { z } from 'zod';
 
@@ -218,6 +219,10 @@ export default function CheckoutPage() {
     // Sem recovery: redirecionar se carrinho vazio
     if (items.length === 0) router.push('/');
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    void initMercadoPagoSdk();
   }, []);
 
   useEffect(() => {
