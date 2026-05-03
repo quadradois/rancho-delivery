@@ -48,7 +48,6 @@ import {
   isFinalStatus,
   STATUS_FLOW,
   actorClass,
-  flowBadgeClass,
   labelStatus,
   slaByStatus,
   toBadgeVariant,
@@ -973,26 +972,50 @@ export default function AdminPedidosPage() {
 
                 <CrmTabPanel value="pedido">
                   <div className="space-y-4">
-                    <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
-                      <p className="mb-2 text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Fluxo de status</p>
-                      {clienteResumo?.emListaNegra && (
-                        <div className="mb-2 rounded-md border border-[var(--color-danger)] bg-[var(--color-danger-muted)] p-2 text-xs text-[var(--color-danger-text)]">
-                          Lista negra · Nível {clienteResumo.nivelListaNegra} · {clienteResumo.motivoListaNegra}
+                    {/* Barra de progresso compacta */}
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2">
+                        {/* Dots de progresso */}
+                        <div className="flex items-center gap-[5px]">
+                          {STATUS_FLOW.map((s, i) => {
+                            const currentIdx = STATUS_FLOW.indexOf(pedidoDetalhe.status as (typeof STATUS_FLOW)[number]);
+                            const done = i < currentIdx;
+                            const current = i === currentIdx;
+                            return (
+                              <span
+                                key={s}
+                                title={labelStatus(s)}
+                                className={`inline-block h-2.5 w-2.5 rounded-full transition-colors ${
+                                  done
+                                    ? 'bg-[var(--color-success)]'
+                                    : current
+                                    ? 'ring-2 ring-[var(--color-primary)] ring-offset-1 ring-offset-[var(--color-surface-raised)] bg-[var(--color-primary)]'
+                                    : 'bg-[var(--color-border)]'
+                                }`}
+                              />
+                            );
+                          })}
                         </div>
-                      )}
-                      <div className="mb-3 flex flex-wrap items-center gap-2">
-                        {STATUS_FLOW.map((status) => (
-                          <CrmBadge
-                            key={status}
-                            variant={toBadgeVariant(status)}
-                            className={flowBadgeClass(status, pedidoDetalhe.status)}
+
+                        {/* Status atual */}
+                        <CrmBadge variant={toBadgeVariant(pedidoDetalhe.status)}>
+                          {labelStatus(pedidoDetalhe.status)}
+                        </CrmBadge>
+
+                        {pedidoDetalhe.aguardandoEntregador && (
+                          <CrmBadge variant="waiting">Aguard. entregador</CrmBadge>
+                        )}
+
+                        {clienteResumo?.emListaNegra && (
+                          <span
+                            title={`Lista negra · Nível ${clienteResumo.nivelListaNegra} · ${clienteResumo.motivoListaNegra}`}
+                            className="cursor-default rounded-full border border-[var(--color-danger)] bg-[var(--color-danger-muted)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-danger-text)]"
                           >
-                            {labelStatus(status)}
-                          </CrmBadge>
-                        ))}
-                        {pedidoDetalhe.aguardandoEntregador && <CrmBadge variant="waiting">Aguardando entregador</CrmBadge>}
-                      </div>
-                      <div className="space-y-2">
+                            ⚠ Lista negra
+                          </span>
+                        )}
+
+                        {/* Ações */}
                         {(() => {
                           const motivoBloqueio = motivoBloqueioAcao(
                             pedidoDetalhe.status,
@@ -1001,78 +1024,78 @@ export default function AdminPedidosPage() {
                           );
                           const label = ctaStatus(pedidoDetalhe.status, pedidoDetalhe.tipoAtendimento ?? undefined);
                           return (
-                            <>
-                              <div className="flex gap-2">
-                                <CrmButton
-                                  size="sm"
-                                  onClick={() => void avancarStatus()}
-                                  disabled={
-                                    savingStatus ||
-                                    !STATUS_FLOW.includes(pedidoDetalhe.status as (typeof STATUS_FLOW)[number]) ||
-                                    !!motivoBloqueio
-                                  }
-                                  title={motivoBloqueio || label}
-                                >
-                                  {savingStatus ? 'Atualizando...' : label}
-                                </CrmButton>
-                                <CrmButton
-                                  size="sm"
-                                  variant="danger"
-                                  className="no-print"
-                                  disabled={isFinalStatus(pedidoDetalhe.status)}
-                                  title={isFinalStatus(pedidoDetalhe.status) ? 'Pedido em status final' : 'Cancelar pedido'}
-                                  onClick={() => setShowCancelModal(true)}
-                                >
-                                  Cancelar
-                                </CrmButton>
-                                <CrmButton size="sm" variant="ghost" className="no-print" onClick={() => window.print()}>
-                                  Imprimir
-                                </CrmButton>
-                              </div>
-                              {pedidoDetalhe.status === 'PRONTO' && pedidoDetalhe.aguardandoEntregador && (
-                                <div className="space-y-2 rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-muted)] p-2">
-                                  <p className="text-xs text-[var(--color-warning-text)]">
-                                    Defina o tipo de entrega aqui para despachar sem sair desta aba.
-                                  </p>
-                                  <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                                    <select
-                                      value={tipoEntregaOperacao}
-                                      onChange={(e) => setTipoEntregaOperacao(e.target.value as any)}
-                                      className="h-9 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-xs"
-                                    >
-                                      <option value="PROPRIA">Própria</option>
-                                      <option value="TERCEIRIZADA">Terceirizada</option>
-                                    </select>
-                                    {tipoEntregaOperacao === 'PROPRIA' ? (
-                                      <select
-                                        value={selectedMotoboyId}
-                                        onChange={(e) => setSelectedMotoboyId(e.target.value)}
-                                        className="h-9 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-xs md:col-span-2"
-                                      >
-                                        <option value="">Selecione entregador próprio</option>
-                                        {motoboysProprios.map((m) => (
-                                          <option key={m.id} value={m.id}>{m.nome} · {m.status}</option>
-                                        ))}
-                                      </select>
-                                    ) : (
-                                      <select
-                                        value={empresaTerceirizada}
-                                        onChange={(e) => setEmpresaTerceirizada(e.target.value as any)}
-                                        className="h-9 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-xs md:col-span-2"
-                                      >
-                                        {PARCEIRAS.map((emp) => (
-                                          <option key={emp} value={emp}>{EMPRESA_LABEL[emp]}</option>
-                                        ))}
-                                      </select>
-                                    )}
-                                  </div>
-                                  <CrmButton size="sm" onClick={() => void salvarEntrega()}>Salvar entregador</CrmButton>
-                                </div>
-                              )}
-                            </>
+                            <div className="ml-auto flex items-center gap-1.5 no-print">
+                              <CrmButton
+                                size="sm"
+                                onClick={() => void avancarStatus()}
+                                disabled={
+                                  savingStatus ||
+                                  !STATUS_FLOW.includes(pedidoDetalhe.status as (typeof STATUS_FLOW)[number]) ||
+                                  !!motivoBloqueio
+                                }
+                                title={motivoBloqueio || label}
+                              >
+                                {savingStatus ? '...' : label}
+                              </CrmButton>
+                              <CrmButton
+                                size="sm"
+                                variant="danger"
+                                disabled={isFinalStatus(pedidoDetalhe.status)}
+                                title={isFinalStatus(pedidoDetalhe.status) ? 'Pedido em status final' : 'Cancelar pedido'}
+                                onClick={() => setShowCancelModal(true)}
+                              >
+                                ✕
+                              </CrmButton>
+                              <CrmButton
+                                size="sm"
+                                variant="ghost"
+                                title="Imprimir pedido"
+                                onClick={() => window.print()}
+                              >
+                                ⎙
+                              </CrmButton>
+                            </div>
                           );
                         })()}
                       </div>
+
+                      {/* Atribuição de motoboy — aparece quando PRONTO aguardando entregador */}
+                      {pedidoDetalhe.status === 'PRONTO' && pedidoDetalhe.aguardandoEntregador && (
+                        <div className="flex flex-wrap items-center gap-2 rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-muted)] px-3 py-2">
+                          <span className="text-xs font-medium text-[var(--color-warning-text)]">Entregador:</span>
+                          <select
+                            value={tipoEntregaOperacao}
+                            onChange={(e) => setTipoEntregaOperacao(e.target.value as any)}
+                            className="h-8 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-xs"
+                          >
+                            <option value="PROPRIA">Própria</option>
+                            <option value="TERCEIRIZADA">Terceirizada</option>
+                          </select>
+                          {tipoEntregaOperacao === 'PROPRIA' ? (
+                            <select
+                              value={selectedMotoboyId}
+                              onChange={(e) => setSelectedMotoboyId(e.target.value)}
+                              className="h-8 flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-xs"
+                            >
+                              <option value="">Selecione o entregador</option>
+                              {motoboysProprios.map((m) => (
+                                <option key={m.id} value={m.id}>{m.nome} · {m.status}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <select
+                              value={empresaTerceirizada}
+                              onChange={(e) => setEmpresaTerceirizada(e.target.value as any)}
+                              className="h-8 flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-xs"
+                            >
+                              {PARCEIRAS.map((emp) => (
+                                <option key={emp} value={emp}>{EMPRESA_LABEL[emp]}</option>
+                              ))}
+                            </select>
+                          )}
+                          <CrmButton size="sm" onClick={() => void salvarEntrega()}>Despachar</CrmButton>
+                        </div>
+                      )}
                     </div>
                     {temBebida && <div className="rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-muted)] p-3"><p className="text-sm font-semibold text-[var(--color-warning-text)]">Não esqueça as bebidas</p></div>}
                     <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
