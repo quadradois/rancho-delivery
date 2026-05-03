@@ -200,17 +200,59 @@ export class InfinitePayService {
       .map((s) => s.trim())
       .filter(Boolean);
 
-    // Validação HMAC: se o header começa com "sha256=", verificar integridade do body
-    if (semBearer.startsWith('sha256=') && rawBody) {
-      const assinaturaRecebida = semBearer.slice('sha256='.length);
-      return segredosEsperados.some(secret => {
-        const crypto = require('crypto') as typeof import('crypto');
-        const esperado = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
-        const recebidoBuf = Buffer.from(assinaturaRecebida, 'hex');
-        const esperadoBuf = Buffer.from(esperado, 'hex');
-        return recebidoBuf.length === esperadoBuf.length &&
-          crypto.timingSafeEqual(recebidoBuf, esperadoBuf);
-      });
+    // Validação HMAC (aceita sha256=..., v1=..., hex/base64/base64url)
+    if (rawBody) {
+      const crypto = require('crypto') as typeof import('crypto');
+      const headerParts = semBearer
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+      const assinaturasCandidatas = new Set<string>();
+
+      const pushCandidate = (value: string) => {
+        const v = value.trim();
+        if (!v) return;
+        assinaturasCandidatas.add(v);
+      };
+
+      pushCandidate(semBearer);
+      for (const part of headerParts) {
+        const [k, v] = part.split('=');
+        if (!v) continue;
+        const key = k.trim().toLowerCase();
+        const value = v.trim();
+        if (['sha256', 'signature', 'sig', 'v1'].includes(key)) {
+          pushCandidate(value);
+        }
+      }
+
+      // Suporte ao padrão "sha256=<assinatura>"
+      if (semBearer.toLowerCase().startsWith('sha256=')) {
+        pushCandidate(semBearer.slice('sha256='.length));
+      }
+
+      const safeEqualString = (a: string, b: string) => {
+        const aBuf = Buffer.from(a);
+        const bBuf = Buffer.from(b);
+        return aBuf.length === bBuf.length && crypto.timingSafeEqual(aBuf, bBuf);
+      };
+
+      for (const secret of segredosEsperados) {
+        const digestHex = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
+        const digestBase64 = crypto.createHmac('sha256', secret).update(rawBody).digest('base64');
+        const digestBase64Url = digestBase64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+
+        for (const assinatura of assinaturasCandidatas) {
+          if (
+            safeEqualString(assinatura.toLowerCase(), digestHex.toLowerCase()) ||
+            safeEqualString(assinatura, digestBase64) ||
+            safeEqualString(assinatura, digestBase64Url)
+          ) {
+            return true;
+          }
+        }
+      }
     }
 
     // Validação por token simples (compatibilidade retroativa)
