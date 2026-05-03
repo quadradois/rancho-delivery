@@ -44,6 +44,8 @@ import { ModalCancelar } from './_components/ModalCancelar';
 import { PedidoTicket } from './_components/PedidoTicket';
 import {
   CANCEL_MOTIVOS,
+  FINAL_STATUSES,
+  isFinalStatus,
   STATUS_FLOW,
   actorClass,
   flowBadgeClass,
@@ -131,7 +133,7 @@ export default function AdminPedidosPage() {
   // Auto-ativar modo pico quando há muitos pedidos ativos
   useEffect(() => {
     const ativos = pedidos.filter((p) =>
-      !['ENTREGUE', 'CANCELADO', 'EXPIRADO', 'ABANDONADO'].includes(p.status)
+      !(FINAL_STATUSES as readonly string[]).includes(p.status)
     ).length;
     if (ativos >= 8 && !modoPico) {
       setModoPico(true);
@@ -375,7 +377,7 @@ export default function AdminPedidosPage() {
 
   const hasSlaDanger = useMemo(
     () => pedidos.some((pedido) => {
-      if (pedido.status === 'ENTREGUE' || pedido.status === 'CANCELADO') return false;
+      if ((FINAL_STATUSES as readonly string[]).includes(pedido.status)) return false;
       const sla = slaByStatus(pedido.status);
       return pedido.tempoNoEstagio >= sla.dangerAt;
     }),
@@ -516,7 +518,11 @@ export default function AdminPedidosPage() {
       return;
     }
 
-    const hasNewOrder = [...currentIds].some((id) => !knownPedidoIdsRef.current?.has(id));
+    const hasNewOrder = [...currentIds].some((id) => {
+      if (knownPedidoIdsRef.current?.has(id)) return false;
+      const p = pedidos.find((x) => x.id === id);
+      return p && !(FINAL_STATUSES as readonly string[]).includes(p.status);
+    });
     knownPedidoIdsRef.current = currentIds;
     if (hasNewOrder) playNewOrder();
   }, [pedidos, playNewOrder]);
@@ -531,6 +537,11 @@ export default function AdminPedidosPage() {
     }
     unreadTotalRef.current = unreadTotal;
   }, [playMessage, unreadTotal]);
+
+  useEffect(() => {
+    const ativos = pedidos.filter((p) => !(FINAL_STATUSES as readonly string[]).includes(p.status)).length;
+    document.title = ativos > 0 ? `(${ativos}) Pedidos — Rancho` : 'Pedidos — Rancho';
+  }, [pedidos]);
 
   useEffect(() => {
     if (!hasSlaDanger || muted) return;
@@ -646,7 +657,7 @@ export default function AdminPedidosPage() {
 
   const cancelarPedido = useCallback(async () => {
     if (!pedidoDetalhe) return;
-    if (FINAL_STATUSES.includes(pedidoDetalhe.status)) {
+    if (isFinalStatus(pedidoDetalhe.status)) {
       showError('Ação bloqueada', 'Pedido em status final');
       return;
     }
@@ -923,41 +934,51 @@ export default function AdminPedidosPage() {
                         ))}
                         {pedidoDetalhe.aguardandoEntregador && <CrmBadge variant="waiting">Aguardando entregador</CrmBadge>}
                       </div>
-                      <div className="flex gap-2">
+                      <div className="space-y-2">
                         {(() => {
                           const motivoBloqueio = motivoBloqueioAcao(
                             pedidoDetalhe.status,
                             pedidoDetalhe.statusPagamento,
                             pedidoDetalhe.aguardandoEntregador
                           );
+                          const label = ctaStatus(pedidoDetalhe.status, pedidoDetalhe.tipoAtendimento ?? undefined);
                           return (
-                            <CrmButton
-                              size="sm"
-                              onClick={() => void avancarStatus()}
-                              disabled={
-                                savingStatus ||
-                                !STATUS_FLOW.includes(pedidoDetalhe.status as (typeof STATUS_FLOW)[number]) ||
-                                !!motivoBloqueio
-                              }
-                              title={motivoBloqueio || ctaStatus(pedidoDetalhe.status)}
-                            >
-                              {savingStatus ? 'Atualizando...' : ctaStatus(pedidoDetalhe.status)}
-                            </CrmButton>
+                            <>
+                              <div className="flex gap-2">
+                                <CrmButton
+                                  size="sm"
+                                  onClick={() => void avancarStatus()}
+                                  disabled={
+                                    savingStatus ||
+                                    !STATUS_FLOW.includes(pedidoDetalhe.status as (typeof STATUS_FLOW)[number]) ||
+                                    !!motivoBloqueio
+                                  }
+                                  title={motivoBloqueio || label}
+                                >
+                                  {savingStatus ? 'Atualizando...' : label}
+                                </CrmButton>
+                                <CrmButton
+                                  size="sm"
+                                  variant="danger"
+                                  className="no-print"
+                                  disabled={isFinalStatus(pedidoDetalhe.status)}
+                                  title={isFinalStatus(pedidoDetalhe.status) ? 'Pedido em status final' : 'Cancelar pedido'}
+                                  onClick={() => setShowCancelModal(true)}
+                                >
+                                  Cancelar
+                                </CrmButton>
+                                <CrmButton size="sm" variant="ghost" className="no-print" onClick={() => window.print()}>
+                                  Imprimir
+                                </CrmButton>
+                              </div>
+                              {pedidoDetalhe.status === 'PRONTO' && pedidoDetalhe.aguardandoEntregador && (
+                                <p className="text-xs text-[var(--color-warning-text)]">
+                                  Atribua um motoboy na aba <strong>Entrega</strong> para despachar este pedido.
+                                </p>
+                              )}
+                            </>
                           );
                         })()}
-                        <CrmButton
-                          size="sm"
-                          variant="danger"
-                          className="no-print"
-                          disabled={FINAL_STATUSES.includes(pedidoDetalhe.status)}
-                          title={FINAL_STATUSES.includes(pedidoDetalhe.status) ? 'Pedido em status final' : 'Cancelar pedido'}
-                          onClick={() => setShowCancelModal(true)}
-                        >
-                          Cancelar
-                        </CrmButton>
-                        <CrmButton size="sm" variant="ghost" className="no-print" onClick={() => window.print()}>
-                          Imprimir
-                        </CrmButton>
                       </div>
                     </div>
                     {temBebida && <div className="rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-muted)] p-3"><p className="text-sm font-semibold text-[var(--color-warning-text)]">Não esqueça as bebidas</p></div>}
@@ -1212,4 +1233,3 @@ export default function AdminPedidosPage() {
     </div>
   );
 }
-  const FINAL_STATUSES = ['ENTREGUE', 'CANCELADO', 'EXPIRADO', 'ABANDONADO'];

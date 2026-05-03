@@ -1,3 +1,8 @@
+export const FINAL_STATUSES = ['ENTREGUE', 'CANCELADO', 'EXPIRADO', 'ABANDONADO'] as const;
+export type FinalStatus = (typeof FINAL_STATUSES)[number];
+export const isFinalStatus = (status: string): boolean =>
+  (FINAL_STATUSES as readonly string[]).includes(status);
+
 export const STATUS_OPTIONS = [
   { value: 'todos', label: 'Todos' },
   { value: 'AGUARDANDO_PAGAMENTO', label: 'Pag. Pendente' },
@@ -46,34 +51,33 @@ export function toBadgeVariant(status: string) {
 }
 
 export function labelStatus(status: string) {
-  switch (status) {
-    case 'AGUARDANDO_PAGAMENTO':
-      return 'Aguard. pagamento';
-    case 'CONFIRMADO':
-      return 'Aguardando preparo';
-    case 'SAIU_ENTREGA':
-      return 'Em rota';
-    case 'PRONTO':
-      return 'Pronto';
-    default:
-      return status.replace('_', ' ').toLowerCase();
-  }
+  const labels: Record<string, string> = {
+    AGUARDANDO_PAGAMENTO: 'Pag. pendente',
+    CONFIRMADO:           'Aguard. preparo',
+    PREPARANDO:           'Preparando',
+    PRONTO:               'Pronto',
+    SAIU_ENTREGA:         'Em rota',
+    ENTREGUE:             'Entregue',
+    CANCELADO:            'Cancelado',
+    EXPIRADO:             'Expirado',
+    ABANDONADO:           'Abandonado',
+    PENDENTE:             'Pendente',
+  };
+  return labels[status] ?? status.replace(/_/g, ' ').toLowerCase();
 }
 
-export function ctaStatus(status: string) {
+export function ctaStatus(status: string, tipoAtendimento?: string) {
+  if (status === 'PRONTO') {
+    if (tipoAtendimento === 'RETIRADA')      return 'Confirmar retirada';
+    if (tipoAtendimento === 'CONSUMO_LOCAL') return 'Confirmar consumo';
+    return 'Despachar entrega';
+  }
   switch (status) {
-    case 'AGUARDANDO_PAGAMENTO':
-      return 'Aceitar pedido';
-    case 'CONFIRMADO':
-      return 'Iniciar preparo';
-    case 'PREPARANDO':
-      return 'Marcar pronto';
-    case 'PRONTO':
-      return 'Enviar para entrega';
-    case 'SAIU_ENTREGA':
-      return 'Marcar entregue';
-    default:
-      return 'Ação indisponível';
+    case 'AGUARDANDO_PAGAMENTO': return 'Aceitar pedido';
+    case 'CONFIRMADO':           return 'Iniciar preparo';
+    case 'PREPARANDO':           return 'Marcar pronto';
+    case 'SAIU_ENTREGA':         return 'Marcar entregue';
+    default:                     return 'Ação indisponível';
   }
 }
 
@@ -92,16 +96,16 @@ export function paymentIcon(statusPagamento: 'PENDENTE' | 'CONFIRMADO' | 'A_RECE
 
 export function slaByStatus(status: string) {
   switch (status) {
-    case 'CONFIRMADO':
-      return { warningAt: 180, dangerAt: 300 };
-    case 'PREPARANDO':
-      return { warningAt: 1500, dangerAt: 2100 };
-    case 'PRONTO':
-      return { warningAt: 900, dangerAt: 1500 };
-    case 'SAIU_ENTREGA':
-      return { warningAt: 3000, dangerAt: 3600 };
-    default:
-      return { warningAt: 300, dangerAt: 600 };
+    case 'CONFIRMADO':   return { warningAt: 180,      dangerAt: 300      };
+    case 'PREPARANDO':   return { warningAt: 1500,     dangerAt: 2100     };
+    case 'PRONTO':       return { warningAt: 900,      dangerAt: 1500     };
+    case 'SAIU_ENTREGA': return { warningAt: 3000,     dangerAt: 3600     };
+    // Status finais nunca disparam SLA — tempoNoEstagio nunca alcançará Infinity
+    case 'ENTREGUE':
+    case 'CANCELADO':
+    case 'EXPIRADO':
+    case 'ABANDONADO':   return { warningAt: Infinity, dangerAt: Infinity };
+    default:             return { warningAt: 300,      dangerAt: 600      };
   }
 }
 

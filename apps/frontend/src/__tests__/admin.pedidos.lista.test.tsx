@@ -68,10 +68,29 @@ describe('ListaPedidos', () => {
     expect(screen.getByRole('button', { name: 'Confirmar' })).not.toBeDisabled();
   });
 
-  it('bloqueia confirmar fora de AGUARDANDO_PAGAMENTO', () => {
+  it('pedido encerrado (ENTREGUE) não exibe botão Confirmar', () => {
     render(
       <ListaPedidos
         pedidos={[{ ...basePedido, status: 'ENTREGUE' }]}
+        loading={false}
+        modoPico={false}
+        selectedId={null}
+        onSelect={() => {}}
+        onConfirmar={() => {}}
+        page={1}
+        totalPedidos={1}
+        pageSize={50}
+        onPageChange={() => {}}
+      />
+    );
+    // Pedidos encerrados ficam na seção "Encerrados hoje" sem o botão de ação
+    expect(screen.queryByRole('button', { name: 'Confirmar' })).toBeNull();
+  });
+
+  it('pedido PREPARANDO (ativo) exibe botão Confirmar bloqueado', () => {
+    render(
+      <ListaPedidos
+        pedidos={[{ ...basePedido, status: 'PREPARANDO', statusPagamento: 'A_RECEBER' as const }]}
         loading={false}
         modoPico={false}
         selectedId={null}

@@ -310,18 +310,42 @@ export class PedidoService {
     const limit = Math.min(100, Math.max(1, filtros?.limit || 50));
     const skip = (page - 1) * limit;
 
+    const STATUSES_FINAIS = [
+      StatusPedido.ENTREGUE,
+      StatusPedido.CANCELADO,
+      StatusPedido.EXPIRADO,
+      StatusPedido.ABANDONADO,
+    ];
+
     const where: any = {};
+
     if (filtros?.status && filtros.status !== 'todos') {
       where.status = filtros.status.toUpperCase();
+    } else {
+      // Sem filtro explícito: ativos de qualquer data + finais apenas do dia corrente.
+      // "Início do dia" calculado no timezone do servidor (America/Sao_Paulo via TZ env).
+      const inicioDia = new Date();
+      inicioDia.setHours(0, 0, 0, 0);
+      where.OR = [
+        { status: { notIn: STATUSES_FINAIS } },
+        { status: { in: STATUSES_FINAIS }, criadoEm: { gte: inicioDia } },
+      ];
     }
 
     if (busca) {
-      where.OR = [
+      // Combinar filtro de busca com o where existente via AND
+      const buscaConditions = [
         { id: { contains: busca, mode: 'insensitive' } },
         { clienteTelefone: { contains: busca, mode: 'insensitive' } },
         { cliente: { nome: { contains: busca, mode: 'insensitive' } } },
         { cliente: { bairro: { contains: busca, mode: 'insensitive' } } },
       ];
+      if (where.OR) {
+        where.AND = [{ OR: where.OR }, { OR: buscaConditions }];
+        delete where.OR;
+      } else {
+        where.OR = buscaConditions;
+      }
     }
 
     const pedidos = await prisma.pedido.findMany({

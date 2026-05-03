@@ -3,14 +3,17 @@ import { ctaStatus, labelStatus, motivoBloqueioAcao } from '@/app/admin/pedidos/
 
 describe('admin pedidos utils', () => {
   it('exibe label operacional de CONFIRMADO', () => {
-    expect(labelStatus('CONFIRMADO')).toBe('Aguardando preparo');
+    expect(labelStatus('CONFIRMADO')).toBe('Aguard. preparo');
   });
 
   it('retorna CTA contextual por status', () => {
     expect(ctaStatus('AGUARDANDO_PAGAMENTO')).toBe('Aceitar pedido');
     expect(ctaStatus('CONFIRMADO')).toBe('Iniciar preparo');
     expect(ctaStatus('PREPARANDO')).toBe('Marcar pronto');
-    expect(ctaStatus('PRONTO')).toBe('Enviar para entrega');
+    expect(ctaStatus('PRONTO')).toBe('Despachar entrega');           // default sem tipoAtendimento
+    expect(ctaStatus('PRONTO', 'ENTREGA')).toBe('Despachar entrega');
+    expect(ctaStatus('PRONTO', 'RETIRADA')).toBe('Confirmar retirada');
+    expect(ctaStatus('PRONTO', 'CONSUMO_LOCAL')).toBe('Confirmar consumo');
     expect(ctaStatus('SAIU_ENTREGA')).toBe('Marcar entregue');
   });
 

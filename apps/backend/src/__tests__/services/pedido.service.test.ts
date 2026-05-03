@@ -765,3 +765,106 @@ describe('criarPedidoManual com tipoAtendimento', () => {
     expect(vi.mocked(bairroService.validarBairro)).not.toHaveBeenCalled();
   });
 });
+
+describe('listarPedidosAdmin — janela diária (BX-01)', () => {
+  const hoje = new Date();
+  hoje.setHours(12, 0, 0, 0);
+
+  const ontem = new Date(hoje);
+  ontem.setDate(ontem.getDate() - 1);
+
+  const makeRawPedido = (id: string, status: StatusPedido, criadoEm: Date) => ({
+    id,
+    status,
+    statusPagamento: StatusPagamento.A_RECEBER,
+    formaPagamento: FormaPagamentoPedido.PIX,
+    trocoPara: null,
+    tipoAtendimento: TipoAtendimentoPedido.ENTREGA,
+    motoboyId: null,
+    total: 30,
+    criadoEm,
+    atualizadoEm: criadoEm,
+    statusMudouEm: criadoEm,
+    bairroEntrega: null,
+    cliente: { nome: 'Test', telefone: '62999990000', bairro: 'Centro' },
+    itens: [],
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.mensagemCliente.groupBy).mockResolvedValue([] as any);
+    vi.mocked(prisma.pedido.count).mockResolvedValue(1 as any);
+  });
+
+  it('em modo todos: retorna pedido ativo de ontem', async () => {
+    const pedidoAtivo = makeRawPedido('p-ativo', StatusPedido.CONFIRMADO, ontem);
+    vi.mocked(prisma.pedido.findMany).mockResolvedValue([pedidoAtivo] as any);
+
+    const result = await pedidoService.listarPedidosAdmin();
+
+    const whereArg = vi.mocked(prisma.pedido.findMany).mock.calls[0][0].where as any;
+    // Deve usar OR com notIn para ativos
+    expect(whereArg.OR).toBeDefined();
+    expect(whereArg.OR[0].status.notIn).toContain(StatusPedido.ENTREGUE);
+    expect(result.data[0].id).toBe('p-ativo');
+  });
+
+  it('em modo todos: retorna pedido ENTREGUE criado hoje', async () => {
+    const pedidoHoje = makeRawPedido('p-hoje', StatusPedido.ENTREGUE, hoje);
+    vi.mocked(prisma.pedido.findMany).mockResolvedValue([pedidoHoje] as any);
+
+    const result = await pedidoService.listarPedidosAdmin();
+
+    const whereArg = vi.mocked(prisma.pedido.findMany).mock.calls[0][0].where as any;
+    // Deve incluir finais com criadoEm >= inicioDia
+    expect(whereArg.OR[1].status.in).toContain(StatusPedido.ENTREGUE);
+    expect(whereArg.OR[1].criadoEm.gte).toBeDefined();
+    expect(result.data[0].id).toBe('p-hoje');
+  });
+
+  it('em modo todos: o filtro inicioDia tem horas zeradas (meia-noite)', async () => {
+    vi.mocked(prisma.pedido.findMany).mockResolvedValue([] as any);
+
+    await pedidoService.listarPedidosAdmin();
+
+    const whereArg = vi.mocked(prisma.pedido.findMany).mock.calls[0][0].where as any;
+    const inicioDia: Date = whereArg.OR[1].criadoEm.gte;
+    expect(inicioDia.getHours()).toBe(0);
+    expect(inicioDia.getMinutes()).toBe(0);
+    expect(inicioDia.getSeconds()).toBe(0);
+  });
+
+  it('com status explícito: NÃO aplica janela diária', async () => {
+    vi.mocked(prisma.pedido.findMany).mockResolvedValue([] as any);
+
+    await pedidoService.listarPedidosAdmin({ status: 'ENTREGUE' });
+
+    const whereArg = vi.mocked(prisma.pedido.findMany).mock.calls[0][0].where as any;
+    // where.status deve ser setado diretamente, sem OR de janela
+    expect(whereArg.status).toBe('ENTREGUE');
+    expect(whereArg.OR).toBeUndefined();
+  });
+
+  it('com busca + modo todos: combina janela diária E busca via AND', async () => {
+    vi.mocked(prisma.pedido.findMany).mockResolvedValue([] as any);
+
+    await pedidoService.listarPedidosAdmin({ busca: 'João' });
+
+    const whereArg = vi.mocked(prisma.pedido.findMany).mock.calls[0][0].where as any;
+    // Deve usar AND para combinar janela e busca
+    expect(whereArg.AND).toBeDefined();
+    expect(whereArg.AND[0].OR[0].status.notIn).toBeDefined(); // janela
+    expect(whereArg.AND[1].OR[0].id.contains).toBe('João');  // busca
+  });
+
+  it('com status explícito + busca: usa OR simples de busca sem janela', async () => {
+    vi.mocked(prisma.pedido.findMany).mockResolvedValue([] as any);
+
+    await pedidoService.listarPedidosAdmin({ status: 'CONFIRMADO', busca: 'Maria' });
+
+    const whereArg = vi.mocked(prisma.pedido.findMany).mock.calls[0][0].where as any;
+    expect(whereArg.status).toBe('CONFIRMADO');
+    expect(whereArg.OR[0].id.contains).toBe('Maria');
+    expect(whereArg.AND).toBeUndefined();
+  });
+});
