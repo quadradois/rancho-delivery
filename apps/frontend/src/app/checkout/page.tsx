@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import AppBar from '@/components/layout/AppBar';
 import Button from '@/components/ui/Button';
@@ -51,12 +51,11 @@ interface AddressForm {
 }
 
 interface PaymentForm {
-  formaPagamento: 'dinheiro' | 'cartao_credito' | 'cartao_debito' | 'pix';
-  trocoParaValor?: number;
+  formaPagamento: 'cartao_credito' | 'cartao_debito' | 'pix';
 }
 
 type AddressErrors = Partial<Record<keyof AddressForm, string>>;
-type TipoAtendimento = 'ENTREGA' | 'RETIRADA' | 'CONSUMO_LOCAL';
+type TipoAtendimento = 'ENTREGA' | 'RETIRADA';
 
 const addressSchemaEntrega = z.object({
   nome: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
@@ -173,6 +172,8 @@ export default function CheckoutPage() {
   const [loading, setLoading] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
   const [deliveryFee, setDeliveryFee] = useState(cartDeliveryFee || 0);
+  const lastEntregaFeeRef = useRef(cartDeliveryFee || 0);
+  const prevTipoAtendimentoRef = useRef<TipoAtendimento>('ENTREGA');
   const [cepAtendido, setCepAtendido] = useState(false);
   const [errors, setErrors] = useState<AddressErrors>({});
   const [recoveryData, setRecoveryData] = useState<ReturnType<typeof lerRecovery>>(null);
@@ -184,7 +185,6 @@ export default function CheckoutPage() {
 
   const [paymentForm, setPaymentForm] = useState<PaymentForm>({
     formaPagamento: 'pix',
-    trocoParaValor: undefined,
   });
 
   const lojaIndisponivelTitulo = lojaStatus?.status === 'PAUSADO' ? 'Loja pausada' : 'Loja fechada';
@@ -224,6 +224,26 @@ export default function CheckoutPage() {
     if (currentStep === 'return') return;
     salvarDraft({ addressForm, paymentForm, deliveryFee, cepAtendido });
   }, [addressForm, paymentForm, deliveryFee, cepAtendido, currentStep]);
+
+  useEffect(() => {
+    const tipoAnterior = prevTipoAtendimentoRef.current;
+
+    if (tipoAnterior === 'ENTREGA' && tipoAtendimento !== 'ENTREGA') {
+      // Ao sair de ENTREGA, guarda a taxa calculada para possível retorno.
+      lastEntregaFeeRef.current = deliveryFee;
+      setDeliveryFee(0);
+      setCartDeliveryFee(0);
+    }
+
+    if (tipoAnterior !== 'ENTREGA' && tipoAtendimento === 'ENTREGA') {
+      // Ao voltar para ENTREGA, restaura a última taxa conhecida.
+      const taxaRestaurada = lastEntregaFeeRef.current || 0;
+      setDeliveryFee(taxaRestaurada);
+      setCartDeliveryFee(taxaRestaurada);
+    }
+
+    prevTipoAtendimentoRef.current = tipoAtendimento;
+  }, [tipoAtendimento, deliveryFee, setCartDeliveryFee]);
 
   // Pré-preencher com CEP validado na sessão
   useEffect(() => {
@@ -392,12 +412,9 @@ export default function CheckoutPage() {
           forma:
             paymentForm.formaPagamento === 'pix'
               ? 'PIX'
-              : paymentForm.formaPagamento === 'dinheiro'
-              ? 'DINHEIRO'
               : paymentForm.formaPagamento === 'cartao_credito'
               ? 'CARTAO_CREDITO'
               : 'CARTAO_DEBITO',
-          trocoPara: paymentForm.formaPagamento === 'dinheiro' ? paymentForm.trocoParaValor : undefined,
         },
         tipoAtendimento,
       };
@@ -438,7 +455,7 @@ export default function CheckoutPage() {
     }
   };
 
-  const totalWithDelivery = totalPrice + deliveryFee;
+  const totalWithDelivery = totalPrice + (tipoAtendimento === 'ENTREGA' ? deliveryFee : 0);
 
   // ── TELA DE RETORNO DO GATEWAY ──────────────────────────────────────────────
   if (currentStep === 'return' && recoveryData) {
@@ -575,7 +592,6 @@ export default function CheckoutPage() {
                 {([
                   { value: 'ENTREGA', label: 'Entrega' },
                   { value: 'RETIRADA', label: 'Retirada' },
-                  { value: 'CONSUMO_LOCAL', label: 'No local' },
                 ] as { value: TipoAtendimento; label: string }[]).map((opt) => (
                   <button
                     key={opt.value}
@@ -697,7 +713,6 @@ export default function CheckoutPage() {
                 { value: 'pix', label: 'Pix', icon: '⚡', desc: 'Pagamento instantâneo' },
                 { value: 'cartao_credito', label: 'Cartão de Crédito', icon: '💳', desc: 'Na entrega' },
                 { value: 'cartao_debito', label: 'Cartão de Débito', icon: '💳', desc: 'Na entrega' },
-                { value: 'dinheiro', label: 'Dinheiro', icon: '💵', desc: 'Na entrega' },
               ].map((opt) => (
                 <button
                   key={opt.value}
@@ -723,18 +738,6 @@ export default function CheckoutPage() {
                 </button>
               ))}
 
-              {paymentForm.formaPagamento === 'dinheiro' && (
-                <Input
-                  label="Troco para quanto?"
-                  type="number"
-                  min={totalWithDelivery}
-                  step="0.01"
-                  value={paymentForm.trocoParaValor?.toString() || ''}
-                  onChange={e => setPaymentForm(p => ({ ...p, trocoParaValor: parseFloat(e.target.value) || undefined }))}
-                  placeholder={`Mínimo ${formatCurrency(totalWithDelivery)}`}
-                  hint="Deixe em branco se não precisar de troco"
-                />
-              )}
             </div>
           )}
 
@@ -746,7 +749,7 @@ export default function CheckoutPage() {
               {/* Endereço */}
               <div className="rounded-xl p-4 space-y-1" style={{ background: '#251208', border: '1.5px solid #3E2214' }}>
                 <p className="text-xs font-bold uppercase tracking-wider text-[#9A7B5C] mb-2">
-                  {tipoAtendimento === 'RETIRADA' ? 'Retirada' : tipoAtendimento === 'CONSUMO_LOCAL' ? 'Consumo local' : 'Entrega'}
+                  {tipoAtendimento === 'RETIRADA' ? 'Retirada' : 'Entrega'}
                 </p>
                 <p className="font-semibold text-[#F4E8CC] text-sm">{addressForm.nome}</p>
                 <p className="text-sm text-[#9A7B5C]">{addressForm.telefone}</p>
@@ -779,9 +782,11 @@ export default function CheckoutPage() {
                   <div className="flex justify-between text-sm text-[#9A7B5C]">
                     <span>Subtotal</span><span>{formatCurrency(totalPrice)}</span>
                   </div>
-                  <div className="flex justify-between text-sm text-[#9A7B5C]">
-                    <span>Entrega</span><span>{formatCurrency(deliveryFee)}</span>
-                  </div>
+                  {tipoAtendimento === 'ENTREGA' && (
+                    <div className="flex justify-between text-sm text-[#9A7B5C]">
+                      <span>Entrega</span><span>{formatCurrency(deliveryFee)}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between font-brand font-black text-base pt-1">
                     <span className="text-[#F4E8CC]">Total</span>
                     <span className="text-[#E87830]">{formatCurrency(totalWithDelivery)}</span>
@@ -793,9 +798,6 @@ export default function CheckoutPage() {
               <div className="rounded-xl p-4" style={{ background: '#251208', border: '1.5px solid #3E2214' }}>
                 <p className="text-xs font-bold uppercase tracking-wider text-[#9A7B5C] mb-1">Pagamento</p>
                 <p className="text-sm text-[#F4E8CC] capitalize">{paymentForm.formaPagamento.replace('_', ' ')}</p>
-                {paymentForm.trocoParaValor && (
-                  <p className="text-xs text-[#9A7B5C]">Troco para {formatCurrency(paymentForm.trocoParaValor)}</p>
-                )}
               </div>
             </div>
           )}
