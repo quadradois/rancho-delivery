@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useToast } from '@/contexts/ToastContext';
 import { formatCurrency } from '@/lib/utils';
 import Badge from '@/components/ui/Badge';
@@ -33,6 +33,7 @@ const FORM_VAZIO = {
 export default function AdminBairrosPage() {
   const { showSuccess, showError } = useToast();
   const [bairros, setBairros] = useState<Bairro[]>([]);
+  const [mostrarInativos, setMostrarInativos] = useState(false);
   const [loading, setLoading] = useState(true);
   const [modalAberto, setModalAberto] = useState(false);
   const [editando, setEditando] = useState<Bairro | null>(null);
@@ -55,6 +56,11 @@ export default function AdminBairrosPage() {
   }, [showError]);
 
   useEffect(() => { carregarBairros(); }, [carregarBairros]);
+
+  const bairrosVisiveis = useMemo(
+    () => (mostrarInativos ? bairros : bairros.filter((bairro) => bairro.ativo)),
+    [bairros, mostrarInativos]
+  );
 
   // Consulta ViaCEP ao digitar CEP no modal
   const handleCepChange = async (cep: string) => {
@@ -151,7 +157,7 @@ export default function AdminBairrosPage() {
   const handleExcluir = async (id: string) => {
     try {
       await api.bairros.excluir(id);
-      showSuccess('Bairro excluído com sucesso!');
+      showSuccess('Bairro desativado com sucesso!');
       setConfirmandoExclusao(null);
       carregarBairros();
     } catch (err) {
@@ -175,14 +181,27 @@ export default function AdminBairrosPage() {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="font-brand text-3xl font-black uppercase text-[var(--color-text-primary)]">Bairros</h1>
-          <p className="text-[var(--color-text-secondary)] mt-1">{bairros.length} bairro{bairros.length !== 1 ? 's' : ''} cadastrado{bairros.length !== 1 ? 's' : ''}</p>
+          <p className="text-[var(--color-text-secondary)] mt-1">
+            Exibindo {bairrosVisiveis.length} de {bairros.length} bairro{bairros.length !== 1 ? 's' : ''} cadastrado{bairros.length !== 1 ? 's' : ''}
+          </p>
         </div>
-        <Button size="md" onClick={abrirModalNovo}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Novo Bairro
-        </Button>
+        <div className="flex items-center gap-3">
+          <label className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-text-secondary)]">
+            <input
+              type="checkbox"
+              checked={mostrarInativos}
+              onChange={(e) => setMostrarInativos(e.target.checked)}
+              className="h-4 w-4 rounded border-[var(--color-border)] bg-[var(--color-surface)]"
+            />
+            Mostrar inativos
+          </label>
+          <Button size="md" onClick={abrirModalNovo}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Novo Bairro
+          </Button>
+        </div>
       </div>
 
       {/* Tabela */}
@@ -192,10 +211,14 @@ export default function AdminBairrosPage() {
             <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-[var(--color-accent)] border-t-transparent" />
             <p className="text-[var(--color-text-secondary)] text-sm">Carregando bairros...</p>
           </div>
-        ) : bairros.length === 0 ? (
+        ) : bairrosVisiveis.length === 0 ? (
           <div className="p-12 text-center">
-            <p className="text-[var(--color-text-tertiary)] font-semibold">Nenhum bairro cadastrado</p>
-            <p className="text-[var(--color-text-tertiary)] text-sm mt-1">Clique em &ldquo;Novo Bairro&rdquo; para começar</p>
+            <p className="text-[var(--color-text-tertiary)] font-semibold">Nenhum bairro para exibir</p>
+            <p className="text-[var(--color-text-tertiary)] text-sm mt-1">
+              {bairros.length > 0
+                ? 'Ative "Mostrar inativos" para visualizar bairros desativados'
+                : 'Clique em “Novo Bairro” para começar'}
+            </p>
           </div>
         ) : (
           <table className="w-full">
@@ -211,7 +234,7 @@ export default function AdminBairrosPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)]">
-              {bairros.map((bairro) => (
+              {bairrosVisiveis.map((bairro) => (
                 <tr key={bairro.id} className="hover:bg-[var(--color-surface-raised)] transition-colors">
                   <td className="px-6 py-4 font-semibold text-[var(--color-text-primary)] text-sm">{bairro.nome}</td>
                   <td className="px-6 py-4 text-sm text-[var(--color-text-secondary)] font-mono">
