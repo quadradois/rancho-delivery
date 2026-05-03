@@ -32,6 +32,14 @@ interface CriarPedidoInput {
   tipoAtendimento?: TipoAtendimentoPedido;
 }
 
+interface MercadoPagoConfigInput {
+  ativo: boolean;
+  publicKey?: string | null;
+  accessToken?: string | null;
+  webhookSecret?: string | null;
+  webhookUrl?: string | null;
+}
+
 export class PedidoService {
   private isAguardandoEntregador(status: StatusPedido, tipoAtendimento?: TipoAtendimentoPedido | null, motoboyId?: string | null) {
     return status === StatusPedido.PRONTO && (tipoAtendimento ?? TipoAtendimentoPedido.ENTREGA) === TipoAtendimentoPedido.ENTREGA && !motoboyId;
@@ -122,6 +130,14 @@ export class PedidoService {
     } catch (error) {
       logger.error('Erro ao registrar timeline do pedido:', { pedidoId, acao, error });
     }
+  }
+
+  private async obterWebhookUrlMercadoPago(baseUrl: string) {
+    const loja = await prisma.lojaConfiguracao.findUnique({
+      where: { id: 'loja_principal' },
+      select: { mercadopagoWebhookUrl: true },
+    });
+    return loja?.mercadopagoWebhookUrl?.trim() || process.env.MERCADOPAGO_WEBHOOK_URL || `${baseUrl}/webhook/mercadopago`;
   }
 
   private async obterTempoMedioPreparoMin(): Promise<number> {
@@ -679,7 +695,7 @@ export class PedidoService {
       try {
         const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         const redirectUrl = `${baseUrl}/pedido/${pedido.id}`;
-        const webhookUrl = process.env.MERCADOPAGO_WEBHOOK_URL || `${baseUrl}/webhook/mercadopago`;
+        const webhookUrl = await this.obterWebhookUrlMercadoPago(baseUrl);
         const telefoneNumeros = pedido.cliente?.telefone?.replace(/\D/g, '') || '';
         const telefoneFormatado = telefoneNumeros ? `+55${telefoneNumeros}` : undefined;
         const customer = {
@@ -1162,6 +1178,60 @@ export class PedidoService {
     };
   }
 
+  async obterConfiguracaoMercadoPago() {
+    const loja = await prisma.lojaConfiguracao.upsert({
+      where: { id: 'loja_principal' },
+      update: {},
+      create: { id: 'loja_principal', status: StatusLoja.ABERTO },
+    });
+
+    return {
+      ativo: loja.mercadopagoAtivo,
+      publicKey: loja.mercadopagoPublicKey || '',
+      webhookUrl: loja.mercadopagoWebhookUrl || '',
+      webhookSecretConfigured: Boolean(loja.mercadopagoWebhookSecret),
+      accessTokenConfigured: Boolean(loja.mercadopagoAccessToken),
+      atualizadoEm: loja.atualizadoEm.toISOString(),
+    };
+  }
+
+  async atualizarConfiguracaoMercadoPago(payload: MercadoPagoConfigInput) {
+    const normalizar = (valor?: string | null) => {
+      if (valor == null) return null;
+      const limpo = valor.trim();
+      return limpo.length > 0 ? limpo : null;
+    };
+
+    const loja = await prisma.lojaConfiguracao.upsert({
+      where: { id: 'loja_principal' },
+      update: {
+        mercadopagoAtivo: payload.ativo,
+        mercadopagoPublicKey: normalizar(payload.publicKey),
+        mercadopagoAccessToken: normalizar(payload.accessToken),
+        mercadopagoWebhookSecret: normalizar(payload.webhookSecret),
+        mercadopagoWebhookUrl: normalizar(payload.webhookUrl),
+      },
+      create: {
+        id: 'loja_principal',
+        status: StatusLoja.ABERTO,
+        mercadopagoAtivo: payload.ativo,
+        mercadopagoPublicKey: normalizar(payload.publicKey),
+        mercadopagoAccessToken: normalizar(payload.accessToken),
+        mercadopagoWebhookSecret: normalizar(payload.webhookSecret),
+        mercadopagoWebhookUrl: normalizar(payload.webhookUrl),
+      },
+    });
+
+    return {
+      ativo: loja.mercadopagoAtivo,
+      publicKey: loja.mercadopagoPublicKey || '',
+      webhookUrl: loja.mercadopagoWebhookUrl || '',
+      webhookSecretConfigured: Boolean(loja.mercadopagoWebhookSecret),
+      accessTokenConfigured: Boolean(loja.mercadopagoAccessToken),
+      atualizadoEm: loja.atualizadoEm.toISOString(),
+    };
+  }
+
   /**
    * Lista pedidos por cliente
    */
@@ -1348,7 +1418,7 @@ export class PedidoService {
     let reprocessados = 0;
     let falhas = 0;
     const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-    const webhookUrl = process.env.MERCADOPAGO_WEBHOOK_URL || `${baseUrl}/webhook/mercadopago`;
+    const webhookUrl = await this.obterWebhookUrlMercadoPago(baseUrl);
 
     for (const pedido of pedidosSemLink) {
       try {

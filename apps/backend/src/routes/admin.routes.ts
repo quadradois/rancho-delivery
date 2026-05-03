@@ -26,5 +26,7 @@ router.get('/motoboys/status', autorizarAdmin('pedidos:ler'), adminPedidoControl
 router.get('/motoboys', autorizarAdmin('pedidos:ler'), adminPedidoController.listarMotoboys.bind(adminPedidoController));
 router.get('/loja/status', autorizarAdmin('loja:gerenciar'), adminPedidoController.obterStatusLoja.bind(adminPedidoController));
 router.patch('/loja/status', autorizarAdmin('loja:gerenciar'), adminPedidoController.atualizarStatusLoja.bind(adminPedidoController));
+router.get('/pagamentos/mercadopago', autorizarAdmin('loja:gerenciar'), adminPedidoController.obterConfiguracaoMercadoPago.bind(adminPedidoController));
+router.patch('/pagamentos/mercadopago', autorizarAdmin('loja:gerenciar'), adminPedidoController.atualizarConfiguracaoMercadoPago.bind(adminPedidoController));
 
 export default router;

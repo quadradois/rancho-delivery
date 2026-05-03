@@ -240,6 +240,15 @@ export interface LojaStatusAdmin {
   atualizadoEm: string;
 }
 
+export interface MercadoPagoConfigAdmin {
+  ativo: boolean;
+  publicKey: string;
+  webhookUrl: string;
+  webhookSecretConfigured: boolean;
+  accessTokenConfigured: boolean;
+  atualizadoEm: string;
+}
+
 export interface SugestaoIA {
   id: string;
   tipo: 'PREPARO_ACIMA_MEDIA' | 'AGRUPAR_ENTREGAS' | 'CLIENTE_INATIVO' | 'CANCELAMENTOS_ITEM' | 'TODOS_MOTOBOYS_OCUPADOS' | 'WHATSAPP_ACUMULADO';
@@ -665,6 +674,22 @@ export const adminAlertaService = {
   },
 };
 
+export const adminPagamentoService = {
+  async obterMercadoPago(): Promise<MercadoPagoConfigAdmin> {
+    return apiClient.get<MercadoPagoConfigAdmin>('/admin/pagamentos/mercadopago');
+  },
+
+  async atualizarMercadoPago(payload: {
+    ativo: boolean;
+    publicKey?: string;
+    accessToken?: string;
+    webhookSecret?: string;
+    webhookUrl?: string;
+  }): Promise<MercadoPagoConfigAdmin> {
+    return apiClient.patch<MercadoPagoConfigAdmin>('/admin/pagamentos/mercadopago', payload);
+  },
+};
+
 export const adminAuthService = {
   async login(username: string, password: string): Promise<AdminLoginResponse> {
     return apiClient.post<AdminLoginResponse>('/admin/auth/login', { username, password });
@@ -681,6 +706,7 @@ const api = {
   adminPedidos: adminPedidoService,
   adminClientes: adminClienteService,
   adminAlertas: adminAlertaService,
+  adminPagamentos: adminPagamentoService,
   adminRelatorios: adminRelatorioService,
   adminIa: adminIaService,
   adminAuth: adminAuthService,

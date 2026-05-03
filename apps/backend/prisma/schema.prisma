@@ -369,6 +369,11 @@ model LojaConfiguracao {
   id               String     @id @default("loja_principal")
   status           StatusLoja @default(ABERTO)
   mensagemPausado  String?    @map("mensagem_pausado") @db.Text
+  mercadopagoAtivo         Boolean @default(false) @map("mercadopago_ativo")
+  mercadopagoPublicKey     String? @map("mercadopago_public_key") @db.VarChar(255)
+  mercadopagoAccessToken   String? @map("mercadopago_access_token") @db.Text
+  mercadopagoWebhookSecret String? @map("mercadopago_webhook_secret") @db.VarChar(255)
+  mercadopagoWebhookUrl    String? @map("mercadopago_webhook_url") @db.VarChar(500)
   atualizadoEm     DateTime   @updatedAt @map("atualizado_em")
 
   @@map("loja_configuracao")

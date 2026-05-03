@@ -27,7 +27,7 @@ export class WebhookController {
         req.headers['authorization']
       ) as string;
 
-      if (!mercadoPagoService.validarWebhook(token)) {
+      if (!(await mercadoPagoService.validarWebhook(token))) {
         logger.warn('Webhook Mercado Pago rejeitado: token inválido', {
           hasXMercadoPagoSignature: Boolean(req.headers['x-mercadopago-signature']),
           hasXWebhookSecret: Boolean(req.headers['x-webhook-secret']),

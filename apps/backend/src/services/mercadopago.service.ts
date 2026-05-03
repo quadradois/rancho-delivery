@@ -1,5 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { logger } from '../config/logger';
+import prisma from '../config/database';
 
 interface ItemMercadoPago {
   quantity: number;
@@ -33,10 +34,8 @@ interface PagamentoMercadoPago {
 
 export class MercadoPagoService {
   private api: AxiosInstance;
-  private accessToken: string;
 
   constructor() {
-    this.accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN || '';
     this.api = axios.create({
       baseURL: 'https://api.mercadopago.com',
       timeout: 15000,
@@ -46,12 +45,34 @@ export class MercadoPagoService {
     });
   }
 
+  private async obterConfiguracao() {
+    const loja = await prisma.lojaConfiguracao.findUnique({
+      where: { id: 'loja_principal' },
+      select: {
+        mercadopagoAtivo: true,
+        mercadopagoAccessToken: true,
+        mercadopagoWebhookSecret: true,
+      },
+    });
+
+    return {
+      ativo: loja?.mercadopagoAtivo ?? true,
+      accessToken: loja?.mercadopagoAccessToken?.trim() || process.env.MERCADOPAGO_ACCESS_TOKEN || '',
+      webhookSecret: loja?.mercadopagoWebhookSecret?.trim() || process.env.MERCADOPAGO_WEBHOOK_SECRET || '',
+    };
+  }
+
   reaisParaCentavos(valor: number): number {
     return Math.round(valor * 100);
   }
 
   async criarLinkPagamento(dados: CriarLinkInput): Promise<LinkPagamentoResponse> {
-    if (!this.accessToken) {
+    const config = await this.obterConfiguracao();
+    if (!config.ativo) {
+      throw new Error('MERCADOPAGO_DESATIVADO');
+    }
+
+    if (!config.accessToken) {
       throw new Error('MERCADOPAGO_ACCESS_TOKEN_NAO_CONFIGURADO');
     }
 
@@ -87,7 +108,7 @@ export class MercadoPagoService {
     });
 
     const response = await this.api.post('/checkout/preferences', body, {
-      headers: { Authorization: `Bearer ${this.accessToken}` },
+      headers: { Authorization: `Bearer ${config.accessToken}` },
     });
 
     const initPoint = response.data?.init_point || response.data?.sandbox_init_point;
@@ -102,8 +123,9 @@ export class MercadoPagoService {
     };
   }
 
-  validarWebhook(token: string | string[] | undefined): boolean {
-    const secret = process.env.MERCADOPAGO_WEBHOOK_SECRET;
+  async validarWebhook(token: string | string[] | undefined): Promise<boolean> {
+    const config = await this.obterConfiguracao();
+    const secret = config.webhookSecret;
     if (!secret) return true;
     if (!token) return false;
     const raw = Array.isArray(token) ? token[0] : token;
@@ -122,11 +144,12 @@ export class MercadoPagoService {
   }
 
   async buscarPagamento(id: string): Promise<PagamentoMercadoPago | null> {
-    if (!this.accessToken || !id) return null;
+    const config = await this.obterConfiguracao();
+    if (!config.accessToken || !id) return null;
 
     try {
       const response = await this.api.get(`/v1/payments/${encodeURIComponent(id)}`, {
-        headers: { Authorization: `Bearer ${this.accessToken}` },
+        headers: { Authorization: `Bearer ${config.accessToken}` },
       });
       return {
         id: String(response.data?.id || id),

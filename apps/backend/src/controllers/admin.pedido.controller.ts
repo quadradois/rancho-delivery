@@ -48,6 +48,14 @@ const schemaStatusLoja = z.object({
   mensagem: z.string().optional(),
 });
 
+const schemaMercadoPagoConfig = z.object({
+  ativo: z.boolean(),
+  publicKey: z.string().optional().nullable(),
+  accessToken: z.string().optional().nullable(),
+  webhookSecret: z.string().optional().nullable(),
+  webhookUrl: z.string().optional().nullable(),
+});
+
 function validar<T>(schema: z.ZodType<T>, data: unknown): { data: T } | { error: string } {
   const result = schema.safeParse(data);
   if (!result.success) {
@@ -443,6 +451,42 @@ export class AdminPedidoController {
       return res.status(500).json({
         success: false,
         error: { message: 'Erro ao atualizar status da loja' },
+      });
+    }
+  }
+
+  /**
+   * GET /api/admin/pagamentos/mercadopago
+   */
+  async obterConfiguracaoMercadoPago(_req: Request, res: Response) {
+    try {
+      const data = await pedidoService.obterConfiguracaoMercadoPago();
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao obter configuração do Mercado Pago:', error);
+      return res.status(500).json({
+        success: false,
+        error: { message: 'Erro ao obter configuração do Mercado Pago' },
+      });
+    }
+  }
+
+  /**
+   * PATCH /api/admin/pagamentos/mercadopago
+   */
+  async atualizarConfiguracaoMercadoPago(req: Request, res: Response) {
+    try {
+      const parsed = validar(schemaMercadoPagoConfig, req.body);
+      if ('error' in parsed) {
+        return res.status(400).json({ success: false, error: { message: parsed.error, code: 'MERCADOPAGO_CONFIG_INVALIDA' } });
+      }
+      const data = await pedidoService.atualizarConfiguracaoMercadoPago(parsed.data);
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao atualizar configuração do Mercado Pago:', error);
+      return res.status(500).json({
+        success: false,
+        error: { message: 'Erro ao atualizar configuração do Mercado Pago' },
       });
     }
   }
