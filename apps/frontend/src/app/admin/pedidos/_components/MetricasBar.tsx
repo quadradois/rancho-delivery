@@ -14,17 +14,15 @@ interface Props {
 
 export function MetricasBar({ items }: Props) {
   return (
-    <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
+    <div className="mb-4 flex flex-wrap gap-2">
       {items.map((item) => (
         <div
           key={item.label}
-          className={`rounded-md border px-3 py-2 ${item.className} ${item.pulse ? 'animate-pulse' : ''}`}
+          title={item.sub ?? undefined}
+          className={`flex cursor-default items-center gap-1.5 rounded-full border px-3 py-1 text-xs ${item.className} ${item.pulse ? 'animate-pulse' : ''}`}
         >
-          <p className="text-[11px] font-semibold uppercase tracking-wide opacity-80">{item.label}</p>
-          <p className="mt-1 font-sora text-lg font-bold">{item.value}</p>
-          {item.sub && (
-            <p className="mt-0.5 text-[10px] opacity-70">{item.sub}</p>
-          )}
+          <span className="opacity-70">{item.label}</span>
+          <span className="font-sora font-bold">{item.value}</span>
         </div>
       ))}
     </div>
