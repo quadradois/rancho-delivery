@@ -21,6 +21,11 @@ Nao subir backend ou frontend com PM2 do `root`.
 
 ## Deploy padrao
 
+Fonte da verdade do processo de deploy:
+
+- Execucao operacional: `deploy/deploy.sh`
+- Regras e procedimento humano: `AGENTS.md`
+
 Para fazer deploy de uma versao que ja esta no GitHub:
 
 ```bash
@@ -31,6 +36,7 @@ cd /var/www/rancho-delivery
 
 O script faz:
 
+- saneamento de artefatos locais (`.next`/`dist`) com ownership `deploy:www-data`
 - `git pull --ff-only`
 - `pnpm install --frozen-lockfile`
 - `pnpm build`

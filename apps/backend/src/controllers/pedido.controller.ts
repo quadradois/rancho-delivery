@@ -166,6 +166,33 @@ export class PedidoController {
           },
         });
       }
+      if (error.message === 'LOJA_FECHADA') {
+        return res.status(423).json({
+          success: false,
+          error: {
+            message: 'Loja fechada no momento',
+            code: 'LOJA_FECHADA',
+          },
+        });
+      }
+      if (error.message === 'LOJA_PAUSADA') {
+        return res.status(423).json({
+          success: false,
+          error: {
+            message: (error as any).mensagemPausado || 'Loja pausada no momento',
+            code: 'LOJA_PAUSADA',
+          },
+        });
+      }
+      if (error.message === 'CHECKOUT_CARTAO_INDISPONIVEL') {
+        return res.status(503).json({
+          success: false,
+          error: {
+            message: 'Checkout de cartão indisponível no momento',
+            code: 'CHECKOUT_CARTAO_INDISPONIVEL',
+          },
+        });
+      }
 
       return res.status(500).json({
         success: false,

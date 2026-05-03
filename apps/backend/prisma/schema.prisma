@@ -17,6 +17,7 @@ model Cliente {
   nome       String   @db.VarChar(255)
   endereco   String   @db.Text
   bairro     String   @db.VarChar(100)
+  ativo      Boolean  @default(true)
   origem     Origem   @default(SITE)
   criadoEm   DateTime @default(now()) @map("criado_em")
   
@@ -345,10 +346,18 @@ enum StatusMotoboy {
   INATIVO
 }
 
+enum EmpresaEntrega {
+  PROPRIO
+  IFOOD
+  MUVE
+  FOOD99
+}
+
 model Motoboy {
   id          String        @id @default(cuid())
   nome        String        @db.VarChar(255)
   telefone    String        @unique @db.VarChar(20)
+  empresa     EmpresaEntrega @default(PROPRIO)
   status      StatusMotoboy @default(DISPONIVEL)
   criadoEm    DateTime      @default(now()) @map("criado_em")
   atualizadoEm DateTime     @updatedAt @map("atualizado_em")
@@ -369,6 +378,7 @@ model LojaConfiguracao {
   id               String     @id @default("loja_principal")
   status           StatusLoja @default(ABERTO)
   mensagemPausado  String?    @map("mensagem_pausado") @db.Text
+  entregadoresDisponiveisDia Int @default(0) @map("entregadores_disponiveis_dia")
   mercadopagoAtivo         Boolean @default(false) @map("mercadopago_ativo")
   mercadopagoPublicKey     String? @map("mercadopago_public_key") @db.VarChar(255)
   mercadopagoAccessToken   String? @map("mercadopago_access_token") @db.Text
@@ -407,6 +417,10 @@ model RelatorioDia {
   mensagensTotal       Int      @map("mensagens_total")
   piorHorario          String?  @map("pior_horario") @db.VarChar(20)
   produtoMaisVendido   String?  @map("produto_mais_vendido") @db.VarChar(255)
+  entregasRealizadas   Int      @default(0) @map("entregas_realizadas")
+  taxaEntregaTotal     Decimal  @default(0) @map("taxa_entrega_total") @db.Decimal(10, 2)
+  entregasPorResponsavel Json?  @map("entregas_por_responsavel")
+  entregasPorHora      Json?    @map("entregas_por_hora")
   criadoEm             DateTime @default(now()) @map("criado_em")
 
   @@map("relatorios_dia")

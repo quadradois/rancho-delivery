@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
 import '@/styles/admin-theme.css';
 import api from '@/lib/api';
+import type { LojaStatusAdmin } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 
 const NAV_ITEMS = [
@@ -57,6 +58,18 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: '/admin/clientes',
+    label: 'Clientes',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+    ),
+  },
+  {
     href: '/admin/configuracoes',
     label: 'Configurações',
     icon: (
@@ -81,6 +94,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [showWhatsModal, setShowWhatsModal] = useState(false);
   const [whatsQrCode, setWhatsQrCode] = useState<string | null>(null);
   const [whatsLoading, setWhatsLoading] = useState(false);
+  const [lojaStatus, setLojaStatus] = useState<LojaStatusAdmin | null>(null);
+  const [showLojaStatusModal, setShowLojaStatusModal] = useState(false);
+  const [entregadoresDisponiveisDia, setEntregadoresDisponiveisDia] = useState(0);
+  const [savingLojaStatus, setSavingLojaStatus] = useState(false);
 
   useEffect(() => {
     const saved = window.localStorage.getItem('rancho:admin:theme');
@@ -180,6 +197,64 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, [authToken]);
+
+  useEffect(() => {
+    if (!authToken) return;
+    let mounted = true;
+    let intervalId: number | null = null;
+
+    const loadLojaStatus = async () => {
+      try {
+        const data = await api.adminPedidos.obterStatusLoja();
+        if (mounted) {
+          setLojaStatus(data);
+          setEntregadoresDisponiveisDia(data.entregadoresDisponiveisDia || 0);
+        }
+      } catch {
+        if (mounted) setLojaStatus(null);
+      }
+    };
+
+    void loadLojaStatus();
+    intervalId = window.setInterval(() => {
+      void loadLojaStatus();
+    }, 30000);
+
+    return () => {
+      mounted = false;
+      if (intervalId) window.clearInterval(intervalId);
+    };
+  }, [authToken]);
+
+  const lojaStatusClass = lojaStatus?.status === 'ABERTO'
+    ? 'border-[var(--color-success-subtle)] bg-[var(--color-success-muted)] text-[var(--color-success-text)]'
+    : lojaStatus?.status === 'PAUSADO'
+    ? 'border-[var(--color-warning)] bg-[var(--color-warning-muted)] text-[var(--color-warning-text)]'
+    : 'border-[var(--color-danger)] bg-[var(--color-danger-muted)] text-[var(--color-danger-text)]';
+
+  const lojaStatusLabel = lojaStatus?.status === 'ABERTO'
+    ? 'Loja aberta'
+    : lojaStatus?.status === 'PAUSADO'
+    ? 'Loja pausada'
+    : 'Loja fechada';
+
+  const atualizarLojaStatus = async (status: 'ABERTO' | 'FECHADO') => {
+    setSavingLojaStatus(true);
+    try {
+      const data = await api.adminPedidos.atualizarStatusLoja(
+        status,
+        undefined,
+        status === 'ABERTO' ? entregadoresDisponiveisDia : undefined
+      );
+      setLojaStatus(data);
+      setEntregadoresDisponiveisDia(data.entregadoresDisponiveisDia || 0);
+      if (status === 'FECHADO') setShowLojaStatusModal(false);
+    } catch (err) {
+      showError('Falha ao atualizar loja', err instanceof Error ? err.message : 'Tente novamente.');
+    } finally {
+      setSavingLojaStatus(false);
+    }
+  };
 
   const toggleMode = () => {
     setMode((prev) => (prev === 'dark-mode' ? 'light-mode' : 'dark-mode'));
@@ -295,23 +370,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <span className="font-brand text-xl font-black uppercase text-[var(--color-text-primary)]">Comida Caseira</span>
           </Link>
           <p className="text-xs text-[var(--color-text-secondary)] mt-1 font-semibold uppercase tracking-wider">Painel Admin</p>
-          <div className="mt-3 flex items-center gap-2">
-            <span
-              className={`h-2.5 w-2.5 rounded-full ${whatsConnected ? 'bg-[var(--color-success)]' : 'bg-[var(--color-danger)]'}`}
-            />
-            <span className="text-xs text-[var(--color-text-secondary)]">
-              WhatsApp {whatsConnected ? 'conectado' : 'desconectado'}
-            </span>
-          </div>
-          {!whatsConnected && (
-            <button
-              type="button"
-              onClick={() => void prepararConexaoWhatsApp()}
-              className="mt-3 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 text-xs font-semibold text-[var(--color-text-primary)] hover:border-[var(--color-border-strong)]"
-            >
-              {whatsLoading ? 'Conectando...' : 'Conectar WhatsApp'}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setShowLojaStatusModal(true)}
+            className={`mt-3 w-full rounded-xl border px-3 py-2 text-left transition-all hover:brightness-95 ${lojaStatusClass}`}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wide">Status da loja</span>
+              <span className="text-[10px] opacity-80">Gerenciar</span>
+            </div>
+            <div className="mt-1 text-sm font-semibold">{lojaStatusLabel}</div>
+          </button>
         </div>
 
         {/* Nav */}
@@ -340,6 +409,23 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
         {/* Footer */}
         <div className="px-6 py-4 border-t border-[var(--color-border)]">
+          <div className="mb-3 flex items-center gap-2">
+            <span
+              className={`h-2.5 w-2.5 rounded-full ${whatsConnected ? 'bg-[var(--color-success)]' : 'bg-[var(--color-danger)]'}`}
+            />
+            <span className="text-xs text-[var(--color-text-secondary)]">
+              WhatsApp {whatsConnected ? 'conectado' : 'desconectado'}
+            </span>
+          </div>
+          {!whatsConnected && (
+            <button
+              type="button"
+              onClick={() => void prepararConexaoWhatsApp()}
+              className="mb-3 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2 text-xs font-semibold text-[var(--color-text-primary)] hover:border-[var(--color-border-strong)]"
+            >
+              {whatsLoading ? 'Conectando...' : 'Conectar WhatsApp'}
+            </button>
+          )}
           <button
             type="button"
             onClick={toggleMode}
@@ -393,6 +479,71 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 type="button"
                 onClick={() => setShowWhatsModal(false)}
                 className="rounded-md border border-[var(--color-border)] px-3 py-2 text-sm font-semibold text-[var(--color-text-primary)]"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLojaStatusModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xl">
+            <div className="mb-1 text-lg font-bold">Gestão da loja</div>
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              Status atual: <span className="font-semibold text-[var(--color-text-primary)]">{lojaStatusLabel}</span>
+            </p>
+
+            <div className="mt-4 space-y-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[var(--color-text-primary)]">
+                  Entregadores disponíveis hoje
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  value={Number.isFinite(entregadoresDisponiveisDia) ? entregadoresDisponiveisDia : 0}
+                  onChange={(e) => setEntregadoresDisponiveisDia(Math.max(0, Number(e.target.value || 0)))}
+                  className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm"
+                />
+              </div>
+            </div>
+
+            <div className="mt-5 flex gap-2">
+              {lojaStatus?.status === 'ABERTO' ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void atualizarLojaStatus('ABERTO')}
+                    disabled={savingLojaStatus}
+                    className="flex-1 rounded-lg bg-[var(--color-accent)] px-3 py-2 text-sm font-semibold text-[var(--color-text-on-accent)] disabled:opacity-60"
+                  >
+                    {savingLojaStatus ? 'Salvando...' : 'Salvar capacidade'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void atualizarLojaStatus('FECHADO')}
+                    disabled={savingLojaStatus}
+                    className="rounded-lg border border-[var(--color-danger)] bg-[var(--color-danger-muted)] px-3 py-2 text-sm font-semibold text-[var(--color-danger-text)] disabled:opacity-60"
+                  >
+                    Fechar loja
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void atualizarLojaStatus('ABERTO')}
+                  disabled={savingLojaStatus}
+                  className="flex-1 rounded-lg bg-[var(--color-accent)] px-3 py-2 text-sm font-semibold text-[var(--color-text-on-accent)] disabled:opacity-60"
+                >
+                  {savingLojaStatus ? 'Abrindo...' : 'Abrir loja'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setShowLojaStatusModal(false)}
+                className="rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm font-semibold text-[var(--color-text-primary)]"
               >
                 Fechar
               </button>

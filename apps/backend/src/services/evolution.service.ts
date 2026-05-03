@@ -249,21 +249,35 @@ export class EvolutionService {
 
   formatarMensagemStatusPedido(pedido: any, status: string, motivoCancelamento?: string): string | null {
     const nome = pedido?.cliente?.nome || 'cliente';
+    const numeroPedido = String(pedido?.numero || pedido?.id || '').replace('#', '');
+    const pedidoRef = numeroPedido ? `#${numeroPedido}` : 'seu pedido';
+
+    if (status === 'AGUARDANDO_PAGAMENTO') {
+      return `Olá ${nome}! Recebemos ${pedidoRef} e estamos aguardando a confirmação do pagamento.`;
+    }
 
     if (status === 'CONFIRMADO') {
-      return `Olá ${nome}! Seu pedido foi confirmado e já está sendo preparado.`;
+      return `Olá ${nome}! Pagamento confirmado. ${pedidoRef} entrou na fila da cozinha.`;
+    }
+
+    if (status === 'PREPARANDO') {
+      return `Olá ${nome}! ${pedidoRef} já está em preparo na cozinha.`;
+    }
+
+    if (status === 'PRONTO') {
+      return `Olá ${nome}! ${pedidoRef} ficou pronto e será despachado em instantes.`;
     }
 
     if (status === 'SAIU_ENTREGA') {
-      return 'Seu pedido saiu para entrega. Em breve chegará aí.';
+      return `Olá ${nome}! ${pedidoRef} saiu para entrega.`;
     }
 
     if (status === 'ENTREGUE') {
-      return 'Pedido entregue! Bom apetite! Qualquer dúvida estamos aqui.';
+      return `Pedido entregue! ${nome}, bom apetite!`;
     }
 
     if (status === 'CANCELADO') {
-      const base = `Infelizmente precisamos cancelar seu pedido${motivoCancelamento ? `: ${motivoCancelamento}` : '.'}`;
+      const base = `Infelizmente precisamos cancelar ${pedidoRef}${motivoCancelamento ? `: ${motivoCancelamento}` : '.'}`;
       return `${base} Se o pagamento já foi feito, nossa equipe vai tratar o estorno com você.`;
     }
 

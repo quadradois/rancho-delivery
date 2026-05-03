@@ -24,6 +24,7 @@ router.get('/fila-urgente', autorizarAdmin('pedidos:ler'), adminPedidoController
 router.get('/metricas', autorizarAdmin('metricas:ler'), adminPedidoController.metricas.bind(adminPedidoController));
 router.get('/motoboys/status', autorizarAdmin('pedidos:ler'), adminPedidoController.statusMotoboys.bind(adminPedidoController));
 router.get('/motoboys', autorizarAdmin('pedidos:ler'), adminPedidoController.listarMotoboys.bind(adminPedidoController));
+router.post('/motoboys', autorizarAdmin('pedidos:motoboy'), adminPedidoController.criarMotoboy.bind(adminPedidoController));
 router.get('/loja/status', autorizarAdmin('loja:gerenciar'), adminPedidoController.obterStatusLoja.bind(adminPedidoController));
 router.patch('/loja/status', autorizarAdmin('loja:gerenciar'), adminPedidoController.atualizarStatusLoja.bind(adminPedidoController));
 router.get('/pagamentos/mercadopago', autorizarAdmin('loja:gerenciar'), adminPedidoController.obterConfiguracaoMercadoPago.bind(adminPedidoController));

@@ -76,11 +76,13 @@ export class WebhookController {
           evento,
         });
 
-        // Buscar pedido completo para notificação WhatsApp
-        const pedidoCompleto = await pedidoService.buscarPedidoPorId(order_nsu);
-
-        if (pedidoCompleto) {
-          await evolutionService.notificarNovoPedido(pedidoCompleto);
+        // Notificação para dono é opcional e desabilitada por padrão.
+        // O cliente já é notificado no fluxo de mudança de status (CONFIRMADO e demais etapas).
+        if (process.env.WHATSAPP_NOTIFICAR_DONO_NOVO_PEDIDO === 'true') {
+          const pedidoCompleto = await pedidoService.buscarPedidoPorId(order_nsu);
+          if (pedidoCompleto) {
+            await evolutionService.notificarNovoPedido(pedidoCompleto);
+          }
         }
       } else {
         logger.info(`Evento Mercado Pago ignorado: ${evento} — não é aprovação`);

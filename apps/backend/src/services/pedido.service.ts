@@ -6,7 +6,8 @@ import bairroService from './bairro.service';
 import mercadoPagoService from './mercadopago.service';
 import evolutionService from './evolution.service';
 import realtimeService from './realtime.service';
-import { FormaPagamentoPedido, Origem, StatusLoja, StatusPagamento, StatusPedido, TipoAtendimentoPedido } from '@prisma/client';
+import { EmpresaEntrega, FormaPagamentoPedido, Origem, StatusLoja, StatusPagamento, StatusPedido, TipoAtendimentoPedido } from '@prisma/client';
+import { getSaoPauloDayRange } from '../utils/timezone';
 
 interface ItemPedidoInput {
   produtoId: string;
@@ -83,7 +84,10 @@ export class PedidoService {
     motivoCancelamento?: string
   ) {
     const deveNotificarCliente =
+      novoStatus === StatusPedido.AGUARDANDO_PAGAMENTO ||
       novoStatus === StatusPedido.CONFIRMADO ||
+      novoStatus === StatusPedido.PREPARANDO ||
+      novoStatus === StatusPedido.PRONTO ||
       novoStatus === StatusPedido.SAIU_ENTREGA ||
       novoStatus === StatusPedido.ENTREGUE ||
       novoStatus === StatusPedido.CANCELADO;
@@ -344,8 +348,7 @@ export class PedidoService {
     } else {
       // Sem filtro explícito: ativos de qualquer data + finais apenas do dia corrente.
       // "Início do dia" calculado no timezone do servidor (America/Sao_Paulo via TZ env).
-      const inicioDia = new Date();
-      inicioDia.setHours(0, 0, 0, 0);
+      const { start: inicioDia } = getSaoPauloDayRange();
       where.OR = [
         { status: { notIn: STATUSES_FINAIS } },
         { status: { in: STATUSES_FINAIS }, criadoEm: { gte: inicioDia } },
@@ -568,6 +571,20 @@ export class PedidoService {
         qtdItens: itens.length,
       });
 
+      if (origem === Origem.SITE) {
+        const loja = await prisma.lojaConfiguracao.upsert({
+          where: { id: 'loja_principal' },
+          update: {},
+          create: { id: 'loja_principal', status: StatusLoja.ABERTO },
+        });
+        if (loja.status === StatusLoja.FECHADO) throw new Error('LOJA_FECHADA');
+        if (loja.status === StatusLoja.PAUSADO) {
+          const erro = new Error('LOJA_PAUSADA');
+          (erro as any).mensagemPausado = loja.mensagemPausado || null;
+          throw erro;
+        }
+      }
+
       // 1. Validar bairro e obter taxa (somente para entrega)
       let taxaEntrega = 0;
       if (tipoAtendimento === TipoAtendimentoPedido.ENTREGA) {
@@ -637,8 +654,11 @@ export class PedidoService {
       });
 
       // 5. Criar pedido com itens (transação)
-      const usaFluxoPix = formaPagamento === FormaPagamentoPedido.PIX;
-      const pagamentoExpiraEm = usaFluxoPix ? new Date(Date.now() + this.getCheckoutTtlMinutes() * 60 * 1000) : null;
+      const usaFluxoPagamentoOnline =
+        formaPagamento === FormaPagamentoPedido.PIX ||
+        formaPagamento === FormaPagamentoPedido.CARTAO_CREDITO ||
+        formaPagamento === FormaPagamentoPedido.CARTAO_DEBITO;
+      const pagamentoExpiraEm = usaFluxoPagamentoOnline ? new Date(Date.now() + this.getCheckoutTtlMinutes() * 60 * 1000) : null;
       const tokenAcesso = crypto.randomBytes(32).toString('hex');
       const pedido = await prisma.pedido.create({
         data: {
@@ -651,8 +671,8 @@ export class PedidoService {
           subtotal,
           taxaEntrega,
           total,
-          status: usaFluxoPix ? StatusPedido.AGUARDANDO_PAGAMENTO : StatusPedido.CONFIRMADO,
-          statusPagamento: usaFluxoPix ? StatusPagamento.PENDENTE : StatusPagamento.A_RECEBER,
+          status: usaFluxoPagamentoOnline ? StatusPedido.AGUARDANDO_PAGAMENTO : StatusPedido.CONFIRMADO,
+          statusPagamento: usaFluxoPagamentoOnline ? StatusPagamento.PENDENTE : StatusPagamento.A_RECEBER,
           statusMudouEm: new Date(),
           pagamentoExpiraEm,
           observacao,
@@ -685,7 +705,7 @@ export class PedidoService {
 
       await this.registrarTimeline(pedido.id, 'SISTEMA', 'Pedido criado');
       realtimeService.emit('pedido:novo', { id: pedido.id, status: pedido.status });
-      if (!usaFluxoPix) {
+      if (!usaFluxoPagamentoOnline) {
         logger.info('pedido.criar.sucesso_sem_pix', {
           pedidoId: pedido.id,
           formaPagamento,
@@ -695,7 +715,7 @@ export class PedidoService {
         return pedido;
       }
 
-      // 6. Criar link de pagamento no Mercado Pago
+      // 6. Criar link de pagamento no Mercado Pago para PIX/Cartão
       try {
         const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
         const redirectUrl = `${baseUrl}/pedido/${pedido.id}`;
@@ -763,7 +783,11 @@ export class PedidoService {
           total,
           tempoMs: Date.now() - inicioMs,
         });
-        // Pedido já foi criado — retorna sem link de pagamento
+        // Para cartão, sem link significa fluxo quebrado: aborta para evitar pedido "fantasma" sem checkout.
+        if (formaPagamento === FormaPagamentoPedido.CARTAO_CREDITO || formaPagamento === FormaPagamentoPedido.CARTAO_DEBITO) {
+          throw new Error('CHECKOUT_CARTAO_INDISPONIVEL');
+        }
+        // PIX pode seguir sem link para usar endpoint /pagamento/pix direto.
         return pedido;
       }
     } catch (error) {
@@ -877,7 +901,7 @@ export class PedidoService {
     const inicioMs = Date.now();
     const pedido = await prisma.pedido.findUnique({
       where: { id },
-      select: { id: true, status: true, statusPagamento: true, tipoAtendimento: true, motoboyId: true },
+      select: { id: true, status: true, statusPagamento: true, tipoAtendimento: true, motoboyId: true, observacaoEntrega: true },
     });
 
     if (!pedido) {
@@ -897,7 +921,8 @@ export class PedidoService {
       pedido.status === StatusPedido.PRONTO &&
       novoStatus === StatusPedido.SAIU_ENTREGA &&
       (pedido.tipoAtendimento ?? TipoAtendimentoPedido.ENTREGA) === TipoAtendimentoPedido.ENTREGA &&
-      !pedido.motoboyId
+      !pedido.motoboyId &&
+      !String(pedido.observacaoEntrega || '').startsWith('TERCEIRIZADA:')
     ) {
       throw new Error('DESPACHO_SEM_ENTREGADOR');
     }
@@ -939,8 +964,7 @@ export class PedidoService {
   }
 
   async listarMotoboyStatus() {
-    const inicioDia = new Date();
-    inicioDia.setHours(0, 0, 0, 0);
+    const { start: inicioDia } = getSaoPauloDayRange();
 
     const motoboys = await prisma.motoboy.findMany({
       orderBy: [{ status: 'asc' }, { nome: 'asc' }],
@@ -967,10 +991,16 @@ export class PedidoService {
     const entregasMap = new Map(entregasHoje.map((e) => [e.motoboyId, e._count._all]));
 
     return motoboys.map((m) => ({
+      // Status operacional derivado da carga atual para manter o cockpit consistente.
+      // Se houver rota ativa, considera EM_ENTREGA; INATIVO permanece INATIVO.
+      // Caso contrário, DISPONIVEL.
+      status: m.status === 'INATIVO'
+        ? 'INATIVO'
+        : (m.pedidos.length > 0 ? 'EM_ENTREGA' : 'DISPONIVEL'),
       id: m.id,
       nome: m.nome,
       telefone: m.telefone,
-      status: m.status,
+      empresa: m.empresa,
       rotasAtivas: m.pedidos.length,
       pedidosAtivos: m.pedidos.map((p) => p.id),
       entregasHoje: entregasMap.get(m.id) || 0,
@@ -985,8 +1015,29 @@ export class PedidoService {
       id: m.id,
       nome: m.nome,
       telefone: m.telefone,
+      empresa: m.empresa,
       status: m.status,
     }));
+  }
+
+  async criarMotoboy(input: { nome: string; telefone: string; empresa?: EmpresaEntrega; status?: 'DISPONIVEL' | 'EM_ENTREGA' | 'INATIVO' }) {
+    const telefone = input.telefone.replace(/\D/g, '');
+    const criado = await prisma.motoboy.create({
+      data: {
+        nome: input.nome.trim(),
+        telefone,
+        empresa: input.empresa || EmpresaEntrega.PROPRIO,
+        status: input.status || 'DISPONIVEL',
+      },
+      select: {
+        id: true,
+        nome: true,
+        telefone: true,
+        empresa: true,
+        status: true,
+      },
+    });
+    return criado;
   }
 
   async atribuirMotoboy(pedidoId: string, motoboyId: string | null, observacaoEntrega?: string, operadorNome?: string) {
@@ -1153,31 +1204,38 @@ export class PedidoService {
     return {
       status: loja.status,
       mensagem: loja.mensagemPausado,
+      entregadoresDisponiveisDia: loja.entregadoresDisponiveisDia ?? 0,
       atualizadoEm: loja.atualizadoEm.toISOString(),
     };
   }
 
-  async atualizarStatusLoja(status: StatusLoja, mensagem?: string) {
+  async atualizarStatusLoja(status: StatusLoja, mensagem?: string, entregadoresDisponiveisDia?: number) {
     if (status === StatusLoja.PAUSADO && !mensagem?.trim()) {
       throw new Error('MENSAGEM_PAUSADO_OBRIGATORIA');
     }
+    const entregadores = typeof entregadoresDisponiveisDia === 'number'
+      ? Math.max(0, Math.trunc(entregadoresDisponiveisDia))
+      : undefined;
 
     const loja = await prisma.lojaConfiguracao.upsert({
       where: { id: 'loja_principal' },
       update: {
         status,
         mensagemPausado: status === StatusLoja.PAUSADO ? mensagem!.trim() : null,
+        ...(entregadores !== undefined ? { entregadoresDisponiveisDia: entregadores } : {}),
       },
       create: {
         id: 'loja_principal',
         status,
         mensagemPausado: status === StatusLoja.PAUSADO ? mensagem!.trim() : null,
+        entregadoresDisponiveisDia: entregadores ?? 0,
       },
     });
 
     return {
       status: loja.status,
       mensagem: loja.mensagemPausado,
+      entregadoresDisponiveisDia: loja.entregadoresDisponiveisDia ?? 0,
       atualizadoEm: loja.atualizadoEm.toISOString(),
     };
   }
@@ -1649,12 +1707,9 @@ export class PedidoService {
   }
 
   async obterMetricasAdmin() {
-    const inicioDia = new Date();
-    inicioDia.setHours(0, 0, 0, 0);
-
-    const inicioOntem = new Date(inicioDia);
-    inicioOntem.setDate(inicioOntem.getDate() - 1);
-    const fimOntem = new Date(inicioDia);
+    const { start: inicioDia } = getSaoPauloDayRange();
+    const { start: inicioOntem } = getSaoPauloDayRange(new Date(inicioDia.getTime() - 24 * 60 * 60 * 1000));
+    const fimOntem = inicioDia;
 
     const statusesReceita: StatusPedido[] = [
       StatusPedido.CONFIRMADO,

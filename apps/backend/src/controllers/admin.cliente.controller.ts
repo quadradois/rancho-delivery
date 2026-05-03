@@ -3,6 +3,51 @@ import clienteService from '../services/cliente.service';
 import { logger } from '../config/logger';
 
 export class AdminClienteController {
+  async criarManual(req: Request, res: Response) {
+    try {
+      const data = await clienteService.criarManual({
+        telefone: String(req.body?.telefone || ''),
+        nome: String(req.body?.nome || ''),
+        endereco: String(req.body?.endereco || ''),
+        bairro: String(req.body?.bairro || ''),
+        origem: req.body?.origem,
+      });
+      return res.status(201).json({ success: true, data });
+    } catch (error: any) {
+      if (error.message === 'VALIDACAO_ERRO') {
+        return res.status(400).json({ success: false, error: { message: 'Telefone, nome, endereço e bairro são obrigatórios' } });
+      }
+      if (error.message === 'CLIENTE_JA_EXISTE') {
+        return res.status(409).json({ success: false, error: { message: 'Já existe cliente com este telefone' } });
+      }
+      logger.error('Erro ao criar cliente manual:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao criar cliente' } });
+    }
+  }
+
+  async listarGestao(req: Request, res: Response) {
+    try {
+      const segmento = typeof req.query.segmento === 'string' ? req.query.segmento : undefined;
+      const busca = typeof req.query.busca === 'string' ? req.query.busca : undefined;
+      const limite = typeof req.query.limite === 'string' ? Number(req.query.limite) : undefined;
+      const data = await clienteService.listarClientesGestao({ segmento, busca, limite });
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao listar clientes da gestao:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao listar clientes' } });
+    }
+  }
+
+  async metricasGestao(_req: Request, res: Response) {
+    try {
+      const data = await clienteService.obterMetricasClientesGestao();
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao obter metricas de clientes:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao obter métricas de clientes' } });
+    }
+  }
+
   async buscarClienteRapido(req: Request, res: Response) {
     try {
       const telefone = typeof req.query.telefone === 'string' ? req.query.telefone.trim() : '';
@@ -182,6 +227,38 @@ export class AdminClienteController {
         success: false,
         error: { message: 'Erro ao remover cliente da lista negra' },
       });
+    }
+  }
+
+  async atualizarAtivo(req: Request, res: Response) {
+    try {
+      const { telefone } = req.params;
+      const ativo = Boolean(req.body?.ativo);
+      const data = await clienteService.atualizarAtivo(telefone, ativo);
+      return res.json({ success: true, data });
+    } catch (error: any) {
+      if (error.message === 'CLIENTE_NAO_ENCONTRADO') {
+        return res.status(404).json({ success: false, error: { message: 'Cliente não encontrado' } });
+      }
+      logger.error('Erro ao atualizar status ativo cliente:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao atualizar status do cliente' } });
+    }
+  }
+
+  async excluir(req: Request, res: Response) {
+    try {
+      const { telefone } = req.params;
+      await clienteService.excluir(telefone);
+      return res.json({ success: true, data: { telefone } });
+    } catch (error: any) {
+      if (error.message === 'CLIENTE_NAO_ENCONTRADO') {
+        return res.status(404).json({ success: false, error: { message: 'Cliente não encontrado' } });
+      }
+      if (error.message === 'CLIENTE_COM_PEDIDOS') {
+        return res.status(409).json({ success: false, error: { message: 'Cliente possui pedidos e não pode ser excluído. Desative o cadastro.' } });
+      }
+      logger.error('Erro ao excluir cliente:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao excluir cliente' } });
     }
   }
   async atualizarNivelListaNegra(req: Request, res: Response) {

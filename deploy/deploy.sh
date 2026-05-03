@@ -6,6 +6,13 @@ PM2_HOME="/home/deploy/.pm2"
 
 cd "$APP_DIR"
 
+ensure_writable_artifacts() {
+  # Garante ownership correto antes de limpar artefatos de build.
+  chown -R deploy:www-data "$APP_DIR/apps/frontend/.next" "$APP_DIR/apps/backend/dist" 2>/dev/null || true
+  rm -rf "$APP_DIR/apps/frontend/.next" "$APP_DIR/apps/backend/dist"
+}
+
+ensure_writable_artifacts
 git pull --ff-only
 pnpm install --frozen-lockfile
 pnpm build

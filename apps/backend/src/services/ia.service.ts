@@ -1,5 +1,6 @@
 import prisma from '../config/database';
 import { StatusPedido } from '@prisma/client';
+import { getSaoPauloDayRange } from '../utils/timezone';
 
 export type TipoSugestao =
   | 'PREPARO_ACIMA_MEDIA'
@@ -22,8 +23,7 @@ export class IaService {
   async gerarSugestoes(): Promise<Sugestao[]> {
     const sugestoes: Sugestao[] = [];
     const agora = new Date();
-    const inicioDia = new Date(agora);
-    inicioDia.setHours(0, 0, 0, 0);
+    const { start: inicioDia } = getSaoPauloDayRange(agora);
 
     // 1. Preparo acima da média
     const pedidosEmPreparo = await prisma.pedido.findMany({

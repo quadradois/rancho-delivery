@@ -211,6 +211,7 @@ export interface ClienteResumoAdmin {
   endereco: string;
   bairro: string;
   origem: string;
+  ativo: boolean;
   totalPedidos: number;
   valorGasto: number;
   primeiroPedido: string | null;
@@ -222,6 +223,32 @@ export interface ClienteResumoAdmin {
   motivoListaNegra: string | null;
   nivelListaNegra: number | null;
   totalOcorrencias: number;
+}
+
+export interface ClienteGestaoItem {
+  telefone: string;
+  nome: string;
+  bairro: string;
+  endereco: string;
+  ativo: boolean;
+  origem: string;
+  criadoEm: string;
+  ultimoPedidoEm: string | null;
+  diasSemPedir: number;
+  totalPedidos: number;
+  totalGasto: number;
+  ticketMedio: number;
+  segmento: 'NOVO' | 'ATIVO' | 'EM_RISCO' | 'INATIVO' | 'VIP';
+  produtoFavorito: string | null;
+  mensagemSugerida: string;
+}
+
+export interface ClienteGestaoMetricas {
+  total: number;
+  porSegmento: Record<'NOVO' | 'ATIVO' | 'EM_RISCO' | 'INATIVO' | 'VIP', number>;
+  inativos: number;
+  emRisco: number;
+  potencialRecuperacao: number;
 }
 
 export interface WhatsAppStatusAdmin {
@@ -238,6 +265,7 @@ export interface MotoboyAdmin {
   id: string;
   nome: string;
   telefone: string;
+  empresa: 'PROPRIO' | 'IFOOD' | 'MUVE' | 'FOOD99';
   status: 'DISPONIVEL' | 'EM_ENTREGA' | 'INATIVO';
 }
 
@@ -250,6 +278,7 @@ export interface MotoboyStatusAdmin extends MotoboyAdmin {
 export interface LojaStatusAdmin {
   status: 'ABERTO' | 'FECHADO' | 'PAUSADO';
   mensagem?: string | null;
+  entregadoresDisponiveisDia: number;
   atualizadoEm: string;
 }
 
@@ -287,6 +316,17 @@ export interface RelatorioDia {
   mensagensTotal: number;
   piorHorario: string | null;
   produtoMaisVendido: string | null;
+  entregasRealizadas: number;
+  taxaEntregaTotal: number;
+  entregasPorResponsavel: Array<{
+    responsavel: string;
+    quantidade: number;
+    taxaTotal: number;
+  }> | null;
+  entregasPorHora: Array<{
+    hora: string;
+    quantidade: number;
+  }> | null;
 }
 
 export interface ConfiguracaoAlerta {
@@ -532,6 +572,10 @@ export const adminPedidoService = {
     return apiClient.get<MotoboyAdmin[]>('/admin/motoboys');
   },
 
+  async criarMotoboy(payload: { nome: string; telefone: string; empresa?: 'PROPRIO' | 'IFOOD' | 'MUVE' | 'FOOD99'; status?: 'DISPONIVEL' | 'EM_ENTREGA' | 'INATIVO' }): Promise<MotoboyAdmin> {
+    return apiClient.post<MotoboyAdmin>('/admin/motoboys', payload);
+  },
+
   async atribuirMotoboy(id: string, motoboyId: string | null, observacaoEntrega?: string): Promise<any> {
     return apiClient.patch(`/admin/pedidos/${id}/motoboy`, { motoboyId, observacaoEntrega });
   },
@@ -556,8 +600,8 @@ export const adminPedidoService = {
     return apiClient.get<LojaStatusAdmin>('/admin/loja/status');
   },
 
-  async atualizarStatusLoja(status: 'ABERTO' | 'FECHADO' | 'PAUSADO', mensagem?: string): Promise<LojaStatusAdmin> {
-    return apiClient.patch<LojaStatusAdmin>('/admin/loja/status', { status, mensagem });
+  async atualizarStatusLoja(status: 'ABERTO' | 'FECHADO' | 'PAUSADO', mensagem?: string, entregadoresDisponiveisDia?: number): Promise<LojaStatusAdmin> {
+    return apiClient.patch<LojaStatusAdmin>('/admin/loja/status', { status, mensagem, entregadoresDisponiveisDia });
   },
 
   async obterFilaUrgente(): Promise<FilaUrgenteItem[]> {
@@ -570,6 +614,29 @@ export const adminPedidoService = {
 };
 
 export const adminClienteService = {
+  async criar(payload: {
+    telefone: string;
+    nome: string;
+    endereco: string;
+    bairro: string;
+    origem?: 'SITE' | 'WHATSAPP' | 'MINERACAO' | 'INDICACAO' | 'CAMPANHA';
+  }): Promise<any> {
+    return apiClient.post('/admin/clientes', payload);
+  },
+
+  async listarGestao(params?: { segmento?: string; busca?: string; limite?: number }): Promise<ClienteGestaoItem[]> {
+    const qs = new URLSearchParams();
+    if (params?.segmento) qs.set('segmento', params.segmento);
+    if (params?.busca) qs.set('busca', params.busca);
+    if (params?.limite) qs.set('limite', String(params.limite));
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return apiClient.get<ClienteGestaoItem[]>(`/admin/clientes${suffix}`);
+  },
+
+  async obterMetricasGestao(): Promise<ClienteGestaoMetricas> {
+    return apiClient.get<ClienteGestaoMetricas>('/admin/clientes/metricas');
+  },
+
   async obterConversasNaoLidas(): Promise<ConversaNaoLida[]> {
     return apiClient.get<ConversaNaoLida[]>('/admin/conversas/nao-lidas');
   },
@@ -610,6 +677,14 @@ export const adminClienteService = {
 
   async obterResumo(telefone: string): Promise<ClienteResumoAdmin> {
     return apiClient.get<ClienteResumoAdmin>(`/admin/clientes/${telefone}`);
+  },
+
+  async atualizarAtivo(telefone: string, ativo: boolean): Promise<any> {
+    return apiClient.patch(`/admin/clientes/${telefone}/ativo`, { ativo });
+  },
+
+  async excluir(telefone: string): Promise<any> {
+    return apiClient.delete(`/admin/clientes/${telefone}`);
   },
 
   async adicionarListaNegra(telefone: string, motivo: string): Promise<any> {

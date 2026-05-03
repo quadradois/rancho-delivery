@@ -7,7 +7,12 @@ router.get('/whatsapp/status', adminClienteController.statusWhatsApp.bind(adminC
 router.post('/whatsapp/setup', adminClienteController.prepararConexaoWhatsApp.bind(adminClienteController));
 router.post('/whatsapp/qrcode', adminClienteController.atualizarQrCodeWhatsApp.bind(adminClienteController));
 router.get('/conversas/nao-lidas', adminClienteController.conversasNaoLidas.bind(adminClienteController));
+router.post('/clientes', adminClienteController.criarManual.bind(adminClienteController));
+router.get('/clientes', adminClienteController.listarGestao.bind(adminClienteController));
+router.get('/clientes/metricas', adminClienteController.metricasGestao.bind(adminClienteController));
 router.get('/clientes/buscar', adminClienteController.buscarClienteRapido.bind(adminClienteController));
+router.patch('/clientes/:telefone/ativo', adminClienteController.atualizarAtivo.bind(adminClienteController));
+router.delete('/clientes/:telefone', adminClienteController.excluir.bind(adminClienteController));
 router.get('/clientes/:telefone/mensagens', adminClienteController.listarMensagens.bind(adminClienteController));
 router.post('/clientes/:telefone/mensagens', adminClienteController.enviarMensagem.bind(adminClienteController));
 router.get('/clientes/:telefone', adminClienteController.resumoCliente.bind(adminClienteController));

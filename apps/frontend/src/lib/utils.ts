@@ -1,6 +1,8 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+const SAO_PAULO_TZ = 'America/Sao_Paulo';
+
 /**
  * Utility function to merge Tailwind CSS classes
  */
@@ -27,6 +29,7 @@ export function formatDate(date: Date | string): string {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
+    timeZone: SAO_PAULO_TZ,
   }).format(dateObj);
 }
 
@@ -38,6 +41,7 @@ export function formatTime(date: Date | string): string {
   return new Intl.DateTimeFormat('pt-BR', {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: SAO_PAULO_TZ,
   }).format(dateObj);
 }
 

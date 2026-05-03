@@ -20,6 +20,13 @@ const schemaAtualizarEndereco = z.object({
   bairro: z.string().trim().min(1, 'Bairro obrigatório'),
 });
 
+const schemaCriarMotoboy = z.object({
+  nome: z.string().trim().min(2, 'Nome obrigatório'),
+  telefone: z.string().trim().min(8, 'Telefone obrigatório'),
+  empresa: z.enum(['PROPRIO', 'IFOOD', 'MUVE', 'FOOD99']).optional().default('PROPRIO'),
+  status: z.enum(['DISPONIVEL', 'EM_ENTREGA', 'INATIVO']).optional().default('DISPONIVEL'),
+});
+
 const schemaCriarManual = z.object({
   pagamentoMetodo: z.enum(['PIX', 'DINHEIRO', 'CARTAO_CREDITO', 'CARTAO_DEBITO']),
   tipoAtendimento: z.enum(['ENTREGA', 'RETIRADA', 'CONSUMO_LOCAL']).optional().default('ENTREGA'),
@@ -46,6 +53,7 @@ const schemaCancelar = z.object({
 const schemaStatusLoja = z.object({
   status: z.string().min(1),
   mensagem: z.string().optional(),
+  entregadoresDisponiveisDia: z.number().int().min(0).optional(),
 });
 
 const schemaMercadoPagoConfig = z.object({
@@ -246,6 +254,29 @@ export class AdminPedidoController {
   }
 
   /**
+   * POST /api/admin/motoboys
+   */
+  async criarMotoboy(req: Request, res: Response) {
+    try {
+      const parsed = validar(schemaCriarMotoboy, req.body);
+      if ('error' in parsed) {
+        return res.status(400).json({ success: false, error: { message: parsed.error, code: 'VALIDACAO_INVALIDA' } });
+      }
+      const data = await pedidoService.criarMotoboy(parsed.data);
+      return res.status(201).json({ success: true, data });
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        return res.status(409).json({ success: false, error: { message: 'Telefone já cadastrado', code: 'MOTOBOY_TELEFONE_DUPLICADO' } });
+      }
+      logger.error('Erro ao criar motoboy:', error);
+      return res.status(500).json({
+        success: false,
+        error: { message: 'Erro ao criar motoboy' },
+      });
+    }
+  }
+
+  /**
    * PATCH /api/admin/pedidos/:id/motoboy
    */
   async atribuirMotoboy(req: Request, res: Response) {
@@ -429,7 +460,7 @@ export class AdminPedidoController {
       if ('error' in parsed) {
         return res.status(400).json({ success: false, error: { message: parsed.error, code: 'STATUS_LOJA_INVALIDO' } });
       }
-      const { status, mensagem } = parsed.data;
+      const { status, mensagem, entregadoresDisponiveisDia } = parsed.data;
       const validos = Object.values(StatusLoja);
       if (!validos.includes(status as StatusLoja)) {
         return res.status(400).json({
@@ -437,7 +468,7 @@ export class AdminPedidoController {
           error: { message: 'Status de loja inválido', code: 'STATUS_LOJA_INVALIDO' },
         });
       }
-      const data = await pedidoService.atualizarStatusLoja(status as StatusLoja, mensagem);
+      const data = await pedidoService.atualizarStatusLoja(status as StatusLoja, mensagem, entregadoresDisponiveisDia);
       realtimeService.emit('loja:status', data);
       return res.json({ success: true, data });
     } catch (error: any) {

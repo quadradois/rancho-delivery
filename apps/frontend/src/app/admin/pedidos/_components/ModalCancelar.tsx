@@ -3,7 +3,6 @@
 import { AdminPedidoDetalhe } from '@/lib/api';
 import { CrmButton, CrmModal } from '@/components/crm';
 import { CANCEL_MOTIVOS } from './_utils';
-import api from '@/lib/api';
 
 interface Props {
   open: boolean;
@@ -41,13 +40,7 @@ export function ModalCancelar({
           <CrmButton
             size="sm"
             variant="ghost"
-            onClick={async () => {
-              if (!pedidoDetalhe) return;
-              const confirmar = window.confirm('Confirma marcar estorno como realizado?');
-              if (!confirmar) return;
-              await api.adminPedidos.marcarEstorno(pedidoDetalhe.id);
-              onEstornoRealizado();
-            }}
+            onClick={() => void onEstornoRealizado()}
           >
             Marcar estorno realizado
           </CrmButton>

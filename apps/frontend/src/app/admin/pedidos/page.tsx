@@ -56,6 +56,13 @@ import {
   motivoBloqueioAcao,
 } from './_components/_utils';
 
+const EMPRESA_LABEL: Record<'PROPRIO' | 'IFOOD' | 'MUVE' | 'FOOD99', string> = {
+  PROPRIO: 'Próprio',
+  IFOOD: 'iFood',
+  MUVE: 'Muve',
+  FOOD99: '99Food',
+};
+const PARCEIRAS = ['IFOOD', 'MUVE', 'FOOD99'] as const;
 
 export default function AdminPedidosPage() {
   const { showSuccess, showError } = useToast();
@@ -106,17 +113,26 @@ export default function AdminPedidosPage() {
   const [textoMensagem, setTextoMensagem] = useState('');
   const [motivoListaNegra, setMotivoListaNegra] = useState('');
   const [motoboys, setMotoboys] = useState<MotoboyAdmin[]>([]);
+  const [tipoEntregaOperacao, setTipoEntregaOperacao] = useState<'PROPRIA' | 'TERCEIRIZADA'>('PROPRIA');
+  const [empresaTerceirizada, setEmpresaTerceirizada] = useState<(typeof PARCEIRAS)[number]>('IFOOD');
   const [produtos, setProdutos] = useState<Produto[]>([]);
   const [selectedMotoboyId, setSelectedMotoboyId] = useState('');
   const [observacaoEntrega, setObservacaoEntrega] = useState('');
-  const [enderecoEntrega, setEnderecoEntrega] = useState('');
-  const [bairroEntrega, setBairroEntrega] = useState('');
   const [showManualModal, setShowManualModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showLojaStatusModal, setShowLojaStatusModal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [confirmTitle, setConfirmTitle] = useState('Confirmar ação');
+  const [confirmMessage, setConfirmMessage] = useState('');
+  const [confirmLabel, setConfirmLabel] = useState('Confirmar');
+  const [confirmVariant, setConfirmVariant] = useState<'primary' | 'danger'>('primary');
+  const confirmActionRef = useRef<null | (() => Promise<void>)>(null);
+  const [statusLojaModal, setStatusLojaModal] = useState<'ABERTO' | 'FECHADO' | 'PAUSADO'>('ABERTO');
   const [manualPixLink, setManualPixLink] = useState<string | null>(null);
   const [motivoCancelamento, setMotivoCancelamento] = useState(CANCEL_MOTIVOS[0]);
   const [lojaStatus, setLojaStatus] = useState<LojaStatusAdmin | null>(null);
   const [mensagemPausa, setMensagemPausa] = useState('');
+  const [entregadoresDisponiveisDia, setEntregadoresDisponiveisDia] = useState(0);
   const [manualForm, setManualForm] = useState({
     nome: '',
     telefone: '',
@@ -129,6 +145,21 @@ export default function AdminPedidosPage() {
     valorDinheiro: '',
     observacao: '',
   });
+
+  const abrirConfirmacao = useCallback((opts: {
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    variant?: 'primary' | 'danger';
+    action: () => Promise<void>;
+  }) => {
+    setConfirmTitle(opts.title);
+    setConfirmMessage(opts.message);
+    setConfirmLabel(opts.confirmLabel || 'Confirmar');
+    setConfirmVariant(opts.variant || 'primary');
+    confirmActionRef.current = opts.action;
+    setShowConfirmModal(true);
+  }, []);
 
   // Auto-ativar modo pico quando há muitos pedidos ativos
   useEffect(() => {
@@ -215,15 +246,21 @@ export default function AdminPedidosPage() {
       const data = await api.adminPedidos.buscarPorId(id);
       setPedidoDetalhe(data);
       setSelectedMotoboyId(data.motoboy?.id || '');
+      const obsEntrega = String(data.observacaoEntrega || '');
+      if (obsEntrega.startsWith('TERCEIRIZADA:')) {
+        setTipoEntregaOperacao('TERCEIRIZADA');
+        const parceiro = obsEntrega.replace('TERCEIRIZADA:', '').trim().toUpperCase() as (typeof PARCEIRAS)[number];
+        if (PARCEIRAS.includes(parceiro)) setEmpresaTerceirizada(parceiro);
+      } else {
+        setTipoEntregaOperacao('PROPRIA');
+      }
       setObservacaoEntrega(data.observacaoEntrega || '');
-      setEnderecoEntrega(data.cliente.endereco || '');
-      setBairroEntrega(data.cliente.bairro || '');
     } catch (error: any) {
       showError('Falha ao carregar detalhe', error?.message || 'Tente novamente.');
     } finally {
       if (!opts?.silent) setLoadingDetail(false);
     }
-  }, [showError]);
+  }, [motoboys, showError]);
 
   const carregarResumoCliente = useCallback(async (telefone: string) => {
     try {
@@ -271,6 +308,7 @@ export default function AdminPedidosPage() {
       const data = await api.adminPedidos.obterStatusLoja();
       setLojaStatus(data);
       setMensagemPausa(data.mensagem || '');
+      setEntregadoresDisponiveisDia(data.entregadoresDisponiveisDia || 0);
     } catch (error: any) {
       showError('Falha ao carregar status da loja', error?.message || 'Tente novamente.');
     }
@@ -313,6 +351,15 @@ export default function AdminPedidosPage() {
   useEffect(() => {
     if (selectedId) void carregarDetalhe(selectedId);
   }, [selectedId, carregarDetalhe]);
+
+  useEffect(() => {
+    if (tipoEntregaOperacao !== 'PROPRIA') return;
+    if (!selectedMotoboyId) return;
+    const filtrados = motoboys.filter((m) => m.empresa === 'PROPRIO');
+    if (!filtrados.some((m) => m.id === selectedMotoboyId)) {
+      setSelectedMotoboyId('');
+    }
+  }, [tipoEntregaOperacao, motoboys, selectedMotoboyId]);
 
   useEffect(() => {
     if (!pedidoDetalhe?.cliente?.telefone) return;
@@ -368,6 +415,11 @@ export default function AdminPedidosPage() {
       preparo: pedidos.filter((p) => p.status === 'PREPARANDO').length,
     }),
     [pedidos]
+  );
+
+  const motoboysProprios = useMemo(
+    () => motoboys.filter((m) => m.empresa === 'PROPRIO'),
+    [motoboys]
   );
 
   const unreadTotal = useMemo(
@@ -573,44 +625,45 @@ export default function AdminPedidosPage() {
     const idx = STATUS_FLOW.indexOf(atual as (typeof STATUS_FLOW)[number]);
     if (idx < 0 || idx === STATUS_FLOW.length - 1) return;
     const proximo = STATUS_FLOW[idx + 1];
-    const confirmarEntregue = atual === 'SAIU_ENTREGA' && proximo === 'ENTREGUE';
-    if (confirmarEntregue) {
-      const ok = window.confirm('Confirma marcar este pedido como entregue?');
-      if (!ok) return;
+    const executar = async () => {
+      setSavingStatus(true);
+      try {
+        await api.adminPedidos.atualizarStatus(pedidoDetalhe.id, proximo);
+        await Promise.all([carregarLista(), carregarDetalhe(pedidoDetalhe.id)]);
+        showSuccess('Status atualizado', `Pedido #${pedidoDetalhe.numero} movido para ${labelStatus(proximo)}.`);
+      } catch (error: any) {
+        showError('Falha ao atualizar status', error?.message || 'Tente novamente.');
+      } finally {
+        setSavingStatus(false);
+      }
+    };
+    if (atual === 'SAIU_ENTREGA' && proximo === 'ENTREGUE') {
+      abrirConfirmacao({
+        title: 'Confirmar entrega',
+        message: 'Confirma marcar este pedido como entregue?',
+        confirmLabel: 'Marcar entregue',
+        variant: 'primary',
+        action: executar,
+      });
+      return;
     }
-    setSavingStatus(true);
-    try {
-      await api.adminPedidos.atualizarStatus(pedidoDetalhe.id, proximo);
-      await Promise.all([carregarLista(), carregarDetalhe(pedidoDetalhe.id)]);
-      showSuccess('Status atualizado', `Pedido #${pedidoDetalhe.numero} movido para ${labelStatus(proximo)}.`);
-    } catch (error: any) {
-      showError('Falha ao atualizar status', error?.message || 'Tente novamente.');
-    } finally {
-      setSavingStatus(false);
-    }
-  }, [pedidoDetalhe, savingStatus, carregarLista, carregarDetalhe, showSuccess, showError]);
+    await executar();
+  }, [pedidoDetalhe, savingStatus, carregarLista, carregarDetalhe, showSuccess, showError, abrirConfirmacao]);
 
   const salvarEntrega = useCallback(async () => {
     if (!pedidoDetalhe) return;
     try {
-      await api.adminPedidos.atribuirMotoboy(pedidoDetalhe.id, selectedMotoboyId || null, observacaoEntrega || undefined);
+      const payloadObservacao = tipoEntregaOperacao === 'TERCEIRIZADA'
+        ? `TERCEIRIZADA:${empresaTerceirizada}`
+        : (observacaoEntrega || undefined);
+      const motoboyId = tipoEntregaOperacao === 'PROPRIA' ? (selectedMotoboyId || null) : null;
+      await api.adminPedidos.atribuirMotoboy(pedidoDetalhe.id, motoboyId, payloadObservacao);
       await carregarDetalhe(pedidoDetalhe.id);
       showSuccess('Entrega atualizada');
     } catch (error: any) {
       showError('Falha ao atualizar entrega', error?.message || 'Tente novamente.');
     }
-  }, [pedidoDetalhe, selectedMotoboyId, observacaoEntrega, carregarDetalhe, showSuccess, showError]);
-
-  const salvarEnderecoEntrega = useCallback(async () => {
-    if (!pedidoDetalhe) return;
-    try {
-      await api.adminPedidos.atualizarEnderecoEntrega(pedidoDetalhe.id, enderecoEntrega, bairroEntrega);
-      await carregarDetalhe(pedidoDetalhe.id);
-      showSuccess('Endereço de entrega atualizado');
-    } catch (error: any) {
-      showError('Falha ao atualizar endereço', error?.message || 'Tente novamente.');
-    }
-  }, [pedidoDetalhe, enderecoEntrega, bairroEntrega, carregarDetalhe, showSuccess, showError]);
+  }, [pedidoDetalhe, tipoEntregaOperacao, empresaTerceirizada, selectedMotoboyId, observacaoEntrega, carregarDetalhe, showSuccess, showError]);
 
   const enviarMensagem = useCallback(async () => {
     if (!pedidoDetalhe?.cliente?.telefone) return;
@@ -661,8 +714,6 @@ export default function AdminPedidosPage() {
       showError('Ação bloqueada', 'Pedido em status final');
       return;
     }
-    const confirmar = window.confirm('Confirma o cancelamento deste pedido?');
-    if (!confirmar) return;
     try {
       await api.adminPedidos.cancelar(pedidoDetalhe.id, motivoCancelamento);
       setShowCancelModal(false);
@@ -707,15 +758,28 @@ export default function AdminPedidosPage() {
     }
   }, [manualForm, carregarLista, showSuccess, showError]);
 
-  const atualizarStatusLoja = useCallback(async (status: 'ABERTO' | 'FECHADO' | 'PAUSADO') => {
+  const atualizarStatusLoja = useCallback(async (status: 'ABERTO' | 'FECHADO' | 'PAUSADO', capacidade?: number) => {
     try {
-      const data = await api.adminPedidos.atualizarStatusLoja(status, status === 'PAUSADO' ? mensagemPausa : undefined);
+      const data = await api.adminPedidos.atualizarStatusLoja(
+        status,
+        status === 'PAUSADO' ? mensagemPausa : undefined,
+        capacidade
+      );
       setLojaStatus(data);
+      setEntregadoresDisponiveisDia(data.entregadoresDisponiveisDia || 0);
       showSuccess('Status da loja atualizado');
     } catch (error: any) {
       showError('Falha ao atualizar status da loja', error?.message || 'Tente novamente.');
     }
   }, [mensagemPausa, showSuccess, showError]);
+
+  const salvarStatusLojaModal = useCallback(async () => {
+    await atualizarStatusLoja(
+      statusLojaModal,
+      statusLojaModal === 'ABERTO' ? entregadoresDisponiveisDia : undefined
+    );
+    setShowLojaStatusModal(false);
+  }, [atualizarStatusLoja, statusLojaModal, entregadoresDisponiveisDia]);
 
   const handleAtribuirMotoboy = useCallback(async (motoboyId: string, pedidoId: string) => {
     try {
@@ -744,12 +808,6 @@ export default function AdminPedidosPage() {
     }
   }, []);
 
-  const fecharLojaComConfirmacao = useCallback(async () => {
-    const confirmar = window.confirm('Tem certeza que deseja fechar a loja agora?');
-    if (!confirmar) return;
-    await atualizarStatusLoja('FECHADO');
-  }, [atualizarStatusLoja]);
-
   const handleFilaAceitar = useCallback(async (id: string) => {
     try {
       await api.adminPedidos.atualizarStatus(id, 'CONFIRMADO');
@@ -770,16 +828,22 @@ export default function AdminPedidosPage() {
   }, []);
 
   const handleFilaEstorno = useCallback(async (id: string) => {
-    try {
-      const confirmar = window.confirm('Confirma marcar estorno como realizado?');
-      if (!confirmar) return;
-      await api.adminPedidos.marcarEstorno(id);
-      await Promise.all([carregarFilaUrgente(), selectedId === id ? carregarDetalhe(id) : Promise.resolve()]);
-      showSuccess('Estorno marcado como realizado');
-    } catch (error: any) {
-      showError('Falha ao marcar estorno', error?.message || 'Tente novamente.');
-    }
-  }, [carregarFilaUrgente, carregarDetalhe, selectedId, showSuccess, showError]);
+    abrirConfirmacao({
+      title: 'Confirmar estorno',
+      message: 'Confirma marcar estorno como realizado?',
+      confirmLabel: 'Marcar estorno',
+      variant: 'danger',
+      action: async () => {
+        try {
+          await api.adminPedidos.marcarEstorno(id);
+          await Promise.all([carregarFilaUrgente(), selectedId === id ? carregarDetalhe(id) : Promise.resolve()]);
+          showSuccess('Estorno marcado como realizado');
+        } catch (error: any) {
+          showError('Falha ao marcar estorno', error?.message || 'Tente novamente.');
+        }
+      },
+    });
+  }, [carregarFilaUrgente, carregarDetalhe, selectedId, showSuccess, showError, abrirConfirmacao]);
 
   return (
     <div className="p-5 md:p-6">
@@ -796,8 +860,10 @@ export default function AdminPedidosPage() {
         onToggleMuted={() => setMuted(!muted)}
         onNovoPedidoManual={() => setShowManualModal(true)}
         lojaStatus={lojaStatus}
-        onAtualizarStatusLoja={(s) => void atualizarStatusLoja(s)}
-        onFecharLoja={() => void fecharLojaComConfirmacao()}
+        onGerenciarLojaStatus={() => {
+          setStatusLojaModal(lojaStatus?.status || 'ABERTO');
+          setShowLojaStatusModal(true);
+        }}
         onAtualizar={() => void carregarLista()}
         onCarregarConversas={() => void carregarConversas()}
       />
@@ -833,13 +899,6 @@ export default function AdminPedidosPage() {
       />
 
       <MetricasBar items={metricItems} />
-
-      {lojaStatus?.status === 'PAUSADO' && (
-        <div className="mb-4 flex gap-2">
-          <input value={mensagemPausa} onChange={(e) => setMensagemPausa(e.target.value)} className="h-9 flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-sm" />
-          <CrmButton size="sm" onClick={() => void atualizarStatusLoja('PAUSADO')}>Salvar pausa</CrmButton>
-        </div>
-      )}
 
       <FiltrosBusca
         busca={busca}
@@ -896,7 +955,6 @@ export default function AdminPedidosPage() {
               <CrmTab defaultValue="pedido">
                 <CrmTabList>
                   <CrmTabTrigger value="pedido">Pedido</CrmTabTrigger>
-                  <CrmTabTrigger value="entrega">Entrega</CrmTabTrigger>
                   <CrmTabTrigger value="whatsapp" onClick={async () => {
                     await carregarMensagens(pedidoDetalhe.cliente.telefone, true);
                     await carregarLista();
@@ -972,9 +1030,44 @@ export default function AdminPedidosPage() {
                                 </CrmButton>
                               </div>
                               {pedidoDetalhe.status === 'PRONTO' && pedidoDetalhe.aguardandoEntregador && (
-                                <p className="text-xs text-[var(--color-warning-text)]">
-                                  Atribua um motoboy na aba <strong>Entrega</strong> para despachar este pedido.
-                                </p>
+                                <div className="space-y-2 rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-muted)] p-2">
+                                  <p className="text-xs text-[var(--color-warning-text)]">
+                                    Defina o tipo de entrega aqui para despachar sem sair desta aba.
+                                  </p>
+                                  <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
+                                    <select
+                                      value={tipoEntregaOperacao}
+                                      onChange={(e) => setTipoEntregaOperacao(e.target.value as any)}
+                                      className="h-9 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-xs"
+                                    >
+                                      <option value="PROPRIA">Própria</option>
+                                      <option value="TERCEIRIZADA">Terceirizada</option>
+                                    </select>
+                                    {tipoEntregaOperacao === 'PROPRIA' ? (
+                                      <select
+                                        value={selectedMotoboyId}
+                                        onChange={(e) => setSelectedMotoboyId(e.target.value)}
+                                        className="h-9 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-xs md:col-span-2"
+                                      >
+                                        <option value="">Selecione entregador próprio</option>
+                                        {motoboysProprios.map((m) => (
+                                          <option key={m.id} value={m.id}>{m.nome} · {m.status}</option>
+                                        ))}
+                                      </select>
+                                    ) : (
+                                      <select
+                                        value={empresaTerceirizada}
+                                        onChange={(e) => setEmpresaTerceirizada(e.target.value as any)}
+                                        className="h-9 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-2 text-xs md:col-span-2"
+                                      >
+                                        {PARCEIRAS.map((emp) => (
+                                          <option key={emp} value={emp}>{EMPRESA_LABEL[emp]}</option>
+                                        ))}
+                                      </select>
+                                    )}
+                                  </div>
+                                  <CrmButton size="sm" onClick={() => void salvarEntrega()}>Salvar entregador</CrmButton>
+                                </div>
                               )}
                             </>
                           );
@@ -1006,25 +1099,6 @@ export default function AdminPedidosPage() {
                       <p className="text-sm text-[var(--color-text-primary)]">{pedidoDetalhe.cliente.endereco} · {pedidoDetalhe.cliente.bairro}</p>
                     </div>
                     <PedidoTicket pedido={pedidoDetalhe} />
-                  </div>
-                </CrmTabPanel>
-
-                <CrmTabPanel value="entrega">
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                      <input value={enderecoEntrega} onChange={(e) => setEnderecoEntrega(e.target.value)} placeholder="Endereço" className="h-10 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm" />
-                      <input value={bairroEntrega} onChange={(e) => setBairroEntrega(e.target.value)} placeholder="Bairro" className="h-10 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm" />
-                    </div>
-                    {clienteResumo?.endereco && clienteResumo.endereco !== enderecoEntrega && <div className="rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-muted)] p-2 text-xs text-[var(--color-warning-text)]">Endereço atual diferente do histórico do cliente.</div>}
-                    <select value={selectedMotoboyId} onChange={(e) => setSelectedMotoboyId(e.target.value)} className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm">
-                      <option value="">Sem motoboy</option>
-                      {motoboys.map((m) => <option key={m.id} value={m.id}>{m.nome} · {m.status}</option>)}
-                    </select>
-                    <textarea value={observacaoEntrega} onChange={(e) => setObservacaoEntrega(e.target.value)} rows={3} className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 py-2 text-sm" />
-                    <div className="flex gap-2">
-                      <CrmButton size="sm" onClick={() => void salvarEnderecoEntrega()}>Salvar endereço</CrmButton>
-                      <CrmButton size="sm" onClick={() => void salvarEntrega()}>Salvar entrega</CrmButton>
-                    </div>
                   </div>
                 </CrmTabPanel>
 
@@ -1155,12 +1229,104 @@ export default function AdminPedidosPage() {
         onMotivoChange={setMotivoCancelamento}
         onConfirmar={() => void cancelarPedido()}
         onEstornoRealizado={async () => {
-          if (pedidoDetalhe) {
-            await carregarDetalhe(pedidoDetalhe.id);
-            showSuccess('Estorno marcado como realizado');
-          }
+          if (!pedidoDetalhe) return;
+          abrirConfirmacao({
+            title: 'Confirmar estorno',
+            message: 'Confirma marcar estorno como realizado?',
+            confirmLabel: 'Marcar estorno',
+            variant: 'danger',
+            action: async () => {
+              await api.adminPedidos.marcarEstorno(pedidoDetalhe.id);
+              await carregarDetalhe(pedidoDetalhe.id);
+              showSuccess('Estorno marcado como realizado');
+            },
+          });
         }}
       />
+      <CrmModal
+        open={showConfirmModal}
+        onClose={() => {
+          setShowConfirmModal(false);
+          confirmActionRef.current = null;
+        }}
+        title={confirmTitle}
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--color-text-secondary)]">{confirmMessage}</p>
+          <div className="flex justify-end gap-2">
+            <CrmButton
+              variant="ghost"
+              onClick={() => {
+                setShowConfirmModal(false);
+                confirmActionRef.current = null;
+              }}
+            >
+              Cancelar
+            </CrmButton>
+            <CrmButton
+              variant={confirmVariant}
+              onClick={async () => {
+                const action = confirmActionRef.current;
+                setShowConfirmModal(false);
+                confirmActionRef.current = null;
+                if (action) await action();
+              }}
+            >
+              {confirmLabel}
+            </CrmButton>
+          </div>
+        </div>
+      </CrmModal>
+      <CrmModal
+        open={showLojaStatusModal}
+        onClose={() => setShowLojaStatusModal(false)}
+        title="Status da loja"
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-[var(--color-text-secondary)]">Defina o status operacional da loja para este turno.</p>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[var(--color-text-primary)]">Status</label>
+            <select
+              value={statusLojaModal}
+              onChange={(e) => setStatusLojaModal(e.target.value as any)}
+              className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm"
+            >
+              <option value="ABERTO">Aberto</option>
+              <option value="PAUSADO">Pausado</option>
+              <option value="FECHADO">Fechado</option>
+            </select>
+          </div>
+          {statusLojaModal === 'PAUSADO' && (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[var(--color-text-primary)]">Mensagem de pausa</label>
+              <input
+                value={mensagemPausa}
+                onChange={(e) => setMensagemPausa(e.target.value)}
+                placeholder="Ex.: Voltamos às 14:00"
+                className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm"
+              />
+            </div>
+          )}
+          {statusLojaModal === 'ABERTO' && (
+          <div>
+            <label className="mb-1 block text-sm font-medium text-[var(--color-text-primary)]">
+              Entregadores disponíveis hoje
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={Number.isFinite(entregadoresDisponiveisDia) ? entregadoresDisponiveisDia : 0}
+              onChange={(e) => setEntregadoresDisponiveisDia(Math.max(0, Number(e.target.value || 0)))}
+              className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm"
+            />
+          </div>
+          )}
+          <div className="flex justify-end gap-2 pt-2">
+            <CrmButton variant="ghost" onClick={() => setShowLojaStatusModal(false)}>Cancelar</CrmButton>
+            <CrmButton onClick={() => void salvarStatusLojaModal()}>Salvar status</CrmButton>
+          </div>
+        </div>
+      </CrmModal>
 
       <ModalRelatorio
         open={showRelatorioModal}

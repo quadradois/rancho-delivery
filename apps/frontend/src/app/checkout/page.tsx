@@ -12,6 +12,7 @@ import { formatCurrency } from '@/lib/utils';
 import api, { CriarPedidoDTO } from '@/lib/api';
 import { initMercadoPagoSdk } from '@/lib/mercadopago';
 import { getCepValidado, salvarCepValidado } from '@/components/ui/ModalVerificacaoCep';
+import { getCustomerProfile, saveCustomerProfile } from '@/lib/customer-profile';
 import { z } from 'zod';
 
 const CHECKOUT_RECOVERY_KEY = 'rancho:checkout_recovery';
@@ -188,6 +189,7 @@ export default function CheckoutPage() {
   const [errors, setErrors] = useState<AddressErrors>({});
   const [recoveryData, setRecoveryData] = useState<ReturnType<typeof lerRecovery>>(null);
   const [pixData, setPixData] = useState<PixData | null>(null);
+  const [checkingPixStatus, setCheckingPixStatus] = useState(false);
 
   const [addressForm, setAddressForm] = useState<AddressForm>({
     nome: '', telefone: '', email: '', cep: '', rua: '', bairro: '',
@@ -226,6 +228,16 @@ export default function CheckoutPage() {
       setCartDeliveryFee(draft.deliveryFee || 0);
       setCepAtendido(Boolean(draft.cepAtendido));
     }
+    const perfil = getCustomerProfile();
+    if (perfil) {
+      setAddressForm((prev) => ({
+        ...prev,
+        nome: prev.nome || perfil.nome || '',
+        telefone: prev.telefone || perfil.telefone || '',
+        bairro: prev.bairro || perfil.bairro || '',
+        cep: prev.cep || (perfil.cep ? formatarCep(perfil.cep) : ''),
+      }));
+    }
     // Sem recovery: redirecionar se carrinho vazio
     if (items.length === 0) router.push('/');
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -239,6 +251,44 @@ export default function CheckoutPage() {
     if (currentStep === 'return') return;
     salvarDraft({ addressForm, paymentForm, deliveryFee, cepAtendido });
   }, [addressForm, paymentForm, deliveryFee, cepAtendido, currentStep]);
+
+  useEffect(() => {
+    if (!(currentStep === 'return' && pixData?.pedidoId)) return;
+
+    let ativo = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let redirecionou = false;
+
+    const checarStatus = async () => {
+      if (!ativo || redirecionou) return;
+      try {
+        setCheckingPixStatus(true);
+        const pedido = await api.pedidos.buscarPorId(pixData.pedidoId);
+        const status = String((pedido as any)?.status || '').toUpperCase();
+        if (status === 'CONFIRMADO' || status === 'PREPARANDO' || status === 'PRONTO' || status === 'SAIU_ENTREGA' || status === 'ENTREGUE') {
+          redirecionou = true;
+          showSuccess('Pagamento confirmado!', 'Seu pedido foi atualizado.');
+          router.push(`/pedido/${pixData.pedidoId}`);
+          return;
+        }
+      } catch {
+        // Ignora falha pontual de rede e tenta novamente.
+      } finally {
+        if (ativo && !redirecionou) {
+          setCheckingPixStatus(false);
+          timer = setTimeout(checarStatus, 4000);
+        }
+      }
+    };
+
+    void checarStatus();
+
+    return () => {
+      ativo = false;
+      if (timer) clearTimeout(timer);
+      setCheckingPixStatus(false);
+    };
+  }, [currentStep, pixData, router, showSuccess]);
 
   useEffect(() => {
     const tipoAnterior = prevTipoAtendimentoRef.current;
@@ -434,6 +484,14 @@ export default function CheckoutPage() {
         tipoAtendimento,
       };
 
+      saveCustomerProfile({
+        nome: addressForm.nome,
+        telefone: addressForm.telefone.replace(/\D/g, ''),
+        endereco: enderecoCompleto,
+        bairro: addressForm.bairro,
+        cep: addressForm.cep.replace(/\D/g, ''),
+      });
+
       const pedido = await api.pedidos.criar(pedidoData);
       if ((pedido as any).tokenAcesso) {
         api.pedidos.setTokenByPedidoId(pedido.id, (pedido as any).tokenAcesso);
@@ -441,12 +499,23 @@ export default function CheckoutPage() {
       showSuccess('Pedido realizado!', `Pedido #${pedido.id.slice(-8)}`);
 
       if (paymentForm.formaPagamento === 'pix') {
-        const pix = await api.pedidos.gerarPagamentoPix(pedido.id);
-        limparDraft();
-        clearCart();
-        setPixData(pix);
-        setCurrentStep('return');
-        return;
+        try {
+          const pix = await api.pedidos.gerarPagamentoPix(pedido.id);
+          limparDraft();
+          clearCart();
+          setPixData(pix);
+          setCurrentStep('return');
+          return;
+        } catch {
+          if (pedido.linkPagamento) {
+            showError('PIX direto indisponível', 'Redirecionando para pagamento Mercado Pago.');
+            limparDraft();
+            clearCart();
+            window.location.href = pedido.linkPagamento;
+            return;
+          }
+          throw new Error('Falha ao iniciar pagamento PIX');
+        }
       }
 
       if (pedido.linkPagamento) {
@@ -579,6 +648,9 @@ export default function CheckoutPage() {
             ) : null}
 
             <div className="rounded-xl p-4 space-y-3" style={{ background: '#251208', border: '1px solid #3E2214' }}>
+              {checkingPixStatus ? (
+                <p className="text-xs text-[#E8A040]">Verificando pagamento...</p>
+              ) : null}
               <p className="text-xs text-[#9A7B5C]">Pix copia e cola</p>
               <textarea
                 readOnly
@@ -621,12 +693,20 @@ export default function CheckoutPage() {
 
       <main className="flex-1 overflow-y-auto pb-32">
         <div className="container py-6 max-w-2xl">
-          {!lojaAberta && lojaStatus && (
-            <div className="rounded-2xl p-4 mb-6 border border-[#E8A040]/35 bg-[#251208]">
-              <p className="font-brand font-black uppercase tracking-wider text-[#E8A040]">
-                {lojaStatus.status === 'PAUSADO' ? 'Loja pausada' : 'Loja fechada'}
+          {lojaStatus && (
+            <div className={`rounded-2xl p-4 mb-6 border ${
+              lojaAberta
+                ? 'border-[#4A7840]/45 bg-[#1E2A1E]'
+                : 'border-[#E8A040]/35 bg-[#251208]'
+            }`}>
+              <p className={`font-brand font-black uppercase tracking-wider ${
+                lojaAberta ? 'text-[#93C48B]' : 'text-[#E8A040]'
+              }`}>
+                {lojaAberta ? 'Loja aberta' : lojaStatus.status === 'PAUSADO' ? 'Loja pausada' : 'Loja fechada'}
               </p>
-              <p className="text-sm text-[#E8D4B0] mt-1">{lojaMensagem}</p>
+              <p className={`text-sm mt-1 ${lojaAberta ? 'text-[#CFE7C9]' : 'text-[#E8D4B0]'}`}>
+                {lojaAberta ? 'Checkout disponível para novos pedidos.' : lojaMensagem}
+              </p>
             </div>
           )}
 

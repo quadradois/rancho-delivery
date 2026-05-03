@@ -57,12 +57,20 @@ export default function CartPage() {
 
       <main className="flex-1 overflow-y-auto pb-32">
         <div className="container py-6 space-y-4">
-          {!lojaAberta && lojaStatus && (
-            <div className="rounded-2xl p-4 border border-[#E8A040]/35 bg-[#251208]">
-              <p className="font-brand font-black uppercase tracking-wider text-[#E8A040]">
-                {lojaStatus.status === 'PAUSADO' ? 'Loja pausada' : 'Loja fechada'}
+          {lojaStatus && (
+            <div className={`rounded-2xl p-4 border ${
+              lojaAberta
+                ? 'border-[#4A7840]/45 bg-[#1E2A1E]'
+                : 'border-[#E8A040]/35 bg-[#251208]'
+            }`}>
+              <p className={`font-brand font-black uppercase tracking-wider ${
+                lojaAberta ? 'text-[#93C48B]' : 'text-[#E8A040]'
+              }`}>
+                {lojaAberta ? 'Loja aberta' : lojaStatus.status === 'PAUSADO' ? 'Loja pausada' : 'Loja fechada'}
               </p>
-              <p className="text-sm text-[#E8D4B0] mt-1">{lojaMensagem}</p>
+              <p className={`text-sm mt-1 ${lojaAberta ? 'text-[#CFE7C9]' : 'text-[#E8D4B0]'}`}>
+                {lojaAberta ? 'Você pode finalizar seu pedido normalmente.' : lojaMensagem}
+              </p>
             </div>
           )}
 

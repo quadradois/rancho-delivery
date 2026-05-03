@@ -16,8 +16,7 @@ interface Props {
   onToggleMuted: () => void;
   onNovoPedidoManual: () => void;
   lojaStatus: LojaStatusAdmin | null;
-  onAtualizarStatusLoja: (status: 'ABERTO' | 'FECHADO' | 'PAUSADO') => void;
-  onFecharLoja: () => void;
+  onGerenciarLojaStatus: () => void;
   onAtualizar: () => void;
   onCarregarConversas: () => void;
 }
@@ -35,11 +34,16 @@ export function CockpitHeader({
   onToggleMuted,
   onNovoPedidoManual,
   lojaStatus,
-  onAtualizarStatusLoja,
-  onFecharLoja,
+  onGerenciarLojaStatus,
   onAtualizar,
   onCarregarConversas,
 }: Props) {
+  const lojaStatusLabel = lojaStatus?.status === 'ABERTO'
+    ? 'Loja aberta'
+    : lojaStatus?.status === 'PAUSADO'
+    ? 'Loja pausada'
+    : 'Loja fechada';
+
   return (
     <div className="mb-4 flex items-center justify-between">
       <div>
@@ -83,9 +87,13 @@ export function CockpitHeader({
           {muted ? 'Ligar som' : 'Desligar som'}
         </CrmButton>
         <CrmButton size="sm" onClick={onNovoPedidoManual}>Pedido manual</CrmButton>
-        <CrmButton size="sm" variant={lojaStatus?.status === 'ABERTO' ? 'primary' : 'ghost'} onClick={() => onAtualizarStatusLoja('ABERTO')}>Abrir</CrmButton>
-        <CrmButton size="sm" variant={lojaStatus?.status === 'PAUSADO' ? 'danger' : 'ghost'} onClick={() => onAtualizarStatusLoja('PAUSADO')}>Pausar</CrmButton>
-        <CrmButton size="sm" variant={lojaStatus?.status === 'FECHADO' ? 'danger' : 'ghost'} onClick={onFecharLoja}>Fechar</CrmButton>
+        <CrmButton
+          size="sm"
+          variant={lojaStatus?.status === 'ABERTO' ? 'primary' : lojaStatus?.status === 'PAUSADO' ? 'danger' : 'ghost'}
+          onClick={onGerenciarLojaStatus}
+        >
+          {lojaStatusLabel}
+        </CrmButton>
         <CrmButton variant="ghost" onClick={onAtualizar}>Atualizar</CrmButton>
       </div>
     </div>

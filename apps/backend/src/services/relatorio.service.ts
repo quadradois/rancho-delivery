@@ -1,18 +1,14 @@
 import prisma from '../config/database';
 import { logger } from '../config/logger';
-import { StatusPedido } from '@prisma/client';
+import { StatusPedido, TipoAtendimentoPedido } from '@prisma/client';
+import { getSaoPauloDayRange } from '../utils/timezone';
 
 export class RelatorioService {
   async gerarRelatorioDia(data?: Date): Promise<any> {
     const hoje = data || new Date();
-    const inicioDia = new Date(hoje);
-    inicioDia.setHours(0, 0, 0, 0);
-    const fimDia = new Date(hoje);
-    fimDia.setHours(23, 59, 59, 999);
-
-    const inicioOntem = new Date(inicioDia);
-    inicioOntem.setDate(inicioOntem.getDate() - 1);
-    const fimOntem = new Date(inicioDia);
+    const { start: inicioDia, end: fimDia } = getSaoPauloDayRange(hoje);
+    const { start: inicioOntem } = getSaoPauloDayRange(new Date(inicioDia.getTime() - 24 * 60 * 60 * 1000));
+    const fimOntem = inicioDia;
 
     const statusesReceita: StatusPedido[] = [
       StatusPedido.CONFIRMADO,
@@ -38,10 +34,13 @@ export class RelatorioService {
           id: true,
           status: true,
           total: true,
+          tipoAtendimento: true,
+          taxaEntrega: true,
           canceladoMotivo: true,
           criadoEm: true,
           statusMudouEm: true,
-          atualizadoEm: true,
+          motoboy: { select: { nome: true } },
+          observacaoEntrega: true,
         },
       }),
       prisma.pedido.aggregate({
@@ -82,6 +81,9 @@ export class RelatorioService {
     const pedidosRecebidos = pedidosHoje.length;
     const pedidosEntregues = pedidosHoje.filter((p) => p.status === StatusPedido.ENTREGUE).length;
     const pedidosCancelados = cancelamentos.length;
+    const entregasConcluidas = pedidosHoje.filter(
+      (p) => p.status === StatusPedido.ENTREGUE && p.tipoAtendimento === TipoAtendimentoPedido.ENTREGA
+    );
 
     const motivosCancelamento: Record<string, number> = {};
     for (const c of cancelamentos) {
@@ -92,6 +94,26 @@ export class RelatorioService {
     const receitaBrutaNum = Number(receitaBruta._sum.total || 0);
     const receitaOntemNum = Number(receitaOntem._sum.total || 0);
     const ticketMedio = pedidosEntregues > 0 ? receitaBrutaNum / pedidosEntregues : 0;
+    const taxaEntregaTotal = entregasConcluidas.reduce((acc, p) => acc + Number(p.taxaEntrega || 0), 0);
+
+    const entregasResponsavelMap = new Map<string, { responsavel: string; quantidade: number; taxaTotal: number }>();
+    const entregasPorHoraMap = new Map<string, number>();
+    for (const entrega of entregasConcluidas) {
+      const hora = `${String(new Date(entrega.statusMudouEm).getHours()).padStart(2, '0')}h`;
+      entregasPorHoraMap.set(hora, (entregasPorHoraMap.get(hora) || 0) + 1);
+
+      const responsavel = entrega.motoboy?.nome
+        || (entrega.observacaoEntrega?.startsWith('TERCEIRIZADA:') ? entrega.observacaoEntrega.replace('TERCEIRIZADA:', '').trim() : null)
+        || 'Não informado';
+      const atual = entregasResponsavelMap.get(responsavel) || { responsavel, quantidade: 0, taxaTotal: 0 };
+      atual.quantidade += 1;
+      atual.taxaTotal += Number(entrega.taxaEntrega || 0);
+      entregasResponsavelMap.set(responsavel, atual);
+    }
+    const entregasPorResponsavel = Array.from(entregasResponsavelMap.values()).sort((a, b) => b.quantidade - a.quantidade);
+    const entregasPorHora = Array.from(entregasPorHoraMap.entries())
+      .map(([hora, quantidade]) => ({ hora, quantidade }))
+      .sort((a, b) => a.hora.localeCompare(b.hora));
 
     const piorHorario = pedidosPorHora[0]
       ? `${String(pedidosPorHora[0].hora).padStart(2, '0')}h`
@@ -121,6 +143,10 @@ export class RelatorioService {
       mensagensTotal,
       piorHorario,
       produtoMaisVendido: produtoNome,
+      entregasRealizadas: entregasConcluidas.length,
+      taxaEntregaTotal,
+      entregasPorResponsavel,
+      entregasPorHora,
     };
 
     // Salvar snapshot
@@ -139,6 +165,10 @@ export class RelatorioService {
           mensagensTotal,
           piorHorario,
           produtoMaisVendido: produtoNome,
+          entregasRealizadas: entregasConcluidas.length,
+          taxaEntregaTotal,
+          entregasPorResponsavel,
+          entregasPorHora,
         },
         create: {
           data: inicioDia,
@@ -153,6 +183,10 @@ export class RelatorioService {
           mensagensTotal,
           piorHorario,
           produtoMaisVendido: produtoNome,
+          entregasRealizadas: entregasConcluidas.length,
+          taxaEntregaTotal,
+          entregasPorResponsavel,
+          entregasPorHora,
         },
       });
     } catch (err) {
@@ -173,6 +207,7 @@ export class RelatorioService {
       receitaBruta: Number(r.receitaBruta),
       ticketMedio: Number(r.ticketMedio),
       receitaOntem: r.receitaOntem ? Number(r.receitaOntem) : null,
+      taxaEntregaTotal: Number(r.taxaEntregaTotal),
     }));
   }
 }

@@ -79,6 +79,11 @@ export function ListaPedidos({
                       </CrmBadge>
                       <span className="text-sm font-semibold text-[var(--color-accent)]">{formatCurrency(pedido.total)}</span>
                     </div>
+                    <div className="mt-2">
+                      <CrmBadge variant={toBadgeVariant(pedido.status)}>
+                        Fluxo: {labelStatus(pedido.status)}
+                      </CrmBadge>
+                    </div>
                     {pedido.aguardandoEntregador && (
                       <div className="mt-2"><CrmBadge variant="waiting">Aguardando entregador</CrmBadge></div>
                     )}

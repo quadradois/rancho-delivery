@@ -50,12 +50,16 @@ export function CrmTabList({ className, ...props }: React.HTMLAttributes<HTMLDiv
 export function CrmTabTrigger({ value, className, ...props }: CrmTabTriggerProps) {
   const context = useContext(TabsContext);
   if (!context) throw new Error('CrmTabTrigger must be used inside CrmTab');
+  const { onClick, ...rest } = props;
 
   const active = context.value === value;
   return (
     <button
       type="button"
-      onClick={() => context.setValue(value)}
+      onClick={(event) => {
+        context.setValue(value);
+        onClick?.(event);
+      }}
       className={cn(
         'inline-flex h-8 items-center rounded px-3 text-sm font-semibold transition-colors',
         active
@@ -63,7 +67,7 @@ export function CrmTabTrigger({ value, className, ...props }: CrmTabTriggerProps
           : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]',
         className
       )}
-      {...props}
+      {...rest}
     />
   );
 }

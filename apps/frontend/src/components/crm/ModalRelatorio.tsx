@@ -77,6 +77,14 @@ export default function ModalRelatorio({
                 </p>
                 <p className="text-[10px] text-[var(--color-text-tertiary)]">respondidas</p>
               </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Entregas realizadas</p>
+                <p className="text-lg font-bold text-[var(--color-text-primary)]">{relatorio.entregasRealizadas}</p>
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Taxa de entrega</p>
+                <p className="text-lg font-bold text-[var(--color-text-primary)]">{formatCurrency(relatorio.taxaEntregaTotal)}</p>
+              </div>
             </div>
 
             {relatorio.piorHorario && (
@@ -98,6 +106,26 @@ export default function ModalRelatorio({
                     {motivo}: <span className="font-semibold">{qtd}x</span>
                   </p>
                 ))}
+              </div>
+            )}
+
+            {relatorio.entregasPorResponsavel && relatorio.entregasPorResponsavel.length > 0 && (
+              <div className="border-t border-[var(--color-border)] pt-3">
+                <p className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Entregas por responsável</p>
+                {relatorio.entregasPorResponsavel.map((item) => (
+                  <p key={item.responsavel} className="text-xs text-[var(--color-text-secondary)]">
+                    {item.responsavel}: <span className="font-semibold">{item.quantidade} entrega(s)</span> · {formatCurrency(item.taxaTotal)}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            {relatorio.entregasPorHora && relatorio.entregasPorHora.length > 0 && (
+              <div className="border-t border-[var(--color-border)] pt-3">
+                <p className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Quando as entregas foram feitas</p>
+                <p className="text-xs text-[var(--color-text-secondary)]">
+                  {relatorio.entregasPorHora.map((h) => `${h.hora}: ${h.quantidade}`).join(' · ')}
+                </p>
               </div>
             )}
           </div>

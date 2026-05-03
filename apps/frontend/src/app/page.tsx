@@ -16,6 +16,7 @@ import { useToast } from '@/contexts/ToastContext';
 import useLojaStatus from '@/hooks/useLojaStatus';
 import { formatCurrency } from '@/lib/utils';
 import api, { Produto } from '@/lib/api';
+import { getCustomerProfile } from '@/lib/customer-profile';
 
 const CATEGORIES = [
   { id: 'all', label: 'Todos' },
@@ -34,6 +35,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [taxaEntrega, setTaxaEntrega] = useState<number | undefined>(undefined);
   const [tempoEntrega, setTempoEntrega] = useState<number | undefined>(undefined);
+  const [customerProfile, setCustomerProfile] = useState<ReturnType<typeof getCustomerProfile>>(null);
 
   // Drawers
   const [cartOpen, setCartOpen] = useState(false);
@@ -52,6 +54,11 @@ export default function Home() {
       lojaMensagem || 'No momento não estamos recebendo novos pedidos.'
     );
   };
+
+  // Carregar produtos da API
+  useEffect(() => {
+    setCustomerProfile(getCustomerProfile());
+  }, [profileOpen]);
 
   // Carregar produtos da API
   useEffect(() => {
@@ -204,12 +211,20 @@ export default function Home() {
             }}
           />
 
-          {!lojaAberta && lojaStatus && (
-            <div className="rounded-2xl p-4 border border-[#E8A040]/35 bg-[#251208]">
-              <p className="font-brand font-black uppercase tracking-wider text-[#E8A040]">
-                {lojaStatus.status === 'PAUSADO' ? 'Loja pausada' : 'Loja fechada'}
+          {lojaStatus && (
+            <div className={`rounded-2xl p-4 border ${
+              lojaAberta
+                ? 'border-[#4A7840]/45 bg-[#1E2A1E]'
+                : 'border-[#E8A040]/35 bg-[#251208]'
+            }`}>
+              <p className={`font-brand font-black uppercase tracking-wider ${
+                lojaAberta ? 'text-[#93C48B]' : 'text-[#E8A040]'
+              }`}>
+                {lojaAberta ? 'Loja aberta' : lojaStatus.status === 'PAUSADO' ? 'Loja pausada' : 'Loja fechada'}
               </p>
-              <p className="text-sm text-[#E8D4B0] mt-1">{lojaMensagem}</p>
+              <p className={`text-sm mt-1 ${lojaAberta ? 'text-[#CFE7C9]' : 'text-[#E8D4B0]'}`}>
+                {lojaAberta ? 'Estamos recebendo pedidos agora.' : lojaMensagem}
+              </p>
             </div>
           )}
 
@@ -432,8 +447,12 @@ export default function Home() {
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
               </svg>
             </div>
-            <p className="text-[#F4E8CC] font-semibold">Visitante</p>
-            <p className="text-[#9A7B5C] text-sm">Faça seu pedido para se cadastrar</p>
+            <p className="text-[#F4E8CC] font-semibold">{customerProfile?.nome || 'Visitante'}</p>
+            <p className="text-[#9A7B5C] text-sm">
+              {customerProfile?.telefone
+                ? `WhatsApp: ${customerProfile.telefone}`
+                : 'Faça seu pedido para se cadastrar'}
+            </p>
           </div>
 
           <div className="flex flex-col gap-3">
