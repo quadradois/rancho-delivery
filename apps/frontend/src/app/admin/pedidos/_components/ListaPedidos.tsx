@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { AdminPedidoListaItem } from '@/lib/api';
 import { formatCurrency } from '@/lib/utils';
 import { CrmBadge, CrmButton, CrmCard, CrmTimer } from '@/components/crm';
@@ -59,12 +60,18 @@ export function ListaPedidos({
                   <p className={`truncate font-semibold text-[var(--color-text-primary)] ${modoPico ? 'text-base' : 'text-sm'}`}>{pedido.clienteNome}</p>
                   {!modoPico && <p className="truncate text-xs text-[var(--color-text-secondary)]">{pedido.bairro}</p>}
                   <p className={`mt-1 truncate text-[var(--color-text-tertiary)] ${modoPico ? 'text-sm' : 'text-xs'}`}>{pedido.itensResumo.join(' + ')}</p>
+                  <p className={`mt-1 truncate text-[var(--color-text-tertiary)] ${modoPico ? 'text-xs' : 'text-[11px]'}`}>
+                    {(pedido.formaPagamento || 'PIX').replace('_', ' ')} · {(pedido.tipoAtendimento || 'ENTREGA').replace('_', ' ')}
+                  </p>
                   <div className="mt-2 flex items-center justify-between">
                     <CrmBadge variant={pedido.statusPagamento === 'CONFIRMADO' ? 'paid' : pedido.statusPagamento === 'EXPIRADO' ? 'expired' : 'unpaid'}>
                       {paymentIcon(pedido.statusPagamento)} {pedido.statusPagamento}
                     </CrmBadge>
                     <span className="text-sm font-semibold text-[var(--color-accent)]">{formatCurrency(pedido.total)}</span>
                   </div>
+                  {pedido.aguardandoEntregador && (
+                    <div className="mt-2"><CrmBadge variant="waiting">Aguardando entregador</CrmBadge></div>
+                  )}
                   {pedido.mensagensNaoLidas > 0 && (
                     <div className="mt-2"><CrmBadge variant="waiting">{pedido.mensagensNaoLidas} msg</CrmBadge></div>
                   )}
@@ -72,8 +79,8 @@ export function ListaPedidos({
                     <CrmButton
                       size="sm"
                       className="w-full"
-                      disabled={pedido.statusPagamento !== 'CONFIRMADO' || pedido.status !== 'AGUARDANDO_PAGAMENTO'}
-                      title={pedido.statusPagamento !== 'CONFIRMADO' ? 'Aguardando pagamento' : 'Confirmar pedido'}
+                      disabled={!['CONFIRMADO', 'A_RECEBER'].includes(pedido.statusPagamento) || pedido.status !== 'AGUARDANDO_PAGAMENTO'}
+                      title={!['CONFIRMADO', 'A_RECEBER'].includes(pedido.statusPagamento) ? 'Aguardando pagamento' : 'Confirmar pedido'}
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();

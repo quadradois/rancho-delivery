@@ -12,6 +12,8 @@ interface ClienteRapido {
   topProdutos: Array<{ id: string; nome: string; preco: number }>;
 }
 
+type TipoAtendimento = 'ENTREGA' | 'RETIRADA' | 'CONSUMO_LOCAL';
+
 interface ModalPedidoManualProps {
   open: boolean;
   onClose: () => void;
@@ -23,6 +25,7 @@ interface ModalPedidoManualProps {
     pagamentoMetodo: 'PIX' | 'DINHEIRO';
     valorDinheiro?: number;
     observacao?: string;
+    tipoAtendimento: TipoAtendimento;
   }) => Promise<void>;
 }
 
@@ -54,6 +57,7 @@ export default function ModalPedidoManual({
   const [observacao, setObservacao] = useState('');
   const [buscaProduto, setBuscaProduto] = useState('');
 
+  const [tipoAtendimento, setTipoAtendimento] = useState<TipoAtendimento>('ENTREGA');
   const [pagamento, setPagamento] = useState<'PIX' | 'DINHEIRO'>('PIX');
   const [valorDinheiro, setValorDinheiro] = useState('');
 
@@ -71,6 +75,7 @@ export default function ModalPedidoManual({
       setQuantidade(1);
       setObservacao('');
       setBuscaProduto('');
+      setTipoAtendimento('ENTREGA');
       setPagamento('PIX');
       setValorDinheiro('');
       setClienteEncontrado(null);
@@ -113,8 +118,11 @@ export default function ModalPedidoManual({
 
   const produtoSelecionado = produtos.find((p) => p.id === produtoId);
 
+  const precisaEndereco = tipoAtendimento === 'ENTREGA';
+
   const handleCriar = async () => {
-    if (!telefone || !nome || !endereco || !bairro || !produtoId) return;
+    if (!telefone || !nome || !produtoId) return;
+    if (precisaEndereco && (!endereco || !bairro)) return;
     setCriando(true);
     try {
       await onCriar({
@@ -123,6 +131,7 @@ export default function ModalPedidoManual({
         pagamentoMetodo: pagamento,
         valorDinheiro: pagamento === 'DINHEIRO' ? Number(valorDinheiro || 0) : undefined,
         observacao: observacao || undefined,
+        tipoAtendimento,
       });
       onClose();
     } finally {
@@ -153,6 +162,21 @@ export default function ModalPedidoManual({
       {passo === 1 && (
         <div className="space-y-3">
           <div>
+            <label className="mb-2 block text-xs font-semibold text-[var(--color-text-secondary)]">Tipo de atendimento</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['ENTREGA', 'RETIRADA', 'CONSUMO_LOCAL'] as TipoAtendimento[]).map((tipo) => (
+                <CrmButton
+                  key={tipo}
+                  size="sm"
+                  variant={tipoAtendimento === tipo ? 'primary' : 'ghost'}
+                  onClick={() => setTipoAtendimento(tipo)}
+                >
+                  {tipo === 'ENTREGA' ? 'Entrega' : tipo === 'RETIRADA' ? 'Retirada' : 'No local'}
+                </CrmButton>
+              ))}
+            </div>
+          </div>
+          <div>
             <label className="mb-1 block text-xs font-semibold text-[var(--color-text-secondary)]">Telefone</label>
             <div className="flex gap-2">
               <input
@@ -175,18 +199,20 @@ export default function ModalPedidoManual({
             <label className="mb-1 block text-xs font-semibold text-[var(--color-text-secondary)]">Nome</label>
             <input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Nome do cliente" className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm" />
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-[var(--color-text-secondary)]">Endereço</label>
-              <input value={endereco} onChange={(e) => setEndereco(e.target.value)} placeholder="Rua, número" className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm" />
+          {precisaEndereco && (
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-[var(--color-text-secondary)]">Endereço</label>
+                <input value={endereco} onChange={(e) => setEndereco(e.target.value)} placeholder="Rua, número" className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm" />
+              </div>
+              <div>
+                <label className="mb-1 block text-xs font-semibold text-[var(--color-text-secondary)]">Bairro</label>
+                <input value={bairro} onChange={(e) => setBairro(e.target.value)} placeholder="Bairro" className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm" />
+              </div>
             </div>
-            <div>
-              <label className="mb-1 block text-xs font-semibold text-[var(--color-text-secondary)]">Bairro</label>
-              <input value={bairro} onChange={(e) => setBairro(e.target.value)} placeholder="Bairro" className="h-9 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm" />
-            </div>
-          </div>
+          )}
           <div className="flex justify-end">
-            <CrmButton disabled={!telefone || !nome || !endereco || !bairro} onClick={() => setPasso(2)}>
+            <CrmButton disabled={!telefone || !nome || (precisaEndereco && (!endereco || !bairro))} onClick={() => setPasso(2)}>
               Próximo →
             </CrmButton>
           </div>
@@ -257,7 +283,9 @@ export default function ModalPedidoManual({
         <div className="space-y-3">
           <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3 text-sm">
             <p className="font-semibold text-[var(--color-text-primary)]">{nome}</p>
-            <p className="text-[var(--color-text-secondary)]">{endereco} · {bairro}</p>
+            <p className="text-[var(--color-text-secondary)]">
+              {tipoAtendimento === 'ENTREGA' ? `${endereco} · ${bairro}` : tipoAtendimento === 'RETIRADA' ? 'Retirada no balcão' : 'Consumo no local'}
+            </p>
             <p className="mt-1 text-[var(--color-text-secondary)]">
               {produtoSelecionado?.nome} × {quantidade}
               {produtoSelecionado && ` = ${formatCurrency(produtoSelecionado.preco * quantidade)}`}

@@ -17,6 +17,7 @@ export class RelatorioService {
     const statusesReceita: StatusPedido[] = [
       StatusPedido.CONFIRMADO,
       StatusPedido.PREPARANDO,
+      StatusPedido.PRONTO,
       StatusPedido.SAIU_ENTREGA,
       StatusPedido.ENTREGUE,
     ];

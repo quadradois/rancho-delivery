@@ -9,8 +9,8 @@ const criarPedidoSchema = z.object({
   cliente: z.object({
     telefone: z.string().min(10),
     nome: z.string().min(3),
-    endereco: z.string().min(10),
-    bairro: z.string().min(3),
+    endereco: z.string().optional().default(''),
+    bairro: z.string().optional().default(''),
     cep: z.string().min(8).optional(),
   }),
   itens: z.array(z.object({
@@ -19,6 +19,11 @@ const criarPedidoSchema = z.object({
     observacao: z.string().optional(),
   })).min(1),
   observacao: z.string().optional(),
+  pagamento: z.object({
+    forma: z.enum(['PIX', 'DINHEIRO', 'CARTAO_CREDITO', 'CARTAO_DEBITO']),
+    trocoPara: z.number().positive().optional(),
+  }).optional(),
+  tipoAtendimento: z.enum(['ENTREGA', 'RETIRADA', 'CONSUMO_LOCAL']).optional(),
 });
 
 const registrarNpsSchema = z.object({
@@ -123,6 +128,16 @@ export class PedidoController {
         });
       }
 
+      if (error.message === 'ENDERECO_OBRIGATORIO_ENTREGA') {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: 'Endereço e bairro são obrigatórios para entregas',
+            code: 'ENDERECO_OBRIGATORIO_ENTREGA',
+          },
+        });
+      }
+
       if (error.message?.includes('Produto não encontrado')) {
         return res.status(400).json({
           success: false,
@@ -139,6 +154,15 @@ export class PedidoController {
           error: {
             message: error.message,
             code: 'PRODUTO_INDISPONIVEL',
+          },
+        });
+      }
+      if (error.message === 'TROCO_INVALIDO') {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: 'Valor de troco deve ser maior ou igual ao total do pedido',
+            code: 'TROCO_INVALIDO',
           },
         });
       }

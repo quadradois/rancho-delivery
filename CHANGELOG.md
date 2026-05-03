@@ -15,6 +15,20 @@ e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR
 
 ---
 
+## [0.9.0] - 2026-05-03
+
+### Adicionado
+- Componente de ticket de pedido no painel administrativo.
+- Novos testes E2E do backend e testes adicionais no frontend para lista/ticket/utilitários de pedidos.
+- Novas migrações Prisma para `status_pronto`, pagamento e tipo de atendimento.
+
+### Alterado
+- Fluxo de pedidos no backend e frontend (checkout, listagem admin, métricas e cancelamento).
+- Tipagens compartilhadas de domínio entre backend/frontend.
+- Configuração de CI/CD com workflow de release SemVer por tag automática.
+
+---
+
 ## [0.8.0] - 2026-04-30
 
 ### Adicionado

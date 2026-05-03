@@ -34,6 +34,11 @@ export interface CriarPedidoDTO {
   };
   itens: ItemPedido[];
   observacao?: string;
+  pagamento?: {
+    forma: 'PIX' | 'DINHEIRO' | 'CARTAO_CREDITO' | 'CARTAO_DEBITO';
+    trocoPara?: number;
+  };
+  tipoAtendimento?: 'ENTREGA' | 'RETIRADA' | 'CONSUMO_LOCAL';
 }
 
 export interface Pedido {
@@ -41,8 +46,9 @@ export interface Pedido {
   numero?: number | string;
   clienteTelefone: string;
   clienteNome: string;
-  formaPagamento: string;
+  formaPagamento: 'PIX' | 'DINHEIRO' | 'CARTAO_CREDITO' | 'CARTAO_DEBITO' | string;
   trocoParaValor?: number;
+  tipoAtendimento?: 'ENTREGA' | 'RETIRADA' | 'CONSUMO_LOCAL';
   cliente?: {
     nome: string;
     telefone: string;
@@ -65,16 +71,24 @@ export interface Pedido {
   total: number;
   status:
     | 'PENDENTE'
+    | 'AGUARDANDO_PAGAMENTO'
     | 'CONFIRMADO'
     | 'PREPARANDO'
+    | 'PRONTO'
     | 'SAIU_ENTREGA'
     | 'ENTREGUE'
+    | 'EXPIRADO'
+    | 'ABANDONADO'
     | 'CANCELADO'
     | 'pendente'
+    | 'aguardando_pagamento'
     | 'confirmado'
     | 'preparando'
+    | 'pronto'
     | 'saiu_entrega'
     | 'entregue'
+    | 'expirado'
+    | 'abandonado'
     | 'cancelado';
   observacao?: string;
   observacoes?: string;
@@ -100,7 +114,11 @@ export interface AdminPedidoListaItem {
   id: string;
   numero: string;
   status: string;
-  statusPagamento: 'PENDENTE' | 'CONFIRMADO' | 'EXPIRADO';
+  aguardandoEntregador?: boolean;
+  statusPagamento: 'PENDENTE' | 'CONFIRMADO' | 'A_RECEBER' | 'EXPIRADO';
+  formaPagamento?: 'PIX' | 'DINHEIRO' | 'CARTAO_CREDITO' | 'CARTAO_DEBITO';
+  trocoPara?: number | null;
+  tipoAtendimento?: 'ENTREGA' | 'RETIRADA' | 'CONSUMO_LOCAL';
   clienteNome: string;
   clienteTelefone: string;
   bairro: string;
@@ -115,7 +133,11 @@ export interface AdminPedidoDetalhe {
   id: string;
   numero: string;
   status: string;
-  statusPagamento: 'PENDENTE' | 'CONFIRMADO' | 'EXPIRADO';
+  aguardandoEntregador?: boolean;
+  statusPagamento: 'PENDENTE' | 'CONFIRMADO' | 'A_RECEBER' | 'EXPIRADO';
+  formaPagamento?: 'PIX' | 'DINHEIRO' | 'CARTAO_CREDITO' | 'CARTAO_DEBITO';
+  trocoPara?: number | null;
+  tipoAtendimento?: 'ENTREGA' | 'RETIRADA' | 'CONSUMO_LOCAL';
   pagamentoId?: string | null;
   observacao?: string | null;
   subtotal: number;
@@ -285,6 +307,8 @@ export interface AdminMetricas {
   aguardandoAprovacao: number;
   emPreparo: number;
   aguardandoEntregador: number;
+  prontoParaRetirada: number;
+  tempoMedioAguardandoEntregadorMs: number | null;
   emRota: number;
   entregues: number;
   entreguesHoje: number;

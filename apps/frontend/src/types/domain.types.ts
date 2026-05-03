@@ -62,11 +62,19 @@ export interface ValidarBairroResponse {
  */
 export type StatusPedido =
   | 'PENDENTE'
+  | 'AGUARDANDO_PAGAMENTO'
   | 'CONFIRMADO'
   | 'PREPARANDO'
+  | 'PRONTO'
   | 'SAIU_ENTREGA'
   | 'ENTREGUE'
+  | 'EXPIRADO'
+  | 'ABANDONADO'
   | 'CANCELADO';
+
+export type FormaPagamentoPedido = 'PIX' | 'DINHEIRO' | 'CARTAO_CREDITO' | 'CARTAO_DEBITO';
+export type TipoAtendimentoPedido = 'ENTREGA' | 'RETIRADA' | 'CONSUMO_LOCAL';
+export type StatusPagamentoPedido = 'PENDENTE' | 'CONFIRMADO' | 'A_RECEBER' | 'EXPIRADO';
 
 /**
  * Item do pedido
@@ -87,6 +95,10 @@ export interface ItemPedido {
 export interface Pedido {
   id: string;
   clienteTelefone: string;
+  formaPagamento: FormaPagamentoPedido;
+  trocoPara?: number;
+  tipoAtendimento: TipoAtendimentoPedido;
+  statusPagamento: StatusPagamentoPedido;
   subtotal: number;
   taxaEntrega: number;
   total: number;
@@ -124,6 +136,11 @@ export interface CriarPedidoDTO {
   cliente: ClientePedidoDTO;
   itens: ItemPedidoDTO[]; // Min 1 item
   observacao?: string;
+  pagamento?: {
+    forma: 'PIX' | 'DINHEIRO' | 'CARTAO_CREDITO' | 'CARTAO_DEBITO';
+    trocoPara?: number;
+  };
+  tipoAtendimento?: 'ENTREGA' | 'RETIRADA' | 'CONSUMO_LOCAL';
 }
 
 /**

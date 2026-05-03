@@ -43,6 +43,8 @@ export function ModalCancelar({
             variant="ghost"
             onClick={async () => {
               if (!pedidoDetalhe) return;
+              const confirmar = window.confirm('Confirma marcar estorno como realizado?');
+              if (!confirmar) return;
               await api.adminPedidos.marcarEstorno(pedidoDetalhe.id);
               onEstornoRealizado();
             }}

@@ -41,6 +41,7 @@ import { MetricasBar } from './_components/MetricasBar';
 import { FiltrosBusca } from './_components/FiltrosBusca';
 import { ListaPedidos } from './_components/ListaPedidos';
 import { ModalCancelar } from './_components/ModalCancelar';
+import { PedidoTicket } from './_components/PedidoTicket';
 import {
   CANCEL_MOTIVOS,
   STATUS_FLOW,
@@ -49,6 +50,8 @@ import {
   labelStatus,
   slaByStatus,
   toBadgeVariant,
+  ctaStatus,
+  motivoBloqueioAcao,
 } from './_components/_utils';
 
 
@@ -393,6 +396,9 @@ export default function AdminPedidosPage() {
       aguardandoAprovacao: resumo.aprovacao,
       emPreparo: resumo.preparo,
       emRota: pedidos.filter((p) => p.status === 'SAIU_ENTREGA').length,
+      aguardandoEntregador: pedidos.filter((p) => p.status === 'PRONTO' && p.aguardandoEntregador).length,
+      prontoParaRetirada: 0,
+      tempoMedioAguardandoEntregadorMs: null as number | null,
       mensagensNaoLidas: unreadTotal,
       receitaDia: pedidos.reduce((acc, p) => acc + p.total, 0),
       receitaOntem: 0,
@@ -448,6 +454,26 @@ export default function AdminPedidosPage() {
         sub: 'motoboys na rua',
         className: 'border-[var(--color-info-subtle)] bg-[var(--color-info-muted)] text-[var(--color-info-text)]',
         pulse: false,
+      },
+      {
+        label: 'Entregador',
+        value: d.aguardandoEntregador,
+        sub: (() => {
+          const partes: string[] = [];
+          if (d.tempoMedioAguardandoEntregadorMs !== null && d.tempoMedioAguardandoEntregadorMs !== undefined) {
+            partes.push(`${Math.round(d.tempoMedioAguardandoEntregadorMs / 60_000)} min parado`);
+          }
+          if (d.prontoParaRetirada > 0) {
+            partes.push(`${d.prontoParaRetirada} p/ retirada`);
+          }
+          return partes.length > 0 ? partes.join(' · ') : 'aguardando despacho';
+        })(),
+        className: d.aguardandoEntregador >= 3
+          ? 'border-[var(--color-danger)] bg-[var(--color-danger-muted)] text-[var(--color-danger-text)]'
+          : d.aguardandoEntregador >= 1
+          ? 'border-[var(--color-warning)] bg-[var(--color-warning-muted)] text-[var(--color-warning-text)]'
+          : 'border-[var(--color-border)] bg-[var(--color-surface-raised)] text-[var(--color-text-primary)]',
+        pulse: d.aguardandoEntregador >= 3,
       },
       {
         label: 'WhatsApp',
@@ -522,18 +548,25 @@ export default function AdminPedidosPage() {
 
   const avancarStatus = useCallback(async () => {
     if (!pedidoDetalhe || savingStatus) return;
-    if (pedidoDetalhe.status === 'PENDENTE') {
-      showError('Aguardando confirmação de pagamento');
-      return;
-    }
-    if (pedidoDetalhe.status === 'AGUARDANDO_PAGAMENTO' && pedidoDetalhe.statusPagamento !== 'CONFIRMADO') {
-      showError('Aguardando confirmação de pagamento');
+    const motivoBloqueio = motivoBloqueioAcao(
+      pedidoDetalhe.status,
+      pedidoDetalhe.statusPagamento,
+      pedidoDetalhe.aguardandoEntregador
+    );
+    const bloqueado = !!motivoBloqueio;
+    if (bloqueado) {
+      showError('Ação bloqueada', motivoBloqueio || 'Ação indisponível');
       return;
     }
     const atual = pedidoDetalhe.status;
     const idx = STATUS_FLOW.indexOf(atual as (typeof STATUS_FLOW)[number]);
     if (idx < 0 || idx === STATUS_FLOW.length - 1) return;
     const proximo = STATUS_FLOW[idx + 1];
+    const confirmarEntregue = atual === 'SAIU_ENTREGA' && proximo === 'ENTREGUE';
+    if (confirmarEntregue) {
+      const ok = window.confirm('Confirma marcar este pedido como entregue?');
+      if (!ok) return;
+    }
     setSavingStatus(true);
     try {
       await api.adminPedidos.atualizarStatus(pedidoDetalhe.id, proximo);
@@ -613,6 +646,12 @@ export default function AdminPedidosPage() {
 
   const cancelarPedido = useCallback(async () => {
     if (!pedidoDetalhe) return;
+    if (FINAL_STATUSES.includes(pedidoDetalhe.status)) {
+      showError('Ação bloqueada', 'Pedido em status final');
+      return;
+    }
+    const confirmar = window.confirm('Confirma o cancelamento deste pedido?');
+    if (!confirmar) return;
     try {
       await api.adminPedidos.cancelar(pedidoDetalhe.id, motivoCancelamento);
       setShowCancelModal(false);
@@ -721,6 +760,8 @@ export default function AdminPedidosPage() {
 
   const handleFilaEstorno = useCallback(async (id: string) => {
     try {
+      const confirmar = window.confirm('Confirma marcar estorno como realizado?');
+      if (!confirmar) return;
       await api.adminPedidos.marcarEstorno(id);
       await Promise.all([carregarFilaUrgente(), selectedId === id ? carregarDetalhe(id) : Promise.resolve()]);
       showSuccess('Estorno marcado como realizado');
@@ -880,55 +921,70 @@ export default function AdminPedidosPage() {
                             {labelStatus(status)}
                           </CrmBadge>
                         ))}
+                        {pedidoDetalhe.aguardandoEntregador && <CrmBadge variant="waiting">Aguardando entregador</CrmBadge>}
                       </div>
                       <div className="flex gap-2">
+                        {(() => {
+                          const motivoBloqueio = motivoBloqueioAcao(
+                            pedidoDetalhe.status,
+                            pedidoDetalhe.statusPagamento,
+                            pedidoDetalhe.aguardandoEntregador
+                          );
+                          return (
+                            <CrmButton
+                              size="sm"
+                              onClick={() => void avancarStatus()}
+                              disabled={
+                                savingStatus ||
+                                !STATUS_FLOW.includes(pedidoDetalhe.status as (typeof STATUS_FLOW)[number]) ||
+                                !!motivoBloqueio
+                              }
+                              title={motivoBloqueio || ctaStatus(pedidoDetalhe.status)}
+                            >
+                              {savingStatus ? 'Atualizando...' : ctaStatus(pedidoDetalhe.status)}
+                            </CrmButton>
+                          );
+                        })()}
                         <CrmButton
                           size="sm"
-                          onClick={() => void avancarStatus()}
-                          disabled={
-                            savingStatus ||
-                            !STATUS_FLOW.includes(pedidoDetalhe.status as (typeof STATUS_FLOW)[number]) ||
-                            pedidoDetalhe.status === 'ENTREGUE' ||
-                            pedidoDetalhe.status === 'PENDENTE' ||
-                            (pedidoDetalhe.status === 'AGUARDANDO_PAGAMENTO' && pedidoDetalhe.statusPagamento !== 'CONFIRMADO')
-                          }
-                          title={
-                            pedidoDetalhe.status === 'PENDENTE' ||
-                            (pedidoDetalhe.status === 'AGUARDANDO_PAGAMENTO' && pedidoDetalhe.statusPagamento !== 'CONFIRMADO')
-                              ? 'Aguardando confirmação de pagamento'
-                              : 'Avançar status'
-                          }
+                          variant="danger"
+                          className="no-print"
+                          disabled={FINAL_STATUSES.includes(pedidoDetalhe.status)}
+                          title={FINAL_STATUSES.includes(pedidoDetalhe.status) ? 'Pedido em status final' : 'Cancelar pedido'}
+                          onClick={() => setShowCancelModal(true)}
                         >
-                          {savingStatus ? 'Atualizando...' : 'Avançar status'}
+                          Cancelar
                         </CrmButton>
-                        <CrmButton size="sm" variant="danger" onClick={() => setShowCancelModal(true)}>Cancelar</CrmButton>
+                        <CrmButton size="sm" variant="ghost" className="no-print" onClick={() => window.print()}>
+                          Imprimir
+                        </CrmButton>
                       </div>
                     </div>
                     {temBebida && <div className="rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-muted)] p-3"><p className="text-sm font-semibold text-[var(--color-warning-text)]">Não esqueça as bebidas</p></div>}
                     <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
                       <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Pagamento</p>
-                      <p className="text-sm text-[var(--color-text-primary)]">{pedidoDetalhe.statusPagamento}</p>
+                      <p className="text-sm text-[var(--color-text-primary)]">Status: {pedidoDetalhe.statusPagamento}</p>
+                      <p className="text-sm text-[var(--color-text-primary)]">
+                        Forma: {(pedidoDetalhe.formaPagamento || 'PIX').replace('_', ' ')}
+                      </p>
+                      <p className="text-sm text-[var(--color-text-primary)]">
+                        Atendimento: {
+                          pedidoDetalhe.tipoAtendimento === 'RETIRADA' ? 'Retirada' :
+                          pedidoDetalhe.tipoAtendimento === 'CONSUMO_LOCAL' ? 'Consumo local' :
+                          'Entrega'
+                        }
+                      </p>
+                      {pedidoDetalhe.trocoPara !== null && pedidoDetalhe.trocoPara !== undefined && (
+                        <p className="text-sm text-[var(--color-text-primary)]">
+                          Troco para: {formatCurrency(Number(pedidoDetalhe.trocoPara))}
+                        </p>
+                      )}
                     </div>
                     <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
                       <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Endereço</p>
                       <p className="text-sm text-[var(--color-text-primary)]">{pedidoDetalhe.cliente.endereco} · {pedidoDetalhe.cliente.bairro}</p>
                     </div>
-                    <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
-                      <p className="mb-2 text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Itens</p>
-                      <div className="space-y-1">
-                        {pedidoDetalhe.itens.map((item) => (
-                          <div key={item.id} className="flex items-center justify-between text-sm">
-                            <span className="text-[var(--color-text-primary)]">{item.quantidade}x {item.produto?.nome || 'Produto'}</span>
-                            <span className="text-[var(--color-text-secondary)]">{formatCurrency(item.subtotal)}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="mt-3 border-t border-[var(--color-border)] pt-2">
-                        <div className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]"><span>Subtotal</span><span>{formatCurrency(pedidoDetalhe.subtotal)}</span></div>
-                        <div className="flex items-center justify-between text-sm text-[var(--color-text-secondary)]"><span>Entrega</span><span>{formatCurrency(pedidoDetalhe.taxaEntrega)}</span></div>
-                        <div className="mt-1 flex items-center justify-between text-sm font-semibold text-[var(--color-text-primary)]"><span>Total</span><span>{formatCurrency(pedidoDetalhe.total)}</span></div>
-                      </div>
-                    </div>
+                    <PedidoTicket pedido={pedidoDetalhe} />
                   </div>
                 </CrmTabPanel>
 
@@ -1140,6 +1196,20 @@ export default function AdminPedidosPage() {
           </div>
         </CrmModal>
       )}
+      <style jsx global>{`
+        @media print {
+          .no-print { display: none !important; }
+          .print-ticket {
+            border: 0 !important;
+            background: #fff !important;
+            color: #000 !important;
+            box-shadow: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
+  const FINAL_STATUSES = ['ENTREGUE', 'CANCELADO', 'EXPIRADO', 'ABANDONADO'];

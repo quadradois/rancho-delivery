@@ -14,7 +14,7 @@ interface Props {
 
 export function MetricasBar({ items }: Props) {
   return (
-    <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-7">
+    <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-8">
       {items.map((item) => (
         <div
           key={item.label}

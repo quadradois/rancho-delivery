@@ -6,7 +6,7 @@ import bairroService from './bairro.service';
 import infinitePayService from './infinitepay.service';
 import evolutionService from './evolution.service';
 import realtimeService from './realtime.service';
-import { Origem, StatusLoja, StatusPagamento, StatusPedido } from '@prisma/client';
+import { FormaPagamentoPedido, Origem, StatusLoja, StatusPagamento, StatusPedido, TipoAtendimentoPedido } from '@prisma/client';
 
 interface ItemPedidoInput {
   produtoId: string;
@@ -18,16 +18,25 @@ interface CriarPedidoInput {
   cliente: {
     telefone: string;
     nome: string;
-    endereco: string;
-    bairro: string;
+    endereco?: string;
+    bairro?: string;
     cep?: string;
   };
   itens: ItemPedidoInput[];
   observacao?: string;
   origem?: Origem;
+  pagamento?: {
+    forma: FormaPagamentoPedido;
+    trocoPara?: number;
+  };
+  tipoAtendimento?: TipoAtendimentoPedido;
 }
 
 export class PedidoService {
+  private isAguardandoEntregador(status: StatusPedido, tipoAtendimento?: TipoAtendimentoPedido | null, motoboyId?: string | null) {
+    return status === StatusPedido.PRONTO && (tipoAtendimento ?? TipoAtendimentoPedido.ENTREGA) === TipoAtendimentoPedido.ENTREGA && !motoboyId;
+  }
+
   private ultimaExecucaoExpiracaoMs = 0;
   private processandoExpiracao = false;
   private cacheEstimativa: { valor: number; atualizadoEm: number } | null = null;
@@ -35,7 +44,8 @@ export class PedidoService {
     PENDENTE: [StatusPedido.CONFIRMADO, StatusPedido.CANCELADO],
     AGUARDANDO_PAGAMENTO: [StatusPedido.CONFIRMADO, StatusPedido.CANCELADO, StatusPedido.EXPIRADO],
     CONFIRMADO: [StatusPedido.PREPARANDO, StatusPedido.CANCELADO],
-    PREPARANDO: [StatusPedido.SAIU_ENTREGA, StatusPedido.CANCELADO],
+    PREPARANDO: [StatusPedido.PRONTO, StatusPedido.CANCELADO],
+    PRONTO: [StatusPedido.SAIU_ENTREGA, StatusPedido.CANCELADO],
     SAIU_ENTREGA: [StatusPedido.ENTREGUE, StatusPedido.CANCELADO],
     ENTREGUE: [],
     EXPIRADO: [StatusPedido.CONFIRMADO, StatusPedido.CANCELADO, StatusPedido.ABANDONADO],
@@ -49,11 +59,12 @@ export class PedidoService {
       PENDENTE: 1,
       CONFIRMADO: 2,
       PREPARANDO: 3,
-      SAIU_ENTREGA: 4,
-      ENTREGUE: 5,
-      EXPIRADO: 6,
-      ABANDONADO: 7,
-      CANCELADO: 8,
+      PRONTO: 4,
+      SAIU_ENTREGA: 5,
+      ENTREGUE: 6,
+      EXPIRADO: 7,
+      ABANDONADO: 8,
+      CANCELADO: 9,
     };
     return ordem[status] ?? 99;
   }
@@ -244,8 +255,9 @@ export class PedidoService {
         clienteNome: pedido.cliente?.nome || 'Cliente',
         clienteTelefone: pedido.cliente?.telefone || '',
         clienteEmail: '',
-        formaPagamento: 'pix',
-        trocoParaValor: undefined,
+        formaPagamento: pedido.formaPagamento,
+        trocoParaValor: pedido.trocoPara ? Number(pedido.trocoPara) : undefined,
+        tipoAtendimento: pedido.tipoAtendimento,
         itens: pedido.itens.map((item) => ({
           id: item.id,
           produtoId: item.produtoId,
@@ -355,15 +367,19 @@ export class PedidoService {
     const unreadMap = new Map(unreadGrouped.map((g) => [g.clienteTelefone, g._count._all]));
 
     const agora = Date.now();
-    const data = pedidos.map((pedido) => {
+      const data = pedidos.map((pedido) => {
       const baseStatus = pedido.statusMudouEm || pedido.atualizadoEm;
       const tempoNoEstagio = Math.max(0, Math.floor((agora - baseStatus.getTime()) / 1000));
-      return {
-        id: pedido.id,
-        numero: pedido.id.slice(-6).toUpperCase(),
-        status: pedido.status,
-        statusPagamento: pedido.statusPagamento,
-        clienteNome: pedido.cliente?.nome || 'Cliente',
+        return {
+          id: pedido.id,
+          numero: pedido.id.slice(-6).toUpperCase(),
+          status: pedido.status,
+          aguardandoEntregador: this.isAguardandoEntregador(pedido.status, pedido.tipoAtendimento, pedido.motoboyId),
+          statusPagamento: pedido.statusPagamento,
+          formaPagamento: pedido.formaPagamento,
+          trocoPara: pedido.trocoPara ? Number(pedido.trocoPara) : null,
+          tipoAtendimento: pedido.tipoAtendimento,
+          clienteNome: pedido.cliente?.nome || 'Cliente',
         clienteTelefone: pedido.cliente?.telefone || '',
         bairro: pedido.bairroEntrega || pedido.cliente?.bairro || '',
         itensResumo: pedido.itens.slice(0, 3).map((item) => item.produto?.nome || 'Produto'),
@@ -441,7 +457,11 @@ export class PedidoService {
       id: pedido.id,
       numero: pedido.id.slice(-6).toUpperCase(),
       status: pedido.status,
+      aguardandoEntregador: this.isAguardandoEntregador(pedido.status, pedido.tipoAtendimento, pedido.motoboyId),
       statusPagamento: pedido.statusPagamento,
+      formaPagamento: pedido.formaPagamento,
+      trocoPara: pedido.trocoPara ? Number(pedido.trocoPara) : null,
+      tipoAtendimento: pedido.tipoAtendimento,
       pagamentoId: pedido.pagamentoId,
       observacao: pedido.observacao,
       observacaoEntrega: pedido.observacaoEntrega,
@@ -494,6 +514,9 @@ export class PedidoService {
     const inicioMs = Date.now();
     try {
       const { cliente: dadosCliente, itens, observacao, origem = 'SITE' } = dados;
+      const formaPagamento = dados.pagamento?.forma ?? FormaPagamentoPedido.PIX;
+      const trocoPara = formaPagamento === FormaPagamentoPedido.DINHEIRO ? dados.pagamento?.trocoPara : undefined;
+      const tipoAtendimento = dados.tipoAtendimento ?? TipoAtendimentoPedido.ENTREGA;
       const telefoneMascarado = dadosCliente.telefone.replace(/\D/g, '').replace(/^(\d{0,7})/, (m) => '*'.repeat(m.length));
       logger.info('pedido.criar.inicio', {
         telefone: telefoneMascarado || 'anon',
@@ -501,14 +524,18 @@ export class PedidoService {
         qtdItens: itens.length,
       });
 
-      // 1. Validar bairro e obter taxa
-      const validacaoBairro = await bairroService.validarBairro(dadosCliente.bairro);
-      
-      if (!validacaoBairro.valido) {
-        throw new Error('Bairro não atendido');
+      // 1. Validar bairro e obter taxa (somente para entrega)
+      let taxaEntrega = 0;
+      if (tipoAtendimento === TipoAtendimentoPedido.ENTREGA) {
+        if (!dadosCliente.endereco || !dadosCliente.bairro) {
+          throw new Error('ENDERECO_OBRIGATORIO_ENTREGA');
+        }
+        const validacaoBairro = await bairroService.validarBairro(dadosCliente.bairro);
+        if (!validacaoBairro.valido) {
+          throw new Error('Bairro não atendido');
+        }
+        taxaEntrega = validacaoBairro.taxa!;
       }
-
-      const taxaEntrega = validacaoBairro.taxa!;
 
       // 2. Validar produtos e calcular subtotal (batch — evita N+1)
       const produtoIds = [...new Set(itens.map((i) => i.produtoId))];
@@ -553,26 +580,35 @@ export class PedidoService {
 
       // 3. Calcular total
       const total = subtotal + taxaEntrega;
+      if (formaPagamento === FormaPagamentoPedido.DINHEIRO && trocoPara !== undefined && trocoPara < total) {
+        throw new Error('TROCO_INVALIDO');
+      }
 
       // 4. Criar ou atualizar cliente
       const cliente = await clienteService.criarOuAtualizar({
         ...dadosCliente,
+        endereco: dadosCliente.endereco ?? '',
+        bairro: dadosCliente.bairro ?? '',
         origem,
       });
 
       // 5. Criar pedido com itens (transação)
-      const pagamentoExpiraEm = new Date(Date.now() + this.getCheckoutTtlMinutes() * 60 * 1000);
+      const usaFluxoPix = formaPagamento === FormaPagamentoPedido.PIX;
+      const pagamentoExpiraEm = usaFluxoPix ? new Date(Date.now() + this.getCheckoutTtlMinutes() * 60 * 1000) : null;
       const tokenAcesso = crypto.randomBytes(32).toString('hex');
       const pedido = await prisma.pedido.create({
         data: {
           clienteTelefone: cliente.telefone,
           enderecoEntrega: dadosCliente.endereco,
           bairroEntrega: dadosCliente.bairro,
+          formaPagamento,
+          trocoPara: trocoPara ?? null,
+          tipoAtendimento,
           subtotal,
           taxaEntrega,
           total,
-          status: StatusPedido.AGUARDANDO_PAGAMENTO,
-          statusPagamento: StatusPagamento.PENDENTE,
+          status: usaFluxoPix ? StatusPedido.AGUARDANDO_PAGAMENTO : StatusPedido.CONFIRMADO,
+          statusPagamento: usaFluxoPix ? StatusPagamento.PENDENTE : StatusPagamento.A_RECEBER,
           statusMudouEm: new Date(),
           pagamentoExpiraEm,
           observacao,
@@ -605,6 +641,15 @@ export class PedidoService {
 
       await this.registrarTimeline(pedido.id, 'SISTEMA', 'Pedido criado');
       realtimeService.emit('pedido:novo', { id: pedido.id, status: pedido.status });
+      if (!usaFluxoPix) {
+        logger.info('pedido.criar.sucesso_sem_pix', {
+          pedidoId: pedido.id,
+          formaPagamento,
+          total,
+          tempoMs: Date.now() - inicioMs,
+        });
+        return pedido;
+      }
 
       // 6. Criar link de pagamento no InfinitePay
       try {
@@ -795,7 +840,7 @@ export class PedidoService {
     const inicioMs = Date.now();
     const pedido = await prisma.pedido.findUnique({
       where: { id },
-      select: { id: true, status: true, statusPagamento: true },
+      select: { id: true, status: true, statusPagamento: true, tipoAtendimento: true, motoboyId: true },
     });
 
     if (!pedido) {
@@ -809,6 +854,15 @@ export class PedidoService {
     const permitidos = this.transicoesPermitidas[pedido.status] || [];
     if (!permitidos.includes(novoStatus)) {
       throw new Error('TRANSICAO_INVALIDA');
+    }
+
+    if (
+      pedido.status === StatusPedido.PRONTO &&
+      novoStatus === StatusPedido.SAIU_ENTREGA &&
+      (pedido.tipoAtendimento ?? TipoAtendimentoPedido.ENTREGA) === TipoAtendimentoPedido.ENTREGA &&
+      !pedido.motoboyId
+    ) {
+      throw new Error('DESPACHO_SEM_ENTREGADOR');
     }
 
     const statusPagamentoAtualizado =
@@ -960,31 +1014,24 @@ export class PedidoService {
     return atualizado;
   }
 
-  async criarPedidoManual(dados: CriarPedidoInput & { pagamentoMetodo: 'PIX' | 'DINHEIRO'; valorDinheiro?: number; operadorNome?: string }) {
-    const pedido = await this.criarPedido(dados);
-
-    if (dados.pagamentoMetodo === 'DINHEIRO') {
-      const atualizado = await prisma.pedido.update({
-        where: { id: pedido.id },
-        data: {
-          status: StatusPedido.CONFIRMADO,
-          statusPagamento: StatusPagamento.CONFIRMADO,
-          statusMudouEm: new Date(),
-        },
-      });
-      await this.registrarTimeline(pedido.id, dados.operadorNome ?? 'OPERADOR', 'Pedido manual em dinheiro confirmado');
-      return {
-        ...pedido,
-        status: atualizado.status,
-        formaPagamento: 'DINHEIRO_ENTREGA',
-        valorDinheiro: dados.valorDinheiro ?? null,
-      };
-    }
-
-    return {
-      ...pedido,
-      formaPagamento: 'PIX',
+  async criarPedidoManual(dados: CriarPedidoInput & { pagamentoMetodo: 'PIX' | 'DINHEIRO' | 'CARTAO_CREDITO' | 'CARTAO_DEBITO'; valorDinheiro?: number; operadorNome?: string; tipoAtendimento?: TipoAtendimentoPedido }) {
+    const pagamentoMetodoMap: Record<'PIX' | 'DINHEIRO' | 'CARTAO_CREDITO' | 'CARTAO_DEBITO', FormaPagamentoPedido> = {
+      PIX: FormaPagamentoPedido.PIX,
+      DINHEIRO: FormaPagamentoPedido.DINHEIRO,
+      CARTAO_CREDITO: FormaPagamentoPedido.CARTAO_CREDITO,
+      CARTAO_DEBITO: FormaPagamentoPedido.CARTAO_DEBITO,
     };
+    const pedido = await this.criarPedido({
+      ...dados,
+      pagamento: {
+        forma: pagamentoMetodoMap[dados.pagamentoMetodo],
+        trocoPara: dados.pagamentoMetodo === 'DINHEIRO' ? dados.valorDinheiro : undefined,
+      },
+      tipoAtendimento: dados.tipoAtendimento ?? TipoAtendimentoPedido.ENTREGA,
+    });
+
+    await this.registrarTimeline(pedido.id, dados.operadorNome ?? 'OPERADOR', `Pedido manual criado: ${dados.pagamentoMetodo}`);
+    return pedido;
   }
 
   async cancelarPedidoAdmin(id: string, motivo: string, operadorNome?: string) {
@@ -996,11 +1043,11 @@ export class PedidoService {
 
     const estornoNecessario = pedido.statusPagamento === StatusPagamento.CONFIRMADO;
 
-    const atualizado = await prisma.pedido.update({
+      const atualizado = await prisma.pedido.update({
       where: { id },
       data: {
         status: StatusPedido.CANCELADO,
-        statusPagamento: estornoNecessario ? StatusPagamento.CONFIRMADO : StatusPagamento.EXPIRADO,
+        statusPagamento: estornoNecessario ? StatusPagamento.CONFIRMADO : (pedido.statusPagamento === StatusPagamento.A_RECEBER ? StatusPagamento.A_RECEBER : StatusPagamento.EXPIRADO),
         statusMudouEm: new Date(),
         canceladoMotivo: motivo.trim(),
         estornoNecessario,
@@ -1210,7 +1257,9 @@ export class PedidoService {
 
       const expirados = await prisma.pedido.updateMany({
         where: {
+          formaPagamento: FormaPagamentoPedido.PIX,
           status: StatusPedido.AGUARDANDO_PAGAMENTO,
+          statusPagamento: StatusPagamento.PENDENTE,
           pagamentoExpiraEm: { not: null, lte: agora },
         },
         data: { status: StatusPedido.EXPIRADO, statusPagamento: StatusPagamento.EXPIRADO, statusMudouEm: agora },
@@ -1248,12 +1297,14 @@ export class PedidoService {
     const atrasoMin = Number(process.env.PIX_REPROCESS_DELAY_MINUTES || 2);
     const limite = new Date(Date.now() - atrasoMin * 60 * 1000);
 
-    const pedidosSemLink = await prisma.pedido.findMany({
-      where: {
-        status: StatusPedido.AGUARDANDO_PAGAMENTO,
-        pagamentoId: null,
-        criadoEm: { lte: limite },
-      },
+      const pedidosSemLink = await prisma.pedido.findMany({
+        where: {
+          formaPagamento: FormaPagamentoPedido.PIX,
+          status: StatusPedido.AGUARDANDO_PAGAMENTO,
+          statusPagamento: StatusPagamento.PENDENTE,
+          pagamentoId: null,
+          criadoEm: { lte: limite },
+        },
       include: {
         itens: {
           include: {
@@ -1471,11 +1522,12 @@ export class PedidoService {
     const statusesReceita: StatusPedido[] = [
       StatusPedido.CONFIRMADO,
       StatusPedido.PREPARANDO,
+      StatusPedido.PRONTO,
       StatusPedido.SAIU_ENTREGA,
       StatusPedido.ENTREGUE,
     ];
 
-    const [porStatus, receitaDia, receitaOntem, pedidosHoje, mensagensNaoLidas, canceladosHoje, entreguesHoje, tempoPreparoRaw] = await Promise.all([
+    const [porStatus, receitaDia, receitaOntem, pedidosHoje, mensagensNaoLidas, canceladosHoje, entreguesHoje, tempoPreparoRaw, pedidosPronto] = await Promise.all([
       prisma.pedido.groupBy({
         by: ['status'],
         _count: { _all: true },
@@ -1499,6 +1551,10 @@ export class PedidoService {
         WHERE status = 'ENTREGUE'
           AND criado_em >= ${inicioDia}
       `,
+      prisma.pedido.findMany({
+        where: { status: StatusPedido.PRONTO },
+        select: { tipoAtendimento: true, motoboyId: true, statusMudouEm: true },
+      }),
     ]);
 
     const statusCounts = Object.fromEntries(
@@ -1521,6 +1577,18 @@ export class PedidoService {
       ? Math.round(Number(tempoPreparoRaw[0].avg_segundos) / 60)
       : null;
 
+    const agora = Date.now();
+    const aguardandoEntregadorList = pedidosPronto.filter(
+      (p) => (p.tipoAtendimento ?? TipoAtendimentoPedido.ENTREGA) === TipoAtendimentoPedido.ENTREGA && !p.motoboyId,
+    );
+    const prontoParaRetiradaCount = pedidosPronto.length - aguardandoEntregadorList.length;
+    const tempoMedioAguardandoEntregadorMs = aguardandoEntregadorList.length > 0
+      ? Math.round(
+          aguardandoEntregadorList.reduce((acc, p) => acc + (agora - (p.statusMudouEm?.getTime() ?? agora)), 0) /
+          aguardandoEntregadorList.length,
+        )
+      : null;
+
     return {
       total: Object.values(statusCounts).reduce((acc, value) => acc + value, 0),
       pedidosHoje,
@@ -1531,7 +1599,9 @@ export class PedidoService {
       aguardandoPagamento: statusCounts.AGUARDANDO_PAGAMENTO + statusCounts.PENDENTE,
       aguardandoAprovacao: statusCounts.CONFIRMADO,
       emPreparo: statusCounts.PREPARANDO,
-      aguardandoEntregador: 0,
+      aguardandoEntregador: aguardandoEntregadorList.length,
+      prontoParaRetirada: prontoParaRetiradaCount,
+      tempoMedioAguardandoEntregadorMs,
       emRota: statusCounts.SAIU_ENTREGA,
       entregues: statusCounts.ENTREGUE,
       entreguesHoje,
@@ -1556,6 +1626,7 @@ export class PedidoService {
             StatusPedido.PENDENTE,
             StatusPedido.CONFIRMADO,
             StatusPedido.PREPARANDO,
+            StatusPedido.PRONTO,
             StatusPedido.SAIU_ENTREGA,
           ],
         },
@@ -1570,6 +1641,7 @@ export class PedidoService {
     const slaThresholds: Record<string, { warningAt: number; dangerAt: number }> = {
       CONFIRMADO:          { warningAt: 180,  dangerAt: 300  },
       PREPARANDO:          { warningAt: 1500, dangerAt: 2100 },
+      PRONTO:              { warningAt: 900,  dangerAt: 1500 },
       SAIU_ENTREGA:        { warningAt: 3000, dangerAt: 3600 },
       AGUARDANDO_PAGAMENTO:{ warningAt: 300,  dangerAt: 600  },
       PENDENTE:            { warningAt: 300,  dangerAt: 600  },

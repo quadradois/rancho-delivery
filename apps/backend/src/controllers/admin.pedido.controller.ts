@@ -21,12 +21,13 @@ const schemaAtualizarEndereco = z.object({
 });
 
 const schemaCriarManual = z.object({
-  pagamentoMetodo: z.enum(['PIX', 'DINHEIRO']),
+  pagamentoMetodo: z.enum(['PIX', 'DINHEIRO', 'CARTAO_CREDITO', 'CARTAO_DEBITO']),
+  tipoAtendimento: z.enum(['ENTREGA', 'RETIRADA', 'CONSUMO_LOCAL']).optional().default('ENTREGA'),
   cliente: z.object({
     nome: z.string().trim().min(1),
     telefone: z.string().trim().min(1),
-    endereco: z.string().trim().min(1),
-    bairro: z.string().trim().min(1),
+    endereco: z.string().trim().optional().default(''),
+    bairro: z.string().trim().optional().default(''),
   }),
   itens: z.array(z.object({
     produtoId: z.string().min(1),
@@ -186,6 +187,13 @@ export class AdminPedidoController {
         return res.status(400).json({
           success: false,
           error: { message: 'Transição de status inválida', code: 'TRANSICAO_INVALIDA' },
+        });
+      }
+
+      if (error.message === 'DESPACHO_SEM_ENTREGADOR') {
+        return res.status(422).json({
+          success: false,
+          error: { message: 'Atribua um entregador antes de despachar o pedido', code: 'DESPACHO_SEM_ENTREGADOR' },
         });
       }
 

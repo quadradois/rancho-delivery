@@ -2,13 +2,20 @@
 // Baseado no schema Prisma e planejamento do projeto
 
 export type Origem = 'SITE' | 'WHATSAPP' | 'MINERACAO' | 'INDICACAO' | 'CAMPANHA';
+export type FormaPagamentoPedido = 'PIX' | 'DINHEIRO' | 'CARTAO_CREDITO' | 'CARTAO_DEBITO';
+export type TipoAtendimentoPedido = 'ENTREGA' | 'RETIRADA' | 'CONSUMO_LOCAL';
+export type StatusPagamentoPedido = 'PENDENTE' | 'CONFIRMADO' | 'A_RECEBER' | 'EXPIRADO';
 
 export type StatusPedido = 
   | 'PENDENTE' 
+  | 'AGUARDANDO_PAGAMENTO'
   | 'CONFIRMADO' 
   | 'PREPARANDO' 
+  | 'PRONTO'
   | 'SAIU_ENTREGA' 
   | 'ENTREGUE' 
+  | 'EXPIRADO'
+  | 'ABANDONADO'
   | 'CANCELADO';
 
 export interface Cliente {
@@ -53,6 +60,10 @@ export interface ItemPedido {
 export interface Pedido {
   id: string;
   clienteTelefone: string;
+  formaPagamento: FormaPagamentoPedido;
+  trocoPara?: number;
+  tipoAtendimento: TipoAtendimentoPedido;
+  statusPagamento: StatusPagamentoPedido;
   subtotal: number;
   taxaEntrega: number;
   total: number;
@@ -79,6 +90,11 @@ export interface CriarPedidoDTO {
     observacao?: string;
   }[];
   observacao?: string;
+  pagamento?: {
+    forma: FormaPagamentoPedido;
+    trocoPara?: number;
+  };
+  tipoAtendimento?: TipoAtendimentoPedido;
 }
 
 export interface ProdutoCardDTO {

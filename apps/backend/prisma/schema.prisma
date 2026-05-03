@@ -89,6 +89,9 @@ model Pedido {
   clienteTelefone String        @map("cliente_telefone") @db.VarChar(20)
   enderecoEntrega String?       @map("endereco_entrega") @db.Text
   bairroEntrega   String?       @map("bairro_entrega") @db.VarChar(100)
+  formaPagamento  FormaPagamentoPedido @default(PIX) @map("forma_pagamento")
+  trocoPara       Decimal?      @map("troco_para") @db.Decimal(10, 2)
+  tipoAtendimento TipoAtendimentoPedido @default(ENTREGA) @map("tipo_atendimento")
   subtotal        Decimal       @db.Decimal(10, 2)
   taxaEntrega     Decimal       @map("taxa_entrega") @db.Decimal(10, 2)
   total           Decimal       @db.Decimal(10, 2)
@@ -134,7 +137,21 @@ model Pedido {
 enum StatusPagamento {
   PENDENTE
   CONFIRMADO
+  A_RECEBER
   EXPIRADO
+}
+
+enum FormaPagamentoPedido {
+  PIX
+  DINHEIRO
+  CARTAO_CREDITO
+  CARTAO_DEBITO
+}
+
+enum TipoAtendimentoPedido {
+  ENTREGA
+  RETIRADA
+  CONSUMO_LOCAL
 }
 
 // Enum para status do pedido
@@ -143,6 +160,7 @@ enum StatusPedido {
   AGUARDANDO_PAGAMENTO
   CONFIRMADO
   PREPARANDO
+  PRONTO
   SAIU_ENTREGA
   ENTREGUE
   EXPIRADO

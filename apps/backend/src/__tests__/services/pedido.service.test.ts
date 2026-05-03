@@ -4,7 +4,7 @@ import prisma from '../../config/database';
 import clienteService from '../../services/cliente.service';
 import bairroService from '../../services/bairro.service';
 import infinitePayService from '../../services/infinitepay.service';
-import { StatusPagamento, StatusPedido } from '@prisma/client';
+import { FormaPagamentoPedido, StatusPagamento, StatusPedido, TipoAtendimentoPedido } from '@prisma/client';
 
 vi.mock('../../services/cliente.service');
 vi.mock('../../services/bairro.service');
@@ -95,6 +95,80 @@ describe('PedidoService', () => {
 
     await expect(pedidoService.criarPedido(dadosPedidoValido as any)).rejects.toThrow('Bairro não atendido');
     expect(prisma.produto.findMany).not.toHaveBeenCalled();
+  });
+
+  it('cria pedido RETIRADA sem chamar bairroService e com taxaEntrega=0', async () => {
+    vi.mocked(prisma.produto.findMany).mockResolvedValue(mockProdutos as any);
+    vi.mocked(clienteService.criarOuAtualizar).mockResolvedValue(mockCliente as any);
+    vi.mocked(prisma.pedido.create).mockResolvedValue({
+      id: 'pedido-retirada',
+      subtotal: 54.8,
+      taxaEntrega: 0,
+      total: 54.8,
+      status: 'CONFIRMADO',
+      tokenAcesso: 'tok-ret',
+      itens: [],
+      cliente: mockCliente,
+    } as any);
+
+    const dadosRetirada = {
+      ...dadosPedidoValido,
+      tipoAtendimento: TipoAtendimentoPedido.RETIRADA,
+      pagamento: { forma: FormaPagamentoPedido.DINHEIRO },
+    };
+
+    const resultado = await pedidoService.criarPedido(dadosRetirada as any);
+
+    expect(resultado.id).toBe('pedido-retirada');
+    expect(bairroService.validarBairro).not.toHaveBeenCalled();
+    expect(prisma.pedido.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ taxaEntrega: 0, tipoAtendimento: TipoAtendimentoPedido.RETIRADA }),
+      }),
+    );
+  });
+
+  it('cria pedido CONSUMO_LOCAL sem endereço e com taxaEntrega=0', async () => {
+    vi.mocked(prisma.produto.findMany).mockResolvedValue(mockProdutos as any);
+    vi.mocked(clienteService.criarOuAtualizar).mockResolvedValue(mockCliente as any);
+    vi.mocked(prisma.pedido.create).mockResolvedValue({
+      id: 'pedido-local',
+      subtotal: 54.8,
+      taxaEntrega: 0,
+      total: 54.8,
+      status: 'CONFIRMADO',
+      tokenAcesso: 'tok-loc',
+      itens: [],
+      cliente: mockCliente,
+    } as any);
+
+    const dadosLocal = {
+      cliente: { telefone: '5562999887766', nome: 'João Silva', endereco: '', bairro: '' },
+      itens: [{ produtoId: 'prod-1', quantidade: 1 }],
+      tipoAtendimento: TipoAtendimentoPedido.CONSUMO_LOCAL,
+      pagamento: { forma: FormaPagamentoPedido.DINHEIRO },
+    };
+
+    const resultado = await pedidoService.criarPedido(dadosLocal as any);
+
+    expect(resultado.id).toBe('pedido-local');
+    expect(bairroService.validarBairro).not.toHaveBeenCalled();
+    expect(prisma.pedido.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ taxaEntrega: 0, tipoAtendimento: TipoAtendimentoPedido.CONSUMO_LOCAL }),
+      }),
+    );
+  });
+
+  it('rejeita pedido ENTREGA sem endereço', async () => {
+    const dadosSemEndereco = {
+      cliente: { telefone: '5562999887766', nome: 'João Silva', endereco: '', bairro: '' },
+      itens: [{ produtoId: 'prod-1', quantidade: 1 }],
+      tipoAtendimento: TipoAtendimentoPedido.ENTREGA,
+    };
+
+    await expect(pedidoService.criarPedido(dadosSemEndereco as any)).rejects.toThrow('ENDERECO_OBRIGATORIO_ENTREGA');
+    expect(bairroService.validarBairro).not.toHaveBeenCalled();
   });
 
   it('rejeita quando produto não existe', async () => {
@@ -269,6 +343,58 @@ describe('PedidoService', () => {
     }));
   });
 
+  it('permite transição AGUARDANDO_PAGAMENTO -> CONFIRMADO com pagamento PIX confirmado', async () => {
+    vi.mocked(prisma.pedido.findUnique).mockResolvedValueOnce({
+      status: StatusPedido.AGUARDANDO_PAGAMENTO,
+      statusPagamento: StatusPagamento.CONFIRMADO,
+    } as any);
+    vi.mocked(prisma.pedido.findUnique).mockResolvedValueOnce({
+      id: 'p-pix',
+      tokenAcesso: 'tok-pix',
+      status: StatusPedido.CONFIRMADO,
+      itens: [],
+      cliente: { nome: 'Cliente PIX', telefone: '5562999990001', endereco: 'Rua A', bairro: 'Centro' },
+    } as any);
+    vi.mocked(prisma.pedido.update).mockResolvedValue({ id: 'p-pix', status: StatusPedido.CONFIRMADO } as any);
+    vi.mocked(prisma.pedidoTimeline.create).mockResolvedValue({} as any);
+
+    await pedidoService.atualizarStatus('p-pix', StatusPedido.CONFIRMADO, 'pag-pix');
+
+    expect(prisma.pedido.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'p-pix' },
+      data: expect.objectContaining({
+        status: StatusPedido.CONFIRMADO,
+        statusPagamento: StatusPagamento.CONFIRMADO,
+      }),
+    }));
+  });
+
+  it('permite transição AGUARDANDO_PAGAMENTO -> CONFIRMADO com pagamento A_RECEBER sem regressão', async () => {
+    vi.mocked(prisma.pedido.findUnique).mockResolvedValueOnce({
+      status: StatusPedido.AGUARDANDO_PAGAMENTO,
+      statusPagamento: StatusPagamento.A_RECEBER,
+    } as any);
+    vi.mocked(prisma.pedido.findUnique).mockResolvedValueOnce({
+      id: 'p-cash',
+      tokenAcesso: 'tok-cash',
+      status: StatusPedido.CONFIRMADO,
+      itens: [],
+      cliente: { nome: 'Cliente Cash', telefone: '5562999990002', endereco: 'Rua B', bairro: 'Setor Sul' },
+    } as any);
+    vi.mocked(prisma.pedido.update).mockResolvedValue({ id: 'p-cash', status: StatusPedido.CONFIRMADO } as any);
+    vi.mocked(prisma.pedidoTimeline.create).mockResolvedValue({} as any);
+
+    await pedidoService.atualizarStatus('p-cash', StatusPedido.CONFIRMADO, 'pag-cash');
+
+    expect(prisma.pedido.update).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: 'p-cash' },
+      data: expect.objectContaining({
+        status: StatusPedido.CONFIRMADO,
+        statusPagamento: StatusPagamento.CONFIRMADO,
+      }),
+    }));
+  });
+
   it('processa expiração e abandono com updateMany por status', async () => {
     const updateManyMock = vi
       .fn()
@@ -292,6 +418,65 @@ describe('PedidoService', () => {
     await expect(
       pedidoService.atualizarStatusAdmin('p-2', StatusPedido.PREPARANDO, undefined, 'admin'),
     ).rejects.toThrow('TRANSICAO_INVALIDA');
+  });
+
+  it('atualizarStatusAdmin permite PREPARANDO -> PRONTO', async () => {
+    vi.mocked(prisma.pedido.findUnique).mockResolvedValueOnce({
+      id: 'p-3',
+      status: StatusPedido.PREPARANDO,
+      statusPagamento: StatusPagamento.CONFIRMADO,
+    } as any);
+    vi.mocked(prisma.pedido.update).mockResolvedValue({ id: 'p-3', status: StatusPedido.PRONTO } as any);
+    vi.mocked(prisma.pedidoTimeline.create).mockResolvedValue({} as any);
+
+    const atualizado = await pedidoService.atualizarStatusAdmin('p-3', StatusPedido.PRONTO, undefined, 'admin');
+    expect(atualizado.status).toBe(StatusPedido.PRONTO);
+  });
+
+  it('atualizarStatusAdmin permite PRONTO -> SAIU_ENTREGA com motoboy atribuído', async () => {
+    vi.mocked(prisma.pedido.findUnique).mockReset();
+    vi.mocked(prisma.pedido.update).mockReset();
+    vi.mocked(prisma.pedido.findUnique).mockResolvedValueOnce({
+      id: 'p-4',
+      status: StatusPedido.PRONTO,
+      statusPagamento: StatusPagamento.CONFIRMADO,
+      tipoAtendimento: TipoAtendimentoPedido.ENTREGA,
+      motoboyId: 'mb-1',
+    } as any);
+    vi.mocked(prisma.pedido.update).mockResolvedValue({ id: 'p-4', status: StatusPedido.SAIU_ENTREGA } as any);
+    vi.mocked(prisma.pedidoTimeline.create).mockResolvedValue({} as any);
+
+    const atualizado = await pedidoService.atualizarStatusAdmin('p-4', StatusPedido.SAIU_ENTREGA, undefined, 'admin');
+    expect(atualizado.status).toBe(StatusPedido.SAIU_ENTREGA);
+  });
+
+  it('atualizarStatusAdmin bloqueia PRONTO -> SAIU_ENTREGA sem motoboy quando tipoAtendimento=ENTREGA', async () => {
+    vi.mocked(prisma.pedido.findUnique).mockResolvedValueOnce({
+      id: 'p-5',
+      status: StatusPedido.PRONTO,
+      statusPagamento: StatusPagamento.CONFIRMADO,
+      tipoAtendimento: TipoAtendimentoPedido.ENTREGA,
+      motoboyId: null,
+    } as any);
+
+    await expect(
+      pedidoService.atualizarStatusAdmin('p-5', StatusPedido.SAIU_ENTREGA, undefined, 'admin'),
+    ).rejects.toThrow('DESPACHO_SEM_ENTREGADOR');
+  });
+
+  it('atualizarStatusAdmin permite PRONTO -> SAIU_ENTREGA sem motoboy quando tipoAtendimento=RETIRADA', async () => {
+    vi.mocked(prisma.pedido.findUnique).mockResolvedValueOnce({
+      id: 'p-6',
+      status: StatusPedido.PRONTO,
+      statusPagamento: StatusPagamento.CONFIRMADO,
+      tipoAtendimento: TipoAtendimentoPedido.RETIRADA,
+      motoboyId: null,
+    } as any);
+    vi.mocked(prisma.pedido.update).mockResolvedValue({ id: 'p-6', status: StatusPedido.SAIU_ENTREGA } as any);
+    vi.mocked(prisma.pedidoTimeline.create).mockResolvedValue({} as any);
+
+    const atualizado = await pedidoService.atualizarStatusAdmin('p-6', StatusPedido.SAIU_ENTREGA, undefined, 'admin');
+    expect(atualizado.status).toBe(StatusPedido.SAIU_ENTREGA);
   });
 
   it('obterFilaUrgente prioriza pagamento pendente e SLA estourado', async () => {
@@ -371,5 +556,212 @@ describe('PedidoService', () => {
     const resultado = await pedidoService.registrarNps('pedido-nps', 5);
     expect(resultado.id).toBe('pedido-nps');
     expect(resultado.npsNota).toBe(5);
+  });
+
+  it('deriva aguardandoEntregador na lista admin quando PRONTO sem motoboy', async () => {
+    vi.mocked(prisma.pedido.findMany).mockResolvedValue([
+      {
+        id: 'p-derivado-1',
+        status: StatusPedido.PRONTO,
+        statusPagamento: StatusPagamento.CONFIRMADO,
+        formaPagamento: 'PIX',
+        trocoPara: null,
+        tipoAtendimento: 'ENTREGA',
+        motoboyId: null,
+        criadoEm: new Date(),
+        atualizadoEm: new Date(),
+        statusMudouEm: new Date(),
+        total: 30,
+        bairroEntrega: 'Centro',
+        cliente: { nome: 'Cliente 1', telefone: '5562999000001', bairro: 'Centro' },
+        itens: [{ produto: { nome: 'Marmita' } }],
+      },
+    ] as any);
+    (prisma.pedido as any).count = vi.fn().mockResolvedValue(1);
+    (prisma.mensagemCliente as any).groupBy = vi.fn().mockResolvedValue([]);
+
+    const res = await pedidoService.listarPedidosAdmin();
+    expect(res.data[0].aguardandoEntregador).toBe(true);
+  });
+
+  it('deriva aguardandoEntregador no detalhe admin quando PRONTO sem motoboy', async () => {
+    vi.mocked(prisma.pedido.findUnique).mockResolvedValue({
+      id: 'p-derivado-2',
+      status: StatusPedido.PRONTO,
+      statusPagamento: StatusPagamento.CONFIRMADO,
+      formaPagamento: 'PIX',
+      trocoPara: null,
+      tipoAtendimento: 'ENTREGA',
+      motoboyId: null,
+      criadoEm: new Date(),
+      atualizadoEm: new Date(),
+      statusMudouEm: new Date(),
+      pagamentoId: null,
+      observacao: null,
+      observacaoEntrega: null,
+      canceladoMotivo: null,
+      estornoNecessario: false,
+      estornoRealizadoEm: null,
+      subtotal: 25,
+      taxaEntrega: 5,
+      total: 30,
+      cliente: { nome: 'Cliente 2', telefone: '5562999000002', endereco: 'Rua A', bairro: 'Centro' },
+      itens: [],
+      motoboy: null,
+      timeline: [],
+    } as any);
+
+    const res = await pedidoService.buscarPedidoAdminPorId('p-derivado-2');
+    expect(res?.aguardandoEntregador).toBe(true);
+  });
+});
+
+describe('obterMetricasAdmin', () => {
+  const inicioDia = new Date();
+  inicioDia.setHours(0, 0, 0, 0);
+
+  function mockMetricasBase(pedidosPronto: { tipoAtendimento: string; motoboyId: string | null; statusMudouEm: Date }[]) {
+    vi.mocked(prisma.pedido.groupBy).mockResolvedValue([] as any);
+    vi.mocked(prisma.pedido.aggregate)
+      .mockResolvedValueOnce({ _sum: { total: 500 } } as any)
+      .mockResolvedValueOnce({ _sum: { total: 400 } } as any);
+    vi.mocked(prisma.pedido.count)
+      .mockResolvedValueOnce(10 as any)
+      .mockResolvedValueOnce(2 as any)
+      .mockResolvedValueOnce(7 as any);
+    vi.mocked(prisma.mensagemCliente.count).mockResolvedValue(3 as any);
+    vi.mocked(prisma.$queryRaw).mockResolvedValue([{ avg_segundos: null }] as any);
+    vi.mocked(prisma.pedido.findMany).mockResolvedValue(pedidosPronto as any);
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('aguardandoEntregador conta apenas PRONTO com tipoAtendimento=ENTREGA e sem motoboy', async () => {
+    const statusMudouEm = new Date(Date.now() - 5 * 60 * 1000); // 5 min atrás
+    mockMetricasBase([
+      { tipoAtendimento: 'ENTREGA', motoboyId: null, statusMudouEm },       // conta
+      { tipoAtendimento: 'ENTREGA', motoboyId: 'mb-1', statusMudouEm },     // tem motoboy, não conta
+      { tipoAtendimento: 'RETIRADA', motoboyId: null, statusMudouEm },      // retirada, não conta
+      { tipoAtendimento: 'CONSUMO_LOCAL', motoboyId: null, statusMudouEm }, // consumo local, não conta
+    ]);
+
+    const metricas = await pedidoService.obterMetricasAdmin();
+
+    expect(metricas.aguardandoEntregador).toBe(1);
+  });
+
+  it('prontoParaRetirada conta PRONTO com tipoAtendimento=RETIRADA ou CONSUMO_LOCAL', async () => {
+    const statusMudouEm = new Date(Date.now() - 3 * 60 * 1000);
+    mockMetricasBase([
+      { tipoAtendimento: 'ENTREGA', motoboyId: null, statusMudouEm },
+      { tipoAtendimento: 'RETIRADA', motoboyId: null, statusMudouEm },
+      { tipoAtendimento: 'CONSUMO_LOCAL', motoboyId: null, statusMudouEm },
+      { tipoAtendimento: 'ENTREGA', motoboyId: 'mb-2', statusMudouEm },
+    ]);
+
+    const metricas = await pedidoService.obterMetricasAdmin();
+
+    expect(metricas.prontoParaRetirada).toBe(3); // RETIRADA + CONSUMO_LOCAL + ENTREGA com motoboy
+  });
+
+  it('tempoMedioAguardandoEntregadorMs calcula média correta', async () => {
+    const agora = Date.now();
+    mockMetricasBase([
+      { tipoAtendimento: 'ENTREGA', motoboyId: null, statusMudouEm: new Date(agora - 60_000) },  // 1 min
+      { tipoAtendimento: 'ENTREGA', motoboyId: null, statusMudouEm: new Date(agora - 180_000) }, // 3 min
+    ]);
+
+    const metricas = await pedidoService.obterMetricasAdmin();
+
+    // média: (60000 + 180000) / 2 = 120000ms ± margem de execução
+    expect(metricas.tempoMedioAguardandoEntregadorMs).toBeGreaterThanOrEqual(119_000);
+    expect(metricas.tempoMedioAguardandoEntregadorMs).toBeLessThanOrEqual(121_000);
+  });
+
+  it('tempoMedioAguardandoEntregadorMs é null quando não há pedidos aguardando entregador', async () => {
+    mockMetricasBase([
+      { tipoAtendimento: 'RETIRADA', motoboyId: null, statusMudouEm: new Date() },
+    ]);
+
+    const metricas = await pedidoService.obterMetricasAdmin();
+
+    expect(metricas.tempoMedioAguardandoEntregadorMs).toBeNull();
+  });
+
+  it('retorna zeros corretos quando não há pedidos PRONTO', async () => {
+    mockMetricasBase([]);
+
+    const metricas = await pedidoService.obterMetricasAdmin();
+
+    expect(metricas.aguardandoEntregador).toBe(0);
+    expect(metricas.prontoParaRetirada).toBe(0);
+    expect(metricas.tempoMedioAguardandoEntregadorMs).toBeNull();
+  });
+});
+
+describe('criarPedidoManual com tipoAtendimento', () => {
+  const clienteMock = { id: 'cli-1', telefone: '62999990001', nome: 'Cliente Teste', endereco: '', bairro: '', cep: null, origem: 'SITE', criadoEm: new Date(), atualizadoEm: new Date() };
+  const produtoMock = { id: 'prod-1', nome: 'Produto', preco: 20, disponivel: true, categoria: null, descricao: null, imagemUrl: null, criadoEm: new Date(), atualizadoEm: new Date() };
+  const pedidoCriado = {
+    id: 'ped-manual-1',
+    numeroPedido: 101,
+    status: StatusPedido.CONFIRMADO,
+    statusPagamento: StatusPagamento.A_RECEBER,
+    tipoAtendimento: TipoAtendimentoPedido.RETIRADA,
+    total: 20,
+    taxaEntrega: 0,
+    tokenAcesso: 'tok',
+    itens: [{ id: 'item-1', produtoId: 'prod-1', quantidade: 1, precoUnitario: 20, observacao: null, produto: produtoMock }],
+    cliente: clienteMock,
+    pagamento: null,
+    motoboy: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    process.env.FRONTEND_URL = 'https://rancho.delivery';
+  });
+
+  it('cria pedido manual RETIRADA sem taxaEntrega e sem validação de bairro', async () => {
+    vi.mocked(clienteService.criarOuAtualizar).mockResolvedValue(clienteMock as any);
+    vi.mocked(prisma.produto.findUnique).mockResolvedValue(produtoMock as any);
+    vi.mocked(prisma.pedido.create).mockResolvedValue(pedidoCriado as any);
+    vi.mocked(prisma.pedido.findUnique).mockResolvedValue({ ...pedidoCriado, enderecoEntrega: null } as any);
+    vi.mocked(prisma.pedidoTimeline.create).mockResolvedValue({} as any);
+
+    const resultado = await pedidoService.criarPedidoManual({
+      cliente: { nome: 'Cliente Teste', telefone: '62999990001', endereco: '', bairro: '' },
+      itens: [{ produtoId: 'prod-1', quantidade: 1 }],
+      pagamentoMetodo: 'PIX',
+      tipoAtendimento: TipoAtendimentoPedido.RETIRADA,
+    });
+
+    expect(resultado.tipoAtendimento).toBe(TipoAtendimentoPedido.RETIRADA);
+    expect(vi.mocked(bairroService.validarBairro)).not.toHaveBeenCalled();
+    const createCall = vi.mocked(prisma.pedido.create).mock.calls[0][0];
+    expect((createCall.data as any).taxaEntrega).toBe(0);
+  });
+
+  it('cria pedido manual CONSUMO_LOCAL sem taxaEntrega', async () => {
+    const pedidoLocal = { ...pedidoCriado, tipoAtendimento: TipoAtendimentoPedido.CONSUMO_LOCAL };
+    vi.mocked(clienteService.criarOuAtualizar).mockResolvedValue(clienteMock as any);
+    vi.mocked(prisma.produto.findUnique).mockResolvedValue(produtoMock as any);
+    vi.mocked(prisma.pedido.create).mockResolvedValue(pedidoLocal as any);
+    vi.mocked(prisma.pedido.findUnique).mockResolvedValue({ ...pedidoLocal, enderecoEntrega: null } as any);
+    vi.mocked(prisma.pedidoTimeline.create).mockResolvedValue({} as any);
+
+    const resultado = await pedidoService.criarPedidoManual({
+      cliente: { nome: 'Cliente Teste', telefone: '62999990001', endereco: '', bairro: '' },
+      itens: [{ produtoId: 'prod-1', quantidade: 1 }],
+      pagamentoMetodo: 'DINHEIRO',
+      tipoAtendimento: TipoAtendimentoPedido.CONSUMO_LOCAL,
+    });
+
+    expect(resultado.tipoAtendimento).toBe(TipoAtendimentoPedido.CONSUMO_LOCAL);
+    expect(vi.mocked(bairroService.validarBairro)).not.toHaveBeenCalled();
   });
 });

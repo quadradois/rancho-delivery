@@ -153,6 +153,50 @@ describe('Admin RBAC — integração', () => {
         .set('Authorization', tokenOperador);
       expect(res.status).toBe(403);
     });
+
+    it('executa fluxo PREPARANDO -> PRONTO -> SAIU_ENTREGA (com motoboy)', async () => {
+      vi.mocked(pedidoService.atualizarStatusAdmin)
+        .mockResolvedValueOnce({ ...mockPedido, status: 'PRONTO' } as any)
+        .mockResolvedValueOnce({ ...mockPedido, status: 'SAIU_ENTREGA' } as any);
+      vi.mocked(pedidoService.atribuirMotoboy).mockResolvedValue({ ...mockPedido, motoboy: { id: 'mb-1', nome: 'Moto 1' } } as any);
+
+      const pronto = await request(app)
+        .patch('/api/admin/pedidos/ped-rbac-1/status')
+        .set('Authorization', tokenOperador)
+        .send({ status: 'PRONTO' });
+      expect(pronto.status).toBe(200);
+
+      const atribuir = await request(app)
+        .patch('/api/admin/pedidos/ped-rbac-1/motoboy')
+        .set('Authorization', tokenOperador)
+        .send({ motoboyId: 'mb-1' });
+      expect(atribuir.status).toBe(200);
+
+      const rota = await request(app)
+        .patch('/api/admin/pedidos/ped-rbac-1/status')
+        .set('Authorization', tokenOperador)
+        .send({ status: 'SAIU_ENTREGA' });
+      expect(rota.status).toBe(200);
+    });
+
+    it('bloqueia PRONTO -> SAIU_ENTREGA sem motoboy com 422', async () => {
+      vi.mocked(pedidoService.atualizarStatusAdmin)
+        .mockResolvedValueOnce({ ...mockPedido, status: 'PRONTO' } as any)
+        .mockRejectedValueOnce(new Error('DESPACHO_SEM_ENTREGADOR'));
+
+      const pronto = await request(app)
+        .patch('/api/admin/pedidos/ped-rbac-1/status')
+        .set('Authorization', tokenOperador)
+        .send({ status: 'PRONTO' });
+      expect(pronto.status).toBe(200);
+
+      const rota = await request(app)
+        .patch('/api/admin/pedidos/ped-rbac-1/status')
+        .set('Authorization', tokenOperador)
+        .send({ status: 'SAIU_ENTREGA' });
+      expect(rota.status).toBe(422);
+      expect(rota.body.error.code).toBe('DESPACHO_SEM_ENTREGADOR');
+    });
   });
 
   describe('Role: admin — acesso total', () => {

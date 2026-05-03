@@ -56,14 +56,20 @@ interface PaymentForm {
 }
 
 type AddressErrors = Partial<Record<keyof AddressForm, string>>;
+type TipoAtendimento = 'ENTREGA' | 'RETIRADA' | 'CONSUMO_LOCAL';
 
-const addressSchema = z.object({
+const addressSchemaEntrega = z.object({
   nome: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
   telefone: z.string().min(10, 'Telefone inválido'),
   cep: z.string().min(8, 'CEP inválido'),
   rua: z.string().min(1, 'Rua é obrigatória'),
   bairro: z.string().min(1, 'Bairro é obrigatório'),
   numero: z.string().min(1, 'Número é obrigatório'),
+});
+
+const addressSchemaRetirada = z.object({
+  nome: z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
+  telefone: z.string().min(10, 'Telefone inválido'),
 });
 
 function salvarRecovery(data: {
@@ -163,6 +169,7 @@ export default function CheckoutPage() {
   const { status: lojaStatus, lojaAberta, mensagem: lojaMensagem } = useLojaStatus();
 
   const [currentStep, setCurrentStep] = useState<CheckoutStep>('address');
+  const [tipoAtendimento, setTipoAtendimento] = useState<TipoAtendimento>('ENTREGA');
   const [loading, setLoading] = useState(false);
   const [loadingCep, setLoadingCep] = useState(false);
   const [deliveryFee, setDeliveryFee] = useState(cartDeliveryFee || 0);
@@ -302,7 +309,8 @@ export default function CheckoutPage() {
   };
 
   const validateAddress = (): boolean => {
-    const result = addressSchema.safeParse(addressForm);
+    const schema = tipoAtendimento === 'ENTREGA' ? addressSchemaEntrega : addressSchemaRetirada;
+    const result = schema.safeParse(addressForm);
     if (!result.success) {
       const erros: AddressErrors = {};
       result.error.errors.forEach((e) => {
@@ -312,7 +320,7 @@ export default function CheckoutPage() {
       setErrors(erros);
       return false;
     }
-    if (!cepAtendido) {
+    if (tipoAtendimento === 'ENTREGA' && !cepAtendido) {
       showError('CEP não validado', 'Verifique se entregamos na sua região');
       return false;
     }
@@ -380,6 +388,18 @@ export default function CheckoutPage() {
           observacao: item.observacao,
         })),
         observacao: addressForm.pontoReferencia || undefined,
+        pagamento: {
+          forma:
+            paymentForm.formaPagamento === 'pix'
+              ? 'PIX'
+              : paymentForm.formaPagamento === 'dinheiro'
+              ? 'DINHEIRO'
+              : paymentForm.formaPagamento === 'cartao_credito'
+              ? 'CARTAO_CREDITO'
+              : 'CARTAO_DEBITO',
+          trocoPara: paymentForm.formaPagamento === 'dinheiro' ? paymentForm.trocoParaValor : undefined,
+        },
+        tipoAtendimento,
       };
 
       const pedido = await api.pedidos.criar(pedidoData);
@@ -550,6 +570,28 @@ export default function CheckoutPage() {
             <div className="space-y-4">
               <h2 className="font-brand text-xl font-black uppercase text-[#F4E8CC]">Seus dados</h2>
 
+              {/* Tipo de atendimento */}
+              <div className="flex gap-2">
+                {([
+                  { value: 'ENTREGA', label: 'Entrega' },
+                  { value: 'RETIRADA', label: 'Retirada' },
+                  { value: 'CONSUMO_LOCAL', label: 'No local' },
+                ] as { value: TipoAtendimento; label: string }[]).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setTipoAtendimento(opt.value)}
+                    className={`flex-1 py-2 rounded-lg border text-sm font-semibold transition-all ${
+                      tipoAtendimento === opt.value
+                        ? 'border-[#D4601C] bg-[#D4601C]/10 text-[#D4601C]'
+                        : 'border-[#3E2214] bg-[#251208] text-[#9A7B5C] hover:border-[#5C3418]'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
               <Input label="Nome completo *" value={addressForm.nome}
                 onChange={e => setAddressForm(p => ({ ...p, nome: e.target.value }))}
                 error={errors.nome} placeholder="Seu nome" />
@@ -563,7 +605,7 @@ export default function CheckoutPage() {
                   placeholder="seu@email.com" type="email" />
               </div>
 
-              <div className="border-t border-[#3E2214] pt-4">
+              {tipoAtendimento === 'ENTREGA' && <div className="border-t border-[#3E2214] pt-4">
                 <h2 className="font-brand text-xl font-black uppercase text-[#F4E8CC] mb-4">Endereço de entrega</h2>
 
                 {/* CEP */}
@@ -642,7 +684,7 @@ export default function CheckoutPage() {
                     onChange={e => setAddressForm(p => ({ ...p, pontoReferencia: e.target.value }))}
                     placeholder="Próximo ao..." />
                 </div>
-              </div>
+              </div>}
             </div>
           )}
 
@@ -703,18 +745,24 @@ export default function CheckoutPage() {
 
               {/* Endereço */}
               <div className="rounded-xl p-4 space-y-1" style={{ background: '#251208', border: '1.5px solid #3E2214' }}>
-                <p className="text-xs font-bold uppercase tracking-wider text-[#9A7B5C] mb-2">Entrega</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-[#9A7B5C] mb-2">
+                  {tipoAtendimento === 'RETIRADA' ? 'Retirada' : tipoAtendimento === 'CONSUMO_LOCAL' ? 'Consumo local' : 'Entrega'}
+                </p>
                 <p className="font-semibold text-[#F4E8CC] text-sm">{addressForm.nome}</p>
                 <p className="text-sm text-[#9A7B5C]">{addressForm.telefone}</p>
-                <p className="text-sm text-[#9A7B5C]">
-                  {addressForm.rua}, {addressForm.numero}
-                  {addressForm.quadra && ` — Quadra ${addressForm.quadra}`}
-                  {addressForm.lote && `, Lote ${addressForm.lote}`}
-                  {addressForm.complemento && ` — ${addressForm.complemento}`}
-                </p>
-                <p className="text-sm text-[#9A7B5C]">{addressForm.bairro} — CEP {addressForm.cep}</p>
-                {addressForm.pontoReferencia && (
-                  <p className="text-xs text-[#5C3418]">Ref: {addressForm.pontoReferencia}</p>
+                {tipoAtendimento === 'ENTREGA' && (
+                  <>
+                    <p className="text-sm text-[#9A7B5C]">
+                      {addressForm.rua}, {addressForm.numero}
+                      {addressForm.quadra && ` — Quadra ${addressForm.quadra}`}
+                      {addressForm.lote && `, Lote ${addressForm.lote}`}
+                      {addressForm.complemento && ` — ${addressForm.complemento}`}
+                    </p>
+                    <p className="text-sm text-[#9A7B5C]">{addressForm.bairro} — CEP {addressForm.cep}</p>
+                    {addressForm.pontoReferencia && (
+                      <p className="text-xs text-[#5C3418]">Ref: {addressForm.pontoReferencia}</p>
+                    )}
+                  </>
                 )}
               </div>
 

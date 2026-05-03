@@ -1,14 +1,15 @@
 export const STATUS_OPTIONS = [
   { value: 'todos', label: 'Todos' },
   { value: 'AGUARDANDO_PAGAMENTO', label: 'Pag. Pendente' },
-  { value: 'CONFIRMADO', label: 'Aprovação' },
+  { value: 'CONFIRMADO', label: 'Aguardando preparo' },
   { value: 'PREPARANDO', label: 'Preparo' },
+  { value: 'PRONTO', label: 'Pronto' },
   { value: 'SAIU_ENTREGA', label: 'Em rota' },
   { value: 'ENTREGUE', label: 'Entregue' },
   { value: 'CANCELADO', label: 'Cancelado' },
 ];
 
-export const STATUS_FLOW = ['AGUARDANDO_PAGAMENTO', 'CONFIRMADO', 'PREPARANDO', 'SAIU_ENTREGA', 'ENTREGUE'] as const;
+export const STATUS_FLOW = ['AGUARDANDO_PAGAMENTO', 'CONFIRMADO', 'PREPARANDO', 'PRONTO', 'SAIU_ENTREGA', 'ENTREGUE'] as const;
 
 export const CANCEL_MOTIVOS = [
   'Cliente desistiu',
@@ -28,6 +29,8 @@ export function toBadgeVariant(status: string) {
       return 'waiting' as const;
     case 'PREPARANDO':
       return 'preparing' as const;
+    case 'PRONTO':
+      return 'waiting' as const;
     case 'SAIU_ENTREGA':
       return 'on-route' as const;
     case 'ENTREGUE':
@@ -46,14 +49,42 @@ export function labelStatus(status: string) {
   switch (status) {
     case 'AGUARDANDO_PAGAMENTO':
       return 'Aguard. pagamento';
+    case 'CONFIRMADO':
+      return 'Aguardando preparo';
     case 'SAIU_ENTREGA':
       return 'Em rota';
+    case 'PRONTO':
+      return 'Pronto';
     default:
       return status.replace('_', ' ').toLowerCase();
   }
 }
 
-export function paymentIcon(statusPagamento: 'PENDENTE' | 'CONFIRMADO' | 'EXPIRADO') {
+export function ctaStatus(status: string) {
+  switch (status) {
+    case 'AGUARDANDO_PAGAMENTO':
+      return 'Aceitar pedido';
+    case 'CONFIRMADO':
+      return 'Iniciar preparo';
+    case 'PREPARANDO':
+      return 'Marcar pronto';
+    case 'PRONTO':
+      return 'Enviar para entrega';
+    case 'SAIU_ENTREGA':
+      return 'Marcar entregue';
+    default:
+      return 'Ação indisponível';
+  }
+}
+
+export function motivoBloqueioAcao(status: string, statusPagamento?: string, aguardandoEntregador?: boolean) {
+  if (['ENTREGUE', 'CANCELADO', 'EXPIRADO', 'ABANDONADO'].includes(status)) return 'Pedido em status final';
+  if (status === 'PENDENTE' || (status === 'AGUARDANDO_PAGAMENTO' && statusPagamento !== 'CONFIRMADO')) return 'Aguardando pagamento confirmado';
+  if (status === 'PRONTO' && aguardandoEntregador) return 'Aguardando entregador';
+  return null;
+}
+
+export function paymentIcon(statusPagamento: 'PENDENTE' | 'CONFIRMADO' | 'A_RECEBER' | 'EXPIRADO') {
   if (statusPagamento === 'CONFIRMADO') return '🔒';
   if (statusPagamento === 'EXPIRADO') return '❌';
   return '⏳';
@@ -65,6 +96,8 @@ export function slaByStatus(status: string) {
       return { warningAt: 180, dangerAt: 300 };
     case 'PREPARANDO':
       return { warningAt: 1500, dangerAt: 2100 };
+    case 'PRONTO':
+      return { warningAt: 900, dangerAt: 1500 };
     case 'SAIU_ENTREGA':
       return { warningAt: 3000, dangerAt: 3600 };
     default:

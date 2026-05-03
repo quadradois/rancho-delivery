@@ -29,6 +29,9 @@ vi.mock('../config/database', () => ({
       findMany: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      groupBy: vi.fn(),
+      aggregate: vi.fn(),
+      count: vi.fn(),
     },
     pedidoTimeline: {
       create: vi.fn(),
@@ -38,7 +41,16 @@ vi.mock('../config/database', () => ({
       findMany: vi.fn(),
       updateMany: vi.fn(),
       create: vi.fn(),
+      count: vi.fn(),
+      groupBy: vi.fn(),
     },
+    motoboy: {
+      findUnique: vi.fn(),
+      findMany: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
+    $queryRaw: vi.fn(),
     $transaction: vi.fn((callback) => callback({
       pedido: {
         create: vi.fn(),
