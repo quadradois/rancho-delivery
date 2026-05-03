@@ -133,7 +133,11 @@ export class PedidoService {
   }
 
   private async obterWebhookUrlMercadoPago(baseUrl: string) {
-    const loja = await prisma.lojaConfiguracao.findUnique({
+    const delegate = (prisma as any).lojaConfiguracao;
+    if (!delegate?.findUnique) {
+      return process.env.MERCADOPAGO_WEBHOOK_URL || `${baseUrl}/webhook/mercadopago`;
+    }
+    const loja = await delegate.findUnique({
       where: { id: 'loja_principal' },
       select: { mercadopagoWebhookUrl: true },
     });
@@ -1334,6 +1338,56 @@ export class PedidoService {
       observacao: `Reorder do pedido ${pedido.id}`,
       origem: Origem.SITE,
     });
+  }
+
+  async gerarPagamentoPixPedido(id: string) {
+    const pedido = await prisma.pedido.findUnique({
+      where: { id },
+      include: {
+        cliente: {
+          select: { nome: true, telefone: true },
+        },
+      },
+    });
+
+    if (!pedido) throw new Error('PEDIDO_NAO_ENCONTRADO');
+    if (pedido.formaPagamento !== FormaPagamentoPedido.PIX) throw new Error('PAGAMENTO_NAO_PIX');
+    if (pedido.status !== StatusPedido.AGUARDANDO_PAGAMENTO) throw new Error('STATUS_INVALIDO_PAGAMENTO');
+
+    const baseUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const webhookUrl = await this.obterWebhookUrlMercadoPago(baseUrl);
+    const telefone = (pedido.cliente?.telefone || '').replace(/\D/g, '');
+    const email = `cliente${telefone || 'anon'}@rancho.delivery`;
+
+    const pagamento = await mercadoPagoService.criarPagamentoPix({
+      order_nsu: pedido.id,
+      transaction_amount: Number(pedido.total),
+      description: `Pedido ${pedido.id.slice(-8).toUpperCase()}`,
+      webhook_url: webhookUrl,
+      payer: {
+        email,
+        first_name: pedido.cliente?.nome || 'Cliente',
+      },
+      date_of_expiration: pedido.pagamentoExpiraEm?.toISOString() || undefined,
+    });
+
+    await prisma.pedido.update({
+      where: { id: pedido.id },
+      data: {
+        pagamentoId: pagamento.id || pedido.pagamentoId,
+      },
+    });
+    await this.registrarTimeline(pedido.id, 'SISTEMA', 'Pagamento PIX transparente gerado');
+
+    return {
+      pedidoId: pedido.id,
+      pagamentoId: pagamento.id,
+      status: pagamento.status,
+      qrCode: pagamento.qr_code || '',
+      qrCodeBase64: pagamento.qr_code_base64 || '',
+      ticketUrl: pagamento.ticket_url || '',
+      expiraEm: pedido.pagamentoExpiraEm?.toISOString() || null,
+    };
   }
 
   async processarExpiracoesEAbandonos() {

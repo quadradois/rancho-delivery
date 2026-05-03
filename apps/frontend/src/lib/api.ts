@@ -94,6 +94,9 @@ export interface Pedido {
   observacoes?: string;
   pagamentoId?: string;
   linkPagamento?: string;
+  pixQrCode?: string;
+  pixQrCodeBase64?: string;
+  pixTicketUrl?: string;
   tokenAcesso?: string;
   endereco: {
     rua: string;
@@ -108,6 +111,16 @@ export interface Pedido {
   createdAt: string;
   criadoEm?: string;
   atualizadoEm?: string;
+}
+
+export interface PixCheckoutData {
+  pedidoId: string;
+  pagamentoId: string;
+  status: string;
+  qrCode: string;
+  qrCodeBase64: string;
+  ticketUrl: string;
+  expiraEm: string | null;
 }
 
 export interface AdminPedidoListaItem {
@@ -467,6 +480,14 @@ export const pedidoService = {
       this.setTokenByPedidoId(novo.id, (novo as any).tokenAcesso);
     }
     return novo;
+  },
+
+  async gerarPagamentoPix(id: string): Promise<PixCheckoutData> {
+    const token = this.getTokenByPedidoId(id);
+    const endpoint = token
+      ? `/pedidos/${id}/pagamento/pix?token=${encodeURIComponent(token)}`
+      : `/pedidos/${id}/pagamento/pix`;
+    return apiClient.post(endpoint, {});
   },
 
   async avaliarNps(id: string, nota: number, feedback?: string): Promise<{ id: string; npsNota: number; npsFeedback?: string | null; atualizadoEm: string }> {

@@ -292,6 +292,27 @@ export class PedidoController {
   }
 
   /**
+   * POST /api/pedidos/:id/pagamento/pix
+   * Gera cobrança PIX transparente para pedido em aberto.
+   */
+  async gerarPagamentoPix(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const data = await pedidoService.gerarPagamentoPixPedido(id);
+      return res.json({ success: true, data });
+    } catch (error: any) {
+      logger.error('Erro ao gerar pagamento PIX transparente:', error);
+      if (error.message === 'PEDIDO_NAO_ENCONTRADO') {
+        return res.status(404).json({ success: false, error: { message: 'Pedido não encontrado', code: error.message } });
+      }
+      if (error.message === 'PAGAMENTO_NAO_PIX' || error.message === 'STATUS_INVALIDO_PAGAMENTO') {
+        return res.status(400).json({ success: false, error: { message: 'Pedido não elegível para pagamento PIX', code: error.message } });
+      }
+      return res.status(500).json({ success: false, error: { message: 'Erro ao gerar pagamento PIX' } });
+    }
+  }
+
+  /**
    * GET /api/pedidos/:id/eventos
    * Stream SSE de eventos do pedido para acompanhamento em tempo real.
    */

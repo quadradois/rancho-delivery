@@ -34,6 +34,15 @@ function removeStorage(key: string) {
 }
 
 type CheckoutStep = 'address' | 'payment' | 'review' | 'return';
+type PixData = {
+  pedidoId: string;
+  pagamentoId: string;
+  status: string;
+  qrCode: string;
+  qrCodeBase64: string;
+  ticketUrl: string;
+  expiraEm: string | null;
+};
 
 interface AddressForm {
   nome: string;
@@ -178,6 +187,7 @@ export default function CheckoutPage() {
   const [cepAtendido, setCepAtendido] = useState(false);
   const [errors, setErrors] = useState<AddressErrors>({});
   const [recoveryData, setRecoveryData] = useState<ReturnType<typeof lerRecovery>>(null);
+  const [pixData, setPixData] = useState<PixData | null>(null);
 
   const [addressForm, setAddressForm] = useState<AddressForm>({
     nome: '', telefone: '', email: '', cep: '', rua: '', bairro: '',
@@ -430,6 +440,15 @@ export default function CheckoutPage() {
       }
       showSuccess('Pedido realizado!', `Pedido #${pedido.id.slice(-8)}`);
 
+      if (paymentForm.formaPagamento === 'pix') {
+        const pix = await api.pedidos.gerarPagamentoPix(pedido.id);
+        limparDraft();
+        clearCart();
+        setPixData(pix);
+        setCurrentStep('return');
+        return;
+      }
+
       if (pedido.linkPagamento) {
         writeStorage(CHECKOUT_LAST_ATTEMPT_KEY, JSON.stringify({
           fingerprint: finger,
@@ -532,6 +551,60 @@ export default function CheckoutPage() {
               >
                 Cancelar e voltar ao cardápio
               </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (currentStep === 'return' && pixData) {
+    return (
+      <div className="min-h-screen flex flex-col" style={{ background: '#1A0D06' }}>
+        <AppBar title="Pague com Pix" />
+        <main className="flex-1 flex items-center justify-center p-6">
+          <div className="w-full max-w-md space-y-4">
+            <div className="rounded-xl p-4" style={{ background: '#251208', border: '1px solid #3E2214' }}>
+              <p className="text-xs font-bold uppercase tracking-wider text-[#9A7B5C]">Pedido</p>
+              <p className="text-sm text-[#F4E8CC] font-semibold">#{pixData.pedidoId.slice(-8).toUpperCase()}</p>
+              {pixData.expiraEm ? (
+                <p className="text-xs text-[#9A7B5C] mt-1">Expira em: {new Date(pixData.expiraEm).toLocaleString('pt-BR')}</p>
+              ) : null}
+            </div>
+
+            {pixData.qrCodeBase64 ? (
+              <div className="rounded-xl bg-white p-4 flex items-center justify-center">
+                <img src={`data:image/png;base64,${pixData.qrCodeBase64}`} alt="QR Code PIX" className="w-64 h-64" />
+              </div>
+            ) : null}
+
+            <div className="rounded-xl p-4 space-y-3" style={{ background: '#251208', border: '1px solid #3E2214' }}>
+              <p className="text-xs text-[#9A7B5C]">Pix copia e cola</p>
+              <textarea
+                readOnly
+                value={pixData.qrCode}
+                className="w-full min-h-[96px] rounded-md bg-[#1A0D06] border border-[#3E2214] text-[#E8D4B0] text-xs p-2"
+              />
+              <Button
+                className="w-full"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(pixData.qrCode || '');
+                    showSuccess('Código PIX copiado');
+                  } catch {
+                    showError('Falha ao copiar código PIX');
+                  }
+                }}
+              >
+                Copiar código PIX
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => router.push(`/pedido/${pixData.pedidoId}`)}
+              >
+                Ver status do pedido
+              </Button>
             </div>
           </div>
         </main>

@@ -40,6 +40,13 @@ router.post(
   pedidoController.reorder.bind(pedidoController),
 );
 
+router.post(
+  '/:id/pagamento/pix',
+  tryAutenticarAdmin,
+  verificarAcessoPedido,
+  pedidoController.gerarPagamentoPix.bind(pedidoController),
+);
+
 // GET /api/pedidos/:id/eventos — stream em tempo real (SSE) para acompanhamento do pedido
 router.get(
   '/:id/eventos',

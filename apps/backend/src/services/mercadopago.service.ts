@@ -26,6 +26,26 @@ interface LinkPagamentoResponse {
   order_nsu?: string;
 }
 
+interface CriarPagamentoPixInput {
+  order_nsu: string;
+  transaction_amount: number;
+  description: string;
+  webhook_url?: string;
+  payer: {
+    email: string;
+    first_name?: string;
+  };
+  date_of_expiration?: string;
+}
+
+interface PagamentoPixResponse {
+  id: string;
+  status: string;
+  qr_code?: string;
+  qr_code_base64?: string;
+  ticket_url?: string;
+}
+
 interface PagamentoMercadoPago {
   id: string;
   status: string;
@@ -46,14 +66,17 @@ export class MercadoPagoService {
   }
 
   private async obterConfiguracao() {
-    const loja = await prisma.lojaConfiguracao.findUnique({
-      where: { id: 'loja_principal' },
-      select: {
-        mercadopagoAtivo: true,
-        mercadopagoAccessToken: true,
-        mercadopagoWebhookSecret: true,
-      },
-    });
+    const delegate = (prisma as any).lojaConfiguracao;
+    const loja = delegate?.findUnique
+      ? await delegate.findUnique({
+          where: { id: 'loja_principal' },
+          select: {
+            mercadopagoAtivo: true,
+            mercadopagoAccessToken: true,
+            mercadopagoWebhookSecret: true,
+          },
+        })
+      : null;
 
     return {
       ativo: loja?.mercadopagoAtivo ?? true,
@@ -163,6 +186,44 @@ export class MercadoPagoService {
       });
       return null;
     }
+  }
+
+  async criarPagamentoPix(dados: CriarPagamentoPixInput): Promise<PagamentoPixResponse> {
+    const config = await this.obterConfiguracao();
+    if (!config.ativo) {
+      throw new Error('MERCADOPAGO_DESATIVADO');
+    }
+    if (!config.accessToken) {
+      throw new Error('MERCADOPAGO_ACCESS_TOKEN_NAO_CONFIGURADO');
+    }
+
+    const body: any = {
+      transaction_amount: Number(dados.transaction_amount.toFixed(2)),
+      description: dados.description,
+      payment_method_id: 'pix',
+      external_reference: dados.order_nsu,
+      notification_url: dados.webhook_url,
+      payer: {
+        email: dados.payer.email,
+        first_name: dados.payer.first_name,
+      },
+      date_of_expiration: dados.date_of_expiration,
+    };
+
+    const response = await this.api.post('/v1/payments', body, {
+      headers: {
+        Authorization: `Bearer ${config.accessToken}`,
+        'X-Idempotency-Key': `pix-${dados.order_nsu}`,
+      },
+    });
+
+    return {
+      id: String(response.data?.id || ''),
+      status: String(response.data?.status || ''),
+      qr_code: response.data?.point_of_interaction?.transaction_data?.qr_code || undefined,
+      qr_code_base64: response.data?.point_of_interaction?.transaction_data?.qr_code_base64 || undefined,
+      ticket_url: response.data?.point_of_interaction?.transaction_data?.ticket_url || undefined,
+    };
   }
 }
 
