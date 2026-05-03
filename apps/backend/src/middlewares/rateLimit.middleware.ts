@@ -13,10 +13,11 @@ export const loginLimiter = rateLimit({
   },
 });
 
-// 100 requisições por IP a cada 15 minutos para rotas admin
+// Rotas admin fazem polling frequente (cockpit + métricas + fila + status).
+// Limite ajustado para evitar 429 em uso normal sem remover a proteção.
 export const adminLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 300,
+  max: 1200,
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => {
@@ -24,6 +25,17 @@ export const adminLimiter = rateLimit({
     return ipKeyGenerator(ip);
   },
   skip: (req) => req.method === 'OPTIONS' || req.path === '/health',
+  handler: (req, res) => {
+    logger.warn('Rate limit admin excedido', {
+      ip: req.ip,
+      rota: req.originalUrl,
+      metodo: req.method,
+    });
+    return res.status(429).json({
+      error: 'Muitas requisições. Tente novamente em instantes.',
+      code: 'RATE_LIMIT_ADMIN',
+    });
+  },
   message: {
     error: 'Muitas requisições. Tente novamente em instantes.',
     code: 'RATE_LIMIT_ADMIN',
