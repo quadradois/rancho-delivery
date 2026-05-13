@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import clienteService from '../services/cliente.service';
+import evolutionService from '../services/evolution.service';
 import { logger } from '../config/logger';
 
 export class AdminClienteController {
@@ -116,7 +117,7 @@ export class AdminClienteController {
         });
       }
       if (error.message === 'FALHA_ENVIO_WHATSAPP') {
-        return res.status(502).json({
+        return res.status(424).json({
           success: false,
           error: { message: 'Falha ao enviar mensagem no WhatsApp', code: 'WHATSAPP_ENVIO_FALHOU' },
         });
@@ -166,6 +167,57 @@ export class AdminClienteController {
         success: false,
         error: { message: 'Erro ao atualizar QR Code do WhatsApp' },
       });
+    }
+  }
+
+  async detalhesWhatsApp(_req: Request, res: Response) {
+    try {
+      const detalhes = await evolutionService.obterDetalhesInstancia();
+      const configs = await evolutionService.obterConfigInstancia();
+      return res.json({ success: true, data: { ...detalhes, configs } });
+    } catch (error) {
+      logger.error('Erro ao obter detalhes do WhatsApp:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao obter detalhes do WhatsApp' } });
+    }
+  }
+
+  async desconectarWhatsApp(_req: Request, res: Response) {
+    try {
+      const ok = await evolutionService.desconectarInstancia();
+      if (!ok) {
+        return res.status(502).json({ success: false, error: { message: 'Falha ao desconectar instância — verifique conexão com Evolution API' } });
+      }
+      return res.json({ success: true, data: { desconectado: true } });
+    } catch (error) {
+      logger.error('Erro ao desconectar WhatsApp:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao desconectar WhatsApp' } });
+    }
+  }
+
+  async apagarWhatsApp(_req: Request, res: Response) {
+    try {
+      const ok = await evolutionService.apagarInstancia();
+      if (!ok) {
+        return res.status(502).json({ success: false, error: { message: 'Falha ao apagar instância — verifique conexão com Evolution API' } });
+      }
+      return res.json({ success: true, data: { apagado: true } });
+    } catch (error) {
+      logger.error('Erro ao apagar WhatsApp:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao apagar WhatsApp' } });
+    }
+  }
+
+  async atualizarConfigWhatsApp(req: Request, res: Response) {
+    try {
+      const configs = req.body || {};
+      const ok = await evolutionService.atualizarConfigInstancia(configs);
+      if (!ok) {
+        return res.status(502).json({ success: false, error: { message: 'Falha ao atualizar configurações' } });
+      }
+      return res.json({ success: true, data: { atualizado: true, configs } });
+    } catch (error) {
+      logger.error('Erro ao atualizar configurações do WhatsApp:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao atualizar configurações' } });
     }
   }
 

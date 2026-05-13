@@ -36,31 +36,72 @@ export class EvolutionService {
    * Envia mensagem de texto via WhatsApp
    */
   async enviarMensagem(dados: EnviarMensagemInput): Promise<boolean> {
-    const numeroFormatado = dados.numero.replace(/\D/g, '');
+    const r = await this.enviarMensagemDetalhado(dados);
+    return r.ok;
+  }
+
+  async enviarMensagemDetalhado(dados: EnviarMensagemInput): Promise<{ ok: boolean; motivo?: string; transitorio?: boolean; status?: number | null }> {
+    const digits = dados.numero.replace(/\D/g, '');
+    const numeroFormatado = digits.startsWith('55') ? digits : `55${digits}`;
     const payload = { number: numeroFormatado, text: dados.mensagem };
+
+    let ultimoStatus: number | null = null;
+    let ultimoMotivo = 'ERRO_DESCONHECIDO';
 
     for (let tentativa = 0; tentativa <= 2; tentativa++) {
       try {
         const response = await this.api.post(`/message/sendText/${this.instanceName}`, payload);
-        logger.info(`Mensagem WhatsApp enviada para ${numeroFormatado}`);
-        return response.status === 200 || response.status === 201;
+        const ok = response.status === 200 || response.status === 201;
+        if (ok) {
+          logger.info(`Mensagem WhatsApp enviada para ${numeroFormatado}`);
+          return { ok: true, status: response.status };
+        }
+        ultimoStatus = response.status;
+        ultimoMotivo = `HTTP_${response.status}`;
       } catch (error: any) {
-        const status = error?.response?.status;
-        // Não faz retry em erros do cliente (4xx) — só em falhas de rede e 5xx
-        if (status >= 400 && status < 500) {
-          logger.error('Erro ao enviar mensagem WhatsApp (4xx, sem retry):', error.response?.data || error.message);
-          return false;
+        const status = error?.response?.status ?? null;
+        ultimoStatus = status;
+        const providerData = error?.response?.data;
+        const providerMsg = (providerData?.message || providerData?.error || error?.message || '').toString().toLowerCase();
+
+        // Classifica o motivo
+        if (status === 400 && /(not.*exists|invalid.*number|wrong.*format)/.test(providerMsg)) {
+          ultimoMotivo = 'NUMERO_INVALIDO';
+        } else if (status === 401 || status === 403) {
+          ultimoMotivo = 'INSTANCIA_NAO_AUTORIZADA';
+        } else if (/instance.*not.*connected|disconnected|close/.test(providerMsg)) {
+          ultimoMotivo = 'INSTANCIA_DESCONECTADA';
+        } else if (status === 429) {
+          ultimoMotivo = 'RATE_LIMIT';
+        } else if (status && status >= 500) {
+          ultimoMotivo = `EVOLUTION_${status}`;
+        } else if (status && status >= 400 && status < 500) {
+          ultimoMotivo = `CLIENTE_${status}`;
+        } else if (!status) {
+          ultimoMotivo = 'REDE';
+        }
+
+        const providerError = {
+          status, message: error?.message, data: providerData,
+          numero: numeroFormatado, motivo: ultimoMotivo,
+        };
+
+        // 4xx (exceto rate limit) — não faz retry
+        if (status && status >= 400 && status < 500 && status !== 429) {
+          logger.error('Erro ao enviar mensagem WhatsApp (4xx, sem retry):', providerError);
+          return { ok: false, motivo: ultimoMotivo, transitorio: false, status };
         }
         if (tentativa < 2) {
-          const delay = 800 * 2 ** tentativa; // 800ms → 1600ms
-          logger.warn(`WhatsApp: tentativa ${tentativa + 1}/2 falhou — retry em ${delay}ms`);
+          const delay = 800 * 2 ** tentativa;
+          logger.warn(`WhatsApp: tentativa ${tentativa + 1}/2 falhou (${ultimoMotivo}) — retry em ${delay}ms`);
           await new Promise(r => setTimeout(r, delay));
         } else {
-          logger.error('Erro ao enviar mensagem WhatsApp após retries:', error.response?.data || error.message);
+          logger.error('Erro ao enviar mensagem WhatsApp após retries:', providerError);
         }
       }
     }
-    return false;
+    // Esgotou retries — erro transitório
+    return { ok: false, motivo: ultimoMotivo, transitorio: true, status: ultimoStatus };
   }
 
   /**
@@ -148,6 +189,83 @@ export class EvolutionService {
     } catch (error: any) {
       logger.error('Erro ao obter QR Code da instância WhatsApp:', error.response?.data || error.message);
       return null;
+    }
+  }
+
+  async desconectarInstancia(): Promise<boolean> {
+    try {
+      await this.api.delete(`/instance/logout/${this.instanceName}`);
+      logger.info('Instância WhatsApp desconectada', { instanceName: this.instanceName });
+      return true;
+    } catch (error: any) {
+      logger.error('Erro ao desconectar instância WhatsApp:', error.response?.data || error.message);
+      return false;
+    }
+  }
+
+  async apagarInstancia(): Promise<boolean> {
+    try {
+      // Tenta deslogar primeiro (ignora erro se já estiver desconectada)
+      await this.api.delete(`/instance/logout/${this.instanceName}`).catch(() => null);
+      await this.api.delete(`/instance/delete/${this.instanceName}`);
+      logger.info('Instância WhatsApp apagada', { instanceName: this.instanceName });
+      return true;
+    } catch (error: any) {
+      logger.error('Erro ao apagar instância WhatsApp:', error.response?.data || error.message);
+      return false;
+    }
+  }
+
+  async obterDetalhesInstancia() {
+    try {
+      const instancia = await this.obterInstanciaPorNome(this.instanceName);
+      const status = await this.obterStatusInstancia().catch(() => ({ state: 'close', conectado: false }));
+      return {
+        instanceName: this.instanceName,
+        existe: Boolean(instancia),
+        conectado: status.conectado,
+        state: status.state,
+        // Detalhes do dispositivo conectado (varia entre versões do Evolution)
+        telefone: instancia?.ownerJid?.split('@')[0] || instancia?.number || null,
+        nomePerfil: instancia?.profileName || null,
+        fotoPerfil: instancia?.profilePicUrl || null,
+        ultimaConexao: instancia?.updatedAt || null,
+      };
+    } catch (error: any) {
+      logger.error('Erro ao obter detalhes da instância WhatsApp:', error.response?.data || error.message);
+      return {
+        instanceName: this.instanceName,
+        existe: false, conectado: false, state: 'close',
+        telefone: null, nomePerfil: null, fotoPerfil: null, ultimaConexao: null,
+      };
+    }
+  }
+
+  async obterConfigInstancia() {
+    try {
+      const response = await this.api.get(`/settings/find/${this.instanceName}`);
+      return response.data || {};
+    } catch (error: any) {
+      logger.warn('Erro ao obter configurações da instância:', error.response?.data || error.message);
+      return {};
+    }
+  }
+
+  async atualizarConfigInstancia(configs: {
+    rejectCall?: boolean;
+    groupsIgnore?: boolean;
+    alwaysOnline?: boolean;
+    readMessages?: boolean;
+    readStatus?: boolean;
+    syncFullHistory?: boolean;
+  }): Promise<boolean> {
+    try {
+      await this.api.post(`/settings/set/${this.instanceName}`, configs);
+      logger.info('Configurações da instância WhatsApp atualizadas', { instanceName: this.instanceName, configs });
+      return true;
+    } catch (error: any) {
+      logger.error('Erro ao atualizar configurações da instância:', error.response?.data || error.message);
+      return false;
     }
   }
 
@@ -279,6 +397,10 @@ export class EvolutionService {
     if (status === 'CANCELADO') {
       const base = `Infelizmente precisamos cancelar ${pedidoRef}${motivoCancelamento ? `: ${motivoCancelamento}` : '.'}`;
       return `${base} Se o pagamento já foi feito, nossa equipe vai tratar o estorno com você.`;
+    }
+
+    if (status === 'EXPIRADO' || status === 'ABANDONADO') {
+      return `Olá ${nome}! O pagamento do ${pedidoRef} não foi confirmado dentro do prazo e o pedido foi cancelado automaticamente. Se quiser, te ajudamos a finalizar agora.`;
     }
 
     return null;

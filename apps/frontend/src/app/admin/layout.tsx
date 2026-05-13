@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
 import '@/styles/admin-theme.css';
 import api from '@/lib/api';
-import type { LojaStatusAdmin } from '@/lib/api';
+import type { LojaStatusAdmin, MotoboyStatusAdmin } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
 
 const NAV_ITEMS = [
@@ -34,7 +34,7 @@ const NAV_ITEMS = [
     ),
   },
   {
-    href: '/admin/bairros',
+    href: '/admin/entregas',
     label: 'Entregas',
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -70,6 +70,48 @@ const NAV_ITEMS = [
     ),
   },
   {
+    href: '/admin/mineracao',
+    label: 'Mineração',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M3 3v18h18" />
+        <path d="M7 15l4-4 3 3 5-6" />
+        <circle cx="7" cy="15" r="1" />
+        <circle cx="11" cy="11" r="1" />
+        <circle cx="14" cy="14" r="1" />
+        <circle cx="19" cy="8" r="1" />
+      </svg>
+    ),
+  },
+  {
+    href: '/admin/campanhas',
+    label: 'Campanhas',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M22 2 11 13" />
+        <polygon points="22 2 15 22 11 13 2 9 22 2" />
+      </svg>
+    ),
+  },
+  {
+    href: '/admin/engajamento',
+    label: 'Engajamento IA',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+      </svg>
+    ),
+  },
+  {
+    href: '/admin/whatsapp',
+    label: 'WhatsApp',
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+      </svg>
+    ),
+  },
+  {
     href: '/admin/configuracoes',
     label: 'Configurações',
     icon: (
@@ -96,6 +138,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [whatsLoading, setWhatsLoading] = useState(false);
   const [lojaStatus, setLojaStatus] = useState<LojaStatusAdmin | null>(null);
   const [showLojaStatusModal, setShowLojaStatusModal] = useState(false);
+  const [motoboyStatus, setMotoboyStatus] = useState<MotoboyStatusAdmin[]>([]);
   const [entregadoresDisponiveisDia, setEntregadoresDisponiveisDia] = useState(0);
   const [savingLojaStatus, setSavingLojaStatus] = useState(false);
 
@@ -109,13 +152,31 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    setAuthToken(window.localStorage.getItem('rancho:admin:token'));
-    setAuthReady(true);
+    const stored = window.localStorage.getItem('rancho:admin:token');
 
     const onUnauthorized = () => {
+      window.localStorage.removeItem('rancho:admin:token');
       setAuthToken(null);
     };
     window.addEventListener('rancho:admin:unauthorized', onUnauthorized);
+
+    if (stored) {
+      // Try to refresh the token silently on mount to extend session
+      api.adminAuth.refresh()
+        .then((data) => {
+          window.localStorage.setItem('rancho:admin:token', data.token);
+          setAuthToken(data.token);
+        })
+        .catch(() => {
+          // Token expired or invalid — force re-login
+          window.localStorage.removeItem('rancho:admin:token');
+          setAuthToken(null);
+        })
+        .finally(() => setAuthReady(true));
+    } else {
+      setAuthReady(true);
+    }
+
     return () => window.removeEventListener('rancho:admin:unauthorized', onUnauthorized);
   }, []);
 
@@ -215,9 +276,20 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       }
     };
 
+    const loadMotoboyStatus = async () => {
+      try {
+        const data = await api.adminPedidos.obterStatusMotoboys();
+        if (mounted) setMotoboyStatus(data);
+      } catch {
+        // silencioso
+      }
+    };
+
     void loadLojaStatus();
+    void loadMotoboyStatus();
     intervalId = window.setInterval(() => {
       void loadLojaStatus();
+      void loadMotoboyStatus();
     }, 30000);
 
     return () => {
@@ -258,6 +330,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   const toggleMode = () => {
     setMode((prev) => (prev === 'dark-mode' ? 'light-mode' : 'dark-mode'));
+  };
+
+  const handleLogout = () => {
+    window.localStorage.removeItem('rancho:admin:token');
+    setAuthToken(null);
   };
 
   const prepararConexaoWhatsApp = async () => {
@@ -407,6 +484,42 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           })}
         </nav>
 
+        {/* Entregadores */}
+        {motoboyStatus.length > 0 && (
+          <div className="mx-3 mb-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2.5">
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+              Entregadores
+            </p>
+            <div className="space-y-1.5">
+              {motoboyStatus.map((m) => (
+                <div key={m.id} className="flex items-center gap-2">
+                  <span
+                    title={m.status === 'DISPONIVEL' ? 'Livre' : m.status === 'EM_ENTREGA' ? 'Em rota' : 'Pausado'}
+                    className={`h-2 w-2 flex-shrink-0 rounded-full ${
+                      m.status === 'DISPONIVEL'
+                        ? 'bg-[var(--color-success)]'
+                        : m.status === 'EM_ENTREGA'
+                        ? 'bg-[var(--color-info)]'
+                        : 'bg-[var(--color-border)]'
+                    }`}
+                  />
+                  <span className="flex-1 truncate text-xs font-medium text-[var(--color-text-primary)]">
+                    {m.nome}
+                  </span>
+                  <span className="text-[10px] text-[var(--color-text-tertiary)]" title="Entregas hoje">
+                    {m.entregasHoje}↗
+                  </span>
+                  {m.rotasAtivas > 0 && (
+                    <span className="rounded-full bg-[var(--color-info-muted)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--color-info-text)]">
+                      {m.rotasAtivas}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Footer */}
         <div className="px-6 py-4 border-t border-[var(--color-border)]">
           <div className="mb-3 flex items-center gap-2">
@@ -433,17 +546,32 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           >
             {mode === 'dark-mode' ? 'Modo Claro' : 'Modo Escuro'}
           </button>
-          <Link
-            href="/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-            </svg>
-            Ver site
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex flex-1 items-center gap-2 text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              </svg>
+              Ver site
+            </Link>
+            <button
+              type="button"
+              onClick={handleLogout}
+              title="Sair"
+              className="flex items-center gap-1 text-xs text-[var(--color-danger-text)] hover:text-[var(--color-danger)] transition-colors"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              Sair
+            </button>
+          </div>
         </div>
       </aside>
 
