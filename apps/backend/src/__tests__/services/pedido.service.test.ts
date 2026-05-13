@@ -829,9 +829,10 @@ describe('listarPedidosAdmin — janela diária (BX-01)', () => {
 
     const whereArg = vi.mocked(prisma.pedido.findMany).mock.calls[0][0].where as any;
     const inicioDia: Date = whereArg.OR[1].criadoEm.gte;
-    expect(inicioDia.getHours()).toBe(0);
-    expect(inicioDia.getMinutes()).toBe(0);
-    expect(inicioDia.getSeconds()).toBe(0);
+    // inicioDia é UTC; verificamos que representa meia-noite em São Paulo
+    const spStr = inicioDia.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
+    // Aceita "00:00:00" ou "24:00:00" (ambos representam meia-noite)
+    expect(spStr.replace(/^24:/, '00:')).toBe('00:00:00');
   });
 
   it('com status explícito: NÃO aplica janela diária', async () => {

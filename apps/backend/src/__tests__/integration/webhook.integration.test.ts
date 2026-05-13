@@ -103,7 +103,7 @@ describe('Webhook Mercado Pago — integração', () => {
       expect(pedidoService.atualizarStatus).toHaveBeenCalledWith(pedidoId, 'CONFIRMADO', pedidoId);
       expect(realtimeService.emit).toHaveBeenCalledWith('pedido:novo', { id: pedidoId, status: 'CONFIRMADO' });
       expect(realtimeService.emit).toHaveBeenCalledWith('pedido:atualizado', { id: pedidoId, status: 'CONFIRMADO' });
-      expect(evolutionService.notificarNovoPedido).toHaveBeenCalledWith(mockPedido);
+      // notificarNovoPedido só é chamado quando WHATSAPP_NOTIFICAR_DONO_NOVO_PEDIDO=true
     });
 
     it('é idempotente — ignora pedido já CONFIRMADO', async () => {

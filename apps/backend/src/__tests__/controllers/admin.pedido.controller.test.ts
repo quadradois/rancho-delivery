@@ -386,7 +386,7 @@ describe('atualizarStatusLoja', () => {
     const req = mockReq({ body: { status: 'PAUSADO', mensagem: 'Voltamos em 30min' } });
     const { res } = mockRes();
     await adminPedidoController.atualizarStatusLoja(req, res);
-    expect(pedidoService.atualizarStatusLoja).toHaveBeenCalledWith('PAUSADO', 'Voltamos em 30min');
+    expect(pedidoService.atualizarStatusLoja).toHaveBeenCalledWith('PAUSADO', 'Voltamos em 30min', undefined);
   });
 
   it('retorna 400 para status de loja inválido', async () => {

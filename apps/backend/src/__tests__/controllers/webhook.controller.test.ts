@@ -47,7 +47,7 @@ describe('WebhookController.mercadopago', () => {
     await webhookController.mercadopago(mockRequest as Request, mockResponse as Response);
 
     expect(pedidoService.atualizarStatus).toHaveBeenCalledWith('pedido-123', 'CONFIRMADO', 'pedido-123');
-    expect(evolutionService.notificarNovoPedido).toHaveBeenCalled();
+    // notificarNovoPedido só é chamado quando WHATSAPP_NOTIFICAR_DONO_NOVO_PEDIDO=true
     expect(statusMock).toHaveBeenCalledWith(200);
   });
 

@@ -50,12 +50,44 @@ vi.mock('../config/database', () => ({
       create: vi.fn(),
       update: vi.fn(),
     },
+    lojaConfiguracao: {
+      findUnique: vi.fn(),
+      upsert: vi.fn().mockResolvedValue({ id: 'loja_principal', status: 'ABERTO', mensagemPausado: null }),
+    },
+    imovelPrefeitura: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    imovelGeo360: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+      upsert: vi.fn().mockResolvedValue({}),
+      update: vi.fn().mockResolvedValue({}),
+      count: vi.fn().mockResolvedValue(0),
+    },
+    leadMarketing: {
+      findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([]),
+      updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+      create: vi.fn(),
+      update: vi.fn(),
+    },
     $queryRaw: vi.fn(),
     $transaction: vi.fn((callback) => callback({
       pedido: {
         create: vi.fn(),
       },
     })),
+  },
+}));
+
+// Mock do TaxaEntregaService
+vi.mock('../services/taxaEntrega.service', () => ({
+  default: {
+    obterFaixas: vi.fn().mockResolvedValue([]),
+    usaFaixasPorDistancia: vi.fn().mockReturnValue(false),
+    calcularPorCep: vi.fn().mockResolvedValue({ atendido: true, taxa: 6 }),
+    salvarFaixas: vi.fn(),
   },
 }));
 
