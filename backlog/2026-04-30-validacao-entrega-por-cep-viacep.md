@@ -57,13 +57,24 @@ O sistema hoje valida bairro por nome. Qualquer divergencia entre o nome cadastr
 - [x] CEP validado no modal e aproveitado no checkout (sessionStorage)
 - [x] Card do produto exibe tempo de preparo e tempo/taxa de entrega
 - [x] Bairros parecidos nao sao aceitos por alias automatico
-- [ ] Fluxo testado em mobile
+- [x] Fluxo testado em mobile
+
+## Evolução posterior (2026-05-12)
+
+A validação por CEP foi expandida para suportar **cálculo de taxa por distância (km)** usando faixas configuráveis pela loja:
+- Coordenadas da loja salvas em `lojaConfiguracao.latLoja/lngLoja`
+- Faixas configuráveis (`FAIXA_FIXO` / `FAIXA_POR_KM`) em `lojaConfiguracao.faixasEntrega`
+- Geocodificação de CEP via dados Geo360 (centróide dos imóveis do CEP) com fallback ViaCEP
+- Mensagens de erro melhoradas: "Não realizamos entregas nessa área ainda. Verifique o CEP informado." (no lugar de "Bairro não atendido")
+- Códigos de erro específicos: `CEP_OBRIGATORIO`, `AREA_NAO_ATENDIDA`
+
+Também ganhou **livro de endereços**: o cliente que já fez pedido vê endereços salvos (Casa / Trabalho / Outro) ao iniciar novo checkout, sem precisar redigitar — implementado em `lib/customer-profile.ts`.
 
 ## Pendências
 
-- Testar fluxo completo em mobile
-- Configurar bairros reais com CEPs via painel admin em produção
-- Rodar migration `db:migrate:deploy` no servidor de produção
+- ~~Testar fluxo completo em mobile~~ ✅ Testado e funcional (sessão 2026-05-12)
+- Configurar bairros reais com CEPs via painel admin em produção (operacional, não é dev)
+- Rodar migration `db:migrate:deploy` no servidor de produção (operacional)
 
 ## Histórico de Mudanças
 
@@ -71,3 +82,5 @@ O sistema hoje valida bairro por nome. Qualquer divergencia entre o nome cadastr
 |------|---------|-------|
 | 2026-04-30 | Criação do item | Codex |
 | 2026-04-30 | Implementação completa — CEP, modal, card, checkout, admin | Kiro |
+| 2026-05-12 | Expansão: taxa por distância (km), livro de endereços, mensagens de erro melhoradas | Claude |
+| 2026-05-13 | Revisão — confirmado funcionamento em mobile, ajustadas pendências operacionais | Claude |
