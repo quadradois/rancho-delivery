@@ -1,9 +1,11 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import pedidoService from '../services/pedido.service';
+import taxaEntregaService, { FaixaEntrega } from '../services/taxaEntrega.service';
 import { logger } from '../config/logger';
 import { StatusLoja, StatusPedido } from '@prisma/client';
 import realtimeService from '../services/realtime.service';
+import prisma from '../config/database';
 
 const schemaAtualizarStatus = z.object({
   status: z.string().min(1),
@@ -25,6 +27,12 @@ const schemaCriarMotoboy = z.object({
   telefone: z.string().trim().min(8, 'Telefone obrigatório'),
   empresa: z.enum(['PROPRIO', 'IFOOD', 'MUVE', 'FOOD99']).optional().default('PROPRIO'),
   status: z.enum(['DISPONIVEL', 'EM_ENTREGA', 'INATIVO']).optional().default('DISPONIVEL'),
+});
+
+const schemaAtualizarMotoboy = z.object({
+  tipoRemuneracao: z.enum(['FIXO_POR_ENTREGA', 'PERCENTUAL_TAXA']).optional(),
+  valorFixoPorEntrega: z.number().min(0).nullable().optional(),
+  percentualEntregas: z.number().min(0).max(100).nullable().optional(),
 });
 
 const schemaCriarManual = z.object({
@@ -487,6 +495,69 @@ export class AdminPedidoController {
   }
 
   /**
+   * GET /api/admin/clientes/geo
+   */
+  async clientesGeolocalizados(_req: Request, res: Response) {
+    try {
+      const clientes = await prisma.cliente.findMany({
+        where: { ativo: true, lat: { not: null }, lng: { not: null } },
+        select: {
+          telefone: true, nome: true, bairro: true, endereco: true,
+          lat: true, lng: true, nrinscr: true,
+          pedidos: { select: { id: true }, where: { status: { not: 'CANCELADO' } } },
+        },
+      });
+      const data = clientes.map((c) => ({
+        telefone: c.telefone,
+        nome: c.nome,
+        bairro: c.bairro,
+        endereco: c.endereco,
+        lat: c.lat!,
+        lng: c.lng!,
+        nrinscr: c.nrinscr,
+        totalPedidos: c.pedidos.length,
+      }));
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao obter clientes geolocalizados:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao obter clientes' } });
+    }
+  }
+
+  /**
+   * GET /api/admin/loja/localizacao
+   */
+  async obterLocalizacaoLoja(_req: Request, res: Response) {
+    try {
+      const data = await pedidoService.obterLocalizacaoLoja();
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao obter localização da loja:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao obter localização da loja' } });
+    }
+  }
+
+  /**
+   * PATCH /api/admin/loja/localizacao
+   */
+  async atualizarLocalizacaoLoja(req: Request, res: Response) {
+    try {
+      const { endereco, lat, lng } = req.body as { endereco?: string; lat?: number; lng?: number };
+      if (!endereco?.trim() || typeof lat !== 'number' || typeof lng !== 'number') {
+        return res.status(400).json({ success: false, error: { message: 'endereco, lat e lng são obrigatórios' } });
+      }
+      if (lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+        return res.status(400).json({ success: false, error: { message: 'Coordenadas fora do intervalo válido' } });
+      }
+      const data = await pedidoService.atualizarLocalizacaoLoja(endereco, lat, lng);
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao atualizar localização da loja:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao atualizar localização da loja' } });
+    }
+  }
+
+  /**
    * GET /api/admin/pagamentos/mercadopago
    */
   async obterConfiguracaoMercadoPago(_req: Request, res: Response) {
@@ -519,6 +590,144 @@ export class AdminPedidoController {
         success: false,
         error: { message: 'Erro ao atualizar configuração do Mercado Pago' },
       });
+    }
+  }
+  /**
+   * GET /api/admin/loja/faixas-entrega
+   */
+  async obterFaixasEntrega(_req: Request, res: Response) {
+    try {
+      const faixas = await taxaEntregaService.obterFaixas();
+      return res.json({ success: true, data: faixas });
+    } catch (error) {
+      logger.error('Erro ao obter faixas de entrega:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao obter faixas de entrega' } });
+    }
+  }
+
+  /**
+   * PUT /api/admin/loja/faixas-entrega
+   */
+  async salvarFaixasEntrega(req: Request, res: Response) {
+    try {
+      const schemaFaixa = z.object({
+        ateKm: z.number().positive(),
+        tipo: z.enum(['GRATIS', 'FIXO', 'POR_KM']),
+        valor: z.number().min(0),
+      });
+      const schema = z.array(schemaFaixa);
+      const parsed = schema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ success: false, error: { message: 'Dados inválidos', details: parsed.error.errors } });
+      }
+      // Garante que estão ordenadas por ateKm
+      const faixas: FaixaEntrega[] = parsed.data.sort((a, b) => a.ateKm - b.ateKm);
+      await taxaEntregaService.salvarFaixas(faixas);
+      return res.json({ success: true, data: faixas });
+    } catch (error) {
+      logger.error('Erro ao salvar faixas de entrega:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao salvar faixas de entrega' } });
+    }
+  }
+  /**
+   * PATCH /api/admin/motoboys/:id
+   */
+  async atualizarMotoboy(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const parsed = schemaAtualizarMotoboy.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ success: false, error: { message: 'Dados inválidos' } });
+      }
+      const data = await prisma.motoboy.update({
+        where: { id },
+        data: parsed.data,
+        select: {
+          id: true, nome: true, telefone: true, empresa: true, status: true,
+          tipoRemuneracao: true, percentualEntregas: true, valorFixoPorEntrega: true,
+        },
+      });
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao atualizar motoboy:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao atualizar motoboy' } });
+    }
+  }
+
+  /**
+   * GET /api/admin/motoboys/:id/acerto?inicio=YYYY-MM-DD&fim=YYYY-MM-DD
+   */
+  async acertoMotoboy(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const inicio = req.query.inicio as string;
+      const fim = req.query.fim as string;
+
+      if (!inicio || !fim) {
+        return res.status(400).json({ success: false, error: { message: 'Parâmetros inicio e fim obrigatórios' } });
+      }
+
+      const motoboy = await prisma.motoboy.findUnique({
+        where: { id },
+        select: {
+          id: true, nome: true, telefone: true,
+          tipoRemuneracao: true, percentualEntregas: true, valorFixoPorEntrega: true,
+        },
+      });
+      if (!motoboy) {
+        return res.status(404).json({ success: false, error: { message: 'Entregador não encontrado' } });
+      }
+
+      const inicioDate = new Date(`${inicio}T00:00:00-03:00`);
+      const fimDate = new Date(`${fim}T23:59:59-03:00`);
+
+      const entregas = await prisma.pedido.findMany({
+        where: {
+          motoboyId: id,
+          status: 'ENTREGUE',
+          statusMudouEm: { gte: inicioDate, lte: fimDate },
+        },
+        select: {
+          id: true,
+          taxaEntrega: true,
+          total: true,
+          statusMudouEm: true,
+        },
+        orderBy: { statusMudouEm: 'asc' },
+      });
+
+      const totalEntregas = entregas.length;
+      const totalTaxas = entregas.reduce((s, p) => s + Number(p.taxaEntrega || 0), 0);
+      const totalPedidos = entregas.reduce((s, p) => s + Number(p.total || 0), 0);
+
+      let valorAcerto = 0;
+      if (motoboy.tipoRemuneracao === 'FIXO_POR_ENTREGA') {
+        valorAcerto = totalEntregas * (motoboy.valorFixoPorEntrega ?? 0);
+      } else {
+        valorAcerto = totalTaxas * ((motoboy.percentualEntregas ?? 0) / 100);
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          motoboy,
+          periodo: { inicio, fim },
+          totalEntregas,
+          totalTaxas,
+          totalPedidos,
+          valorAcerto,
+          entregas: entregas.map((p, i) => ({
+            id: p.id,
+            numero: i + 1,
+            taxaEntrega: Number(p.taxaEntrega || 0),
+            total: Number(p.total || 0),
+            data: p.statusMudouEm,
+          })),
+        },
+      });
+    } catch (error) {
+      logger.error('Erro ao calcular acerto:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao calcular acerto' } });
     }
   }
 }

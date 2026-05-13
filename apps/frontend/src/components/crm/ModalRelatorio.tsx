@@ -22,6 +22,25 @@ function formatData(iso: string) {
   return new Date(iso).toLocaleDateString('pt-BR');
 }
 
+function fmtDuration(s: number): string {
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  if (m < 60) return sec > 0 ? `${m}min ${sec}s` : `${m}min`;
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  return rem > 0 ? `${h}h ${rem}min` : `${h}h`;
+}
+
+const STAGE_LABELS: Record<string, string> = {
+  AGUARDANDO_PAGAMENTO: 'Pag. pendente',
+  CONFIRMADO:           'Aguard. preparo',
+  PREPARANDO:           'Preparando',
+  PRONTO:               'Pronto p/ desp.',
+  SAIU_ENTREGA:         'Em rota',
+  ENTREGUE:             'Entregue',
+};
+
 export default function ModalRelatorio({
   open,
   onClose,
@@ -119,6 +138,48 @@ export default function ModalRelatorio({
                 ))}
               </div>
             )}
+
+            {relatorio.tempoMedioPorEtapa && relatorio.tempoMedioPorEtapa.length > 0 && (() => {
+              const etapas = relatorio.tempoMedioPorEtapa!;
+              const maxSeg = Math.max(...etapas.map(e => e.mediaSegundos));
+              const gargalo = etapas.reduce((a, b) => a.mediaSegundos > b.mediaSegundos ? a : b);
+              return (
+                <div className="border-t border-[var(--color-border)] pt-3">
+                  <div className="mb-2 flex items-baseline justify-between">
+                    <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--color-text-tertiary)]">Tempo médio por etapa</p>
+                    <span className="text-[10px] text-[var(--color-danger-text)] font-semibold">
+                      Gargalo: {STAGE_LABELS[gargalo.status] ?? gargalo.status} ({fmtDuration(gargalo.mediaSegundos)})
+                    </span>
+                  </div>
+                  <div className="space-y-2">
+                    {etapas.map(etapa => {
+                      const pct = Math.round((etapa.mediaSegundos / maxSeg) * 100);
+                      const isGargalo = etapa.status === gargalo.status;
+                      return (
+                        <div key={etapa.status}>
+                          <div className="flex items-center justify-between mb-0.5">
+                            <span className={`text-xs ${isGargalo ? 'font-bold text-[var(--color-danger-text)]' : 'text-[var(--color-text-secondary)]'}`}>
+                              {STAGE_LABELS[etapa.status] ?? etapa.status}
+                              {isGargalo && ' ⚠'}
+                            </span>
+                            <span className={`text-xs font-semibold ${isGargalo ? 'text-[var(--color-danger-text)]' : 'text-[var(--color-text-primary)]'}`}>
+                              {fmtDuration(etapa.mediaSegundos)}
+                              <span className="ml-1 font-normal text-[var(--color-text-tertiary)]">({etapa.amostras})</span>
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--color-border)]">
+                            <div
+                              className={`h-1.5 rounded-full ${isGargalo ? 'bg-[var(--color-danger)]' : 'bg-[var(--color-info)]'}`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {relatorio.entregasPorHora && relatorio.entregasPorHora.length > 0 && (
               <div className="border-t border-[var(--color-border)] pt-3">

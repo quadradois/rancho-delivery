@@ -7,6 +7,10 @@ import apiRoutes from './routes';
 import webhookRoutes from './routes/webhook.routes';
 import { errorHandler, notFoundHandler, requestLogger } from './middlewares/error.middleware';
 import pedidoService from './services/pedido.service';
+import { iniciarDeteccaoNovosImoveis } from './jobs/deteccaoNovosImoveis.job';
+import { executarEnriquecimentoIncremental } from './jobs/cargaGeo360.job';
+import { iniciarWorkerCampanhasAgendadas } from './jobs/campanhasAgendadas.job';
+import { enfileirar } from './services/mineracao.queue';
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -15,8 +19,9 @@ const app: Application = express();
 const PORT = process.env.PORT || 3001;
 const HOST = process.env.HOST || '127.0.0.1';
 
-// Necessário em produção atrás de proxy (nginx/cloudflare) para req.ip refletir cliente real.
-app.set('trust proxy', true);
+// Produção fica atrás de Cloudflare + Nginx. Evita trust proxy permissivo no rate limiter.
+const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS || 2);
+app.set('trust proxy', Number.isFinite(trustProxyHops) && trustProxyHops > 0 ? trustProxyHops : 2);
 
 function getFrontendOrigins() {
   const frontendUrl = process.env.FRONTEND_URL;
@@ -143,12 +148,30 @@ function iniciarRotinaAbandonoCheckout() {
   logger.info(`Rotina de abandono de checkout iniciada (intervalo: ${intervaloValido} min)`);
 }
 
+// Retoma enriquecimento Geo360 se houver registros pendentes (sem CPF)
+function iniciarEnriquecimentoGeo360() {
+  const cidades = ['aparecidadegoiania', 'goiania'];
+  // Aguarda 10s para o servidor estabilizar antes de iniciar
+  setTimeout(() => {
+    const runId = `startup-geo360-${Date.now()}`;
+    enfileirar(runId, async () => {
+      for (const cidade of cidades) {
+        const total = await executarEnriquecimentoIncremental(cidade);
+        if (total > 0) logger.info(`Geo360 startup [${cidade}]: ${total} registros enriquecidos`);
+      }
+    });
+  }, 10_000);
+}
+
 // Iniciar servidor
 app.listen(Number(PORT), HOST, () => {
   logger.info(`🚀 Servidor rodando em ${HOST}:${PORT}`);
   logger.info(`📍 Ambiente: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`📡 API disponível em http://${HOST}:${PORT}/api`);
   iniciarRotinaAbandonoCheckout();
+  iniciarDeteccaoNovosImoveis();
+  iniciarEnriquecimentoGeo360();
+  iniciarWorkerCampanhasAgendadas();
 });
 
 export default app;

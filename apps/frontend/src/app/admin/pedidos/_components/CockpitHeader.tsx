@@ -15,6 +15,10 @@ interface Props {
   muted: boolean;
   onToggleMuted: () => void;
   onNovoPedidoManual: () => void;
+  onAgruparEntregas: () => void;
+  prontoCount: number;
+  onRastreio: () => void;
+  entregadoresAtivos: number;
   lojaStatus: LojaStatusAdmin | null;
   onGerenciarLojaStatus: () => void;
   onAtualizar: () => void;
@@ -33,6 +37,10 @@ export function CockpitHeader({
   muted,
   onToggleMuted,
   onNovoPedidoManual,
+  onAgruparEntregas,
+  prontoCount,
+  onRastreio,
+  entregadoresAtivos,
   lojaStatus,
   onGerenciarLojaStatus,
   onAtualizar,
@@ -87,6 +95,14 @@ export function CockpitHeader({
           {muted ? 'Ligar som' : 'Desligar som'}
         </CrmButton>
         <CrmButton size="sm" onClick={onNovoPedidoManual}>Pedido manual</CrmButton>
+        {prontoCount > 0 && (
+          <CrmButton size="sm" variant="primary" onClick={onAgruparEntregas}>
+            Agrupar entregas ({prontoCount})
+          </CrmButton>
+        )}
+        <CrmButton size="sm" variant={entregadoresAtivos > 0 ? 'primary' : 'ghost'} onClick={onRastreio}>
+          {entregadoresAtivos > 0 ? `🛵 Rastreio (${entregadoresAtivos})` : '🛵 Rastreio'}
+        </CrmButton>
         <CrmButton
           size="sm"
           variant={lojaStatus?.status === 'ABERTO' ? 'primary' : lojaStatus?.status === 'PAUSADO' ? 'danger' : 'ghost'}

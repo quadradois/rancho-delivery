@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import AppBar from '@/components/layout/AppBar';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -9,6 +10,8 @@ import StatusTracker from '@/components/ui/StatusTracker';
 import { formatCurrency, formatTime } from '@/lib/utils';
 import api, { Pedido } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
+
+const MapaRastreioCliente = dynamic(() => import('./_MapaRastreioCliente'), { ssr: false });
 
 interface OrderPageProps {
   params: {
@@ -23,6 +26,7 @@ export default function OrderPage({ params }: OrderPageProps) {
   const [pedido, setPedido] = useState<Pedido | null>(null);
   const [loading, setLoading] = useState(true);
   const [npsEnviado, setNpsEnviado] = useState(false);
+  const [posicaoMotoboy, setPosicaoMotoboy] = useState<{ lat: number; lng: number; nome: string } | null>(null);
 
   const statusNormalizado = (pedido?.status || '').toString().toLowerCase();
   const formaPagamentoTexto = (pedido?.formaPagamento || 'pix').toString().replace('_', ' ');
@@ -65,6 +69,9 @@ export default function OrderPage({ params }: OrderPageProps) {
         const data = JSON.parse(ev.data);
         if (data?.type === 'pedido:atualizado') {
           void loadPedido();
+        }
+        if (data?.type === 'motoboy:localizacao' && data?.data?.lat) {
+          setPosicaoMotoboy({ lat: data.data.lat, lng: data.data.lng, nome: data.data.nome });
         }
       } catch {
         // noop
@@ -230,6 +237,27 @@ export default function OrderPage({ params }: OrderPageProps) {
               Acompanhe seu Pedido
             </h3>
             <StatusTracker steps={getStatusSteps()} />
+
+            {/* Mapa de rastreio — aparece quando entregador está a caminho */}
+            {statusNormalizado === 'saiu_entrega' && posicaoMotoboy && (
+              <div className="mt-5">
+                <p className="text-sm font-semibold text-[#F4E8CC] mb-2">📍 Entregador a caminho</p>
+                <div className="overflow-hidden rounded-xl" style={{ height: 220, border: '1px solid #3E2214' }}>
+                  <MapaRastreioCliente
+                    lat={posicaoMotoboy.lat}
+                    lng={posicaoMotoboy.lng}
+                    nome={posicaoMotoboy.nome}
+                  />
+                </div>
+                <p className="mt-1.5 text-center text-xs text-[#9A7B5C]">Localização em tempo real</p>
+              </div>
+            )}
+
+            {statusNormalizado === 'saiu_entrega' && !posicaoMotoboy && (
+              <div className="mt-5 rounded-xl p-4 text-center text-sm text-[#9A7B5C]" style={{ background: '#1a0d04', border: '1px solid #3E2214' }}>
+                🛵 Seu pedido saiu para entrega!
+              </div>
+            )}
 
             <div className="mt-6 pt-6" style={{ borderTop: '1px solid #3E2214' }}>
               <div className="flex items-center justify-between text-sm">

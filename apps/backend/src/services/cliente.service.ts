@@ -1,7 +1,78 @@
 import prisma from '../config/database';
 import { logger } from '../config/logger';
-import { Origem, OrigemMensagem } from '@prisma/client';
+import { LeadStatus, Origem, OrigemMensagem } from '@prisma/client';
 import evolutionService from './evolution.service';
+
+interface GeoCliente {
+  lat: number;
+  lng: number;
+  nrinscr: string;
+}
+
+async function geocodificarCliente(dados: {
+  cep?: string;
+  bairro: string;
+  endereco: string;
+}): Promise<GeoCliente | null> {
+  try {
+    const { cep, bairro, endereco } = dados;
+
+    // Tentativa 1: por CEP (mais preciso)
+    if (cep) {
+      const cepLimpo = cep.replace(/\D/g, '').padStart(8, '0').slice(0, 8);
+      const porCep = await (prisma as any).imovelGeo360.findFirst({
+        where: { cep: cepLimpo, latitude: { not: null } },
+        select: { latitude: true, longitude: true, inscricaoCartografica: true },
+      });
+      if (porCep?.latitude && porCep?.longitude) {
+        return { lat: porCep.latitude, lng: porCep.longitude, nrinscr: porCep.inscricaoCartografica };
+      }
+    }
+
+    // Tentativa 2: centroide do bairro
+    if (bairro) {
+      const porBairro = await (prisma as any).imovelGeo360.findMany({
+        where: {
+          bairro: { contains: bairro, mode: 'insensitive' },
+          latitude: { not: null },
+        },
+        select: { latitude: true, longitude: true, inscricaoCartografica: true },
+        take: 20,
+      });
+      if (porBairro.length > 0) {
+        const lat = porBairro.reduce((s: number, i: any) => s + (i.latitude ?? 0), 0) / porBairro.length;
+        const lng = porBairro.reduce((s: number, i: any) => s + (i.longitude ?? 0), 0) / porBairro.length;
+        return { lat, lng, nrinscr: porBairro[0].inscricaoCartografica };
+      }
+    }
+
+    // Tentativa 3: centroide por endereço parcial
+    if (endereco) {
+      const ruaMatch = endereco.match(/^([^,\d]+)/);
+      const rua = ruaMatch ? ruaMatch[1].trim() : '';
+      if (rua) {
+        const porRua = await (prisma as any).imovelGeo360.findMany({
+          where: {
+            endereco: { contains: rua.replace(/^(rua|avenida|av|r)\s+/i, '').trim(), mode: 'insensitive' },
+            latitude: { not: null },
+          },
+          select: { latitude: true, longitude: true, inscricaoCartografica: true },
+          take: 20,
+        });
+        if (porRua.length > 0) {
+          const lat = porRua.reduce((s: number, i: any) => s + (i.latitude ?? 0), 0) / porRua.length;
+          const lng = porRua.reduce((s: number, i: any) => s + (i.longitude ?? 0), 0) / porRua.length;
+          return { lat, lng, nrinscr: porRua[0].inscricaoCartografica };
+        }
+      }
+    }
+
+    return null;
+  } catch (err) {
+    logger.warn('Geocodificação de cliente falhou:', err);
+    return null;
+  }
+}
 
 export class ClienteService {
   private diasSemPedir(ultimoPedido: Date | null) {
@@ -42,43 +113,55 @@ export class ClienteService {
     nome: string;
     endereco: string;
     bairro: string;
+    cep?: string;
+    numero?: string;
+    quadra?: string;
+    lote?: string;
+    complemento?: string;
     origem?: Origem;
   }) {
     try {
-      const { telefone, nome, endereco, bairro, origem = 'SITE' } = dados;
+      const { telefone, nome, endereco, bairro, cep, numero, quadra, lote, complemento, origem = 'SITE' } = dados;
 
-      // Verifica se cliente já existe
-      const clienteExistente = await prisma.cliente.findUnique({
-        where: { telefone },
-      });
+      // Tenta geocodificar em background — nunca bloqueia criação do pedido
+      const geo = await geocodificarCliente({ cep, bairro, endereco }).catch(() => null);
+      if (geo) logger.info(`Cliente ${telefone} geocodificado: ${geo.lat},${geo.lng}`);
+
+      const camposEndereco = {
+        nome,
+        endereco,
+        bairro,
+        ...(cep ? { cep: cep.replace(/\D/g, '') } : {}),
+        ...(numero !== undefined ? { numero } : {}),
+        ...(quadra !== undefined ? { quadra } : {}),
+        ...(lote !== undefined ? { lote } : {}),
+        ...(complemento !== undefined ? { complemento } : {}),
+        ...(geo ? { lat: geo.lat, lng: geo.lng, nrinscr: geo.nrinscr } : {}),
+      };
+
+      const clienteExistente = await prisma.cliente.findUnique({ where: { telefone } });
 
       if (clienteExistente) {
-        // Atualiza dados do cliente (exceto origem)
         const clienteAtualizado = await prisma.cliente.update({
           where: { telefone },
-          data: {
-            nome,
-            endereco,
-            bairro,
-          },
+          data: camposEndereco,
         });
-
         logger.info(`Cliente atualizado: ${telefone}`);
+        await prisma.leadMarketing.updateMany({
+          where: { telefone, status: LeadStatus.ATIVO },
+          data: { status: LeadStatus.CONVERTIDO, convertidoEm: new Date(), clienteTelefone: telefone },
+        });
         return clienteAtualizado;
       }
 
-      // Cria novo cliente
       const novoCliente = await prisma.cliente.create({
-        data: {
-          telefone,
-          nome,
-          endereco,
-          bairro,
-          origem,
-        },
+        data: { telefone, origem, ...camposEndereco },
       });
-
       logger.info(`Novo cliente criado: ${telefone} - Origem: ${origem}`);
+      await prisma.leadMarketing.updateMany({
+        where: { telefone, status: LeadStatus.ATIVO },
+        data: { status: LeadStatus.CONVERTIDO, convertidoEm: new Date(), clienteTelefone: telefone },
+      });
       return novoCliente;
     } catch (error) {
       logger.error('Erro ao criar/atualizar cliente:', error);
@@ -148,7 +231,7 @@ export class ClienteService {
     });
 
     const telefones = clientes.map((c) => c.telefone);
-    const [pedidosAgg, pedidosUltimo, topProdutosRaw] = await Promise.all([
+    const [pedidosAgg, pedidosUltimo, topProdutosRaw, ultimasMensagens, naoLidas] = await Promise.all([
       prisma.pedido.groupBy({
         by: ['clienteTelefone'],
         where: { clienteTelefone: { in: telefones } },
@@ -165,10 +248,22 @@ export class ClienteService {
         where: { pedido: { clienteTelefone: { in: telefones } } },
         _sum: { quantidade: true },
       }),
+      prisma.mensagemCliente.groupBy({
+        by: ['clienteTelefone'],
+        where: { clienteTelefone: { in: telefones } },
+        _max: { criadoEm: true },
+      }),
+      prisma.mensagemCliente.groupBy({
+        by: ['clienteTelefone'],
+        where: { clienteTelefone: { in: telefones }, origem: OrigemMensagem.HUMANO, lida: false },
+        _count: { _all: true },
+      }),
     ]);
 
     const aggMap = new Map(pedidosAgg.map((a) => [a.clienteTelefone, a]));
     const ultimoMap = new Map(pedidosUltimo.map((u) => [u.clienteTelefone, u._max.criadoEm || null]));
+    const ultimaMsgMap = new Map(ultimasMensagens.map((m) => [m.clienteTelefone, m._max.criadoEm || null]));
+    const naoLidasMap = new Map(naoLidas.map((n) => [n.clienteTelefone, n._count._all]));
 
     const pedidoIds = [...new Set(topProdutosRaw.map((t) => t.pedidoId))];
     const pedidosById = pedidoIds.length
@@ -228,6 +323,8 @@ export class ClienteService {
         segmento,
         produtoFavorito,
         mensagemSugerida: this.sugestaoReativacao(c.nome, diasSemPedir, produtoFavorito),
+        ultimaMensagemEm: ultimaMsgMap.get(c.telefone)?.toISOString() || null,
+        mensagensNaoLidas: naoLidasMap.get(c.telefone) || 0,
       };
     });
 
@@ -517,6 +614,28 @@ export class ClienteService {
       .slice(0, 3)
       .map(([nome, quantidade]) => ({ nome, quantidade }));
 
+    const ticketMedio = totalPedidos > 0 ? valorGasto / totalPedidos : 0;
+    const segmento = this.classificarSegmento({
+      totalPedidos,
+      ticketMedio,
+      diasSemPedir: diasSemPedir ?? 9999,
+      primeiroPedido: cliente.criadoEm,
+    });
+    const mensagemSugerida = this.sugestaoReativacao(cliente.nome, diasSemPedir ?? 9999, topProdutos[0]?.nome || null);
+
+    const pedidosRecentes = [...cliente.pedidos]
+      .sort((a, b) => b.criadoEm.getTime() - a.criadoEm.getTime())
+      .slice(0, 8)
+      .map((p) => ({
+        id: p.id,
+        numero: p.id.slice(-6).toUpperCase(),
+        criadoEm: p.criadoEm.toISOString(),
+        status: p.status as string,
+        total: Number(p.total),
+        formaPagamento: p.formaPagamento as string,
+        itens: p.itens.map((i) => ({ nome: i.produto?.nome || 'Produto', quantidade: i.quantidade })),
+      }));
+
     return {
       telefone: cliente.telefone,
       nome: cliente.nome,
@@ -526,11 +645,15 @@ export class ClienteService {
       ativo: cliente.ativo,
       totalPedidos,
       valorGasto,
+      ticketMedio,
+      segmento,
+      mensagemSugerida,
       primeiroPedido: primeiroPedido?.toISOString() || null,
       ultimoPedido: ultimoPedido?.toISOString() || null,
       diaFavorito,
       topProdutos,
       diasSemPedir,
+      pedidosRecentes,
       emListaNegra: Boolean(cliente.listaNegra),
       motivoListaNegra: cliente.listaNegra?.motivo || null,
       nivelListaNegra: cliente.listaNegra?.nivel || null,

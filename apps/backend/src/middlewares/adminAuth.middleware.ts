@@ -143,6 +143,28 @@ export function tryAutenticarAdmin(req: Request, _res: Response, next: NextFunct
   return next();
 }
 
+export function refreshAdmin(req: Request, res: Response) {
+  const authHeader = req.headers.authorization;
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : undefined;
+  const user = decodificarToken(bearerToken);
+
+  if (!user) {
+    return res.status(401).json({
+      success: false,
+      error: { message: 'Token inválido ou expirado', code: 'UNAUTHORIZED' },
+    });
+  }
+
+  return res.json({
+    success: true,
+    data: {
+      token: criarAdminToken(user.username, user.role),
+      role: user.role,
+      expiresIn: TOKEN_TTL_MS / 1000,
+    },
+  });
+}
+
 export function loginAdmin(req: Request, res: Response) {
   const username = String(req.body?.username || '').trim();
   const password = String(req.body?.password || '');

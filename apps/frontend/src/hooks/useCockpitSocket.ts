@@ -7,7 +7,47 @@ type CockpitEventName =
   | 'pedido:atualizado'
   | 'mensagem:nova'
   | 'metricas:atualizadas'
-  | 'loja:status';
+  | 'loja:status'
+  | 'motoboy:localizacao'
+  | 'campanha:envio_progresso'
+  | 'campanha:envio_concluido'
+  | 'lead:mensagem';
+
+export interface LeadMensagemRealtime {
+  leadId: string;
+  telefone: string;
+  nome?: string | null;
+  bairro?: string | null;
+  origem: 'HUMANO' | 'IA' | 'SISTEMA';
+  texto: string;
+  humanRequired?: boolean;
+}
+
+export interface CampanhaEnvioProgresso {
+  campanhaId: string;
+  processados: number;
+  enviados: number;
+  falhas: number;
+  ignorados: number;
+  total: number;
+  percentual: number;
+}
+
+export interface CampanhaEnvioConcluido {
+  campanhaId: string;
+  enviados: number;
+  falhas: number;
+  ignorados: number;
+  total: number;
+}
+
+export interface MotoboyLocalizacao {
+  motoboyId: string;
+  nome: string;
+  lat: number;
+  lng: number;
+  ts: number;
+}
 
 interface UseCockpitSocketOptions {
   onPedidoNovo?: (payload: any) => void;
@@ -15,6 +55,10 @@ interface UseCockpitSocketOptions {
   onMensagemNova?: (payload: any) => void;
   onMetricasAtualizadas?: (payload: any) => void;
   onLojaStatus?: (payload: any) => void;
+  onMotoboyLocalizacao?: (payload: MotoboyLocalizacao) => void;
+  onCampanhaEnvioProgresso?: (payload: CampanhaEnvioProgresso) => void;
+  onCampanhaEnvioConcluido?: (payload: CampanhaEnvioConcluido) => void;
+  onLeadMensagem?: (payload: LeadMensagemRealtime) => void;
   onFallbackPoll?: () => void;
   fallbackIntervalMs?: number;
 }
@@ -71,6 +115,10 @@ export function useCockpitSocket(options: UseCockpitSocketOptions) {
       onEvent('mensagem:nova', optionsRef.current.onMensagemNova);
       onEvent('metricas:atualizadas', optionsRef.current.onMetricasAtualizadas);
       onEvent('loja:status', optionsRef.current.onLojaStatus);
+      onEvent('motoboy:localizacao', optionsRef.current.onMotoboyLocalizacao);
+      onEvent('campanha:envio_progresso', optionsRef.current.onCampanhaEnvioProgresso);
+      onEvent('campanha:envio_concluido', optionsRef.current.onCampanhaEnvioConcluido);
+      onEvent('lead:mensagem', optionsRef.current.onLeadMensagem);
 
       source.onopen = () => {
         reconnectAttempts = 0;

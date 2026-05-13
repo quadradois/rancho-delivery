@@ -31,6 +31,10 @@ export interface CriarPedidoDTO {
     endereco: string;
     bairro: string;
     cep?: string;
+    numero?: string;
+    quadra?: string;
+    lote?: string;
+    complemento?: string;
   };
   itens: ItemPedido[];
   observacao?: string;
@@ -214,11 +218,23 @@ export interface ClienteResumoAdmin {
   ativo: boolean;
   totalPedidos: number;
   valorGasto: number;
+  ticketMedio: number;
+  segmento: 'NOVO' | 'ATIVO' | 'EM_RISCO' | 'INATIVO' | 'VIP';
+  mensagemSugerida: string;
   primeiroPedido: string | null;
   ultimoPedido: string | null;
   diaFavorito: string | null;
   topProdutos: Array<{ nome: string; quantidade: number }>;
   diasSemPedir: number | null;
+  pedidosRecentes: Array<{
+    id: string;
+    numero: string;
+    criadoEm: string;
+    status: string;
+    total: number;
+    formaPagamento: string;
+    itens: Array<{ nome: string; quantidade: number }>;
+  }>;
   emListaNegra: boolean;
   motivoListaNegra: string | null;
   nivelListaNegra: number | null;
@@ -241,6 +257,8 @@ export interface ClienteGestaoItem {
   segmento: 'NOVO' | 'ATIVO' | 'EM_RISCO' | 'INATIVO' | 'VIP';
   produtoFavorito: string | null;
   mensagemSugerida: string;
+  ultimaMensagemEm: string | null;
+  mensagensNaoLidas: number;
 }
 
 export interface ClienteGestaoMetricas {
@@ -261,12 +279,43 @@ export interface WhatsAppSetupAdmin extends WhatsAppStatusAdmin {
   qrCodeBase64: string | null;
 }
 
+export interface WhatsAppConfigInstancia {
+  rejectCall?: boolean;
+  groupsIgnore?: boolean;
+  alwaysOnline?: boolean;
+  readMessages?: boolean;
+  readStatus?: boolean;
+  syncFullHistory?: boolean;
+}
+
+export interface WhatsAppDetalhesAdmin extends WhatsAppStatusAdmin {
+  existe: boolean;
+  telefone: string | null;
+  nomePerfil: string | null;
+  fotoPerfil: string | null;
+  ultimaConexao: string | null;
+  configs: WhatsAppConfigInstancia;
+}
+
 export interface MotoboyAdmin {
   id: string;
   nome: string;
   telefone: string;
   empresa: 'PROPRIO' | 'IFOOD' | 'MUVE' | 'FOOD99';
   status: 'DISPONIVEL' | 'EM_ENTREGA' | 'INATIVO';
+  tipoRemuneracao?: 'FIXO_POR_ENTREGA' | 'PERCENTUAL_TAXA';
+  valorFixoPorEntrega?: number | null;
+  percentualEntregas?: number | null;
+}
+
+export interface AcertoMotoboy {
+  motoboy: MotoboyAdmin;
+  periodo: { inicio: string; fim: string };
+  totalEntregas: number;
+  totalTaxas: number;
+  totalPedidos: number;
+  valorAcerto: number;
+  entregas: Array<{ id: string; numero: number | null; taxaEntrega: number; total: number; data: string }>;
 }
 
 export interface MotoboyStatusAdmin extends MotoboyAdmin {
@@ -300,6 +349,151 @@ export interface SugestaoIA {
   criadaEm: string;
 }
 
+export interface MetricasCampanha {
+  campanhaId: string;
+  nome: string;
+  totalDestinatarios: number;
+  enviados: number;
+  falhas: number;
+  conversoes: number;
+  taxaConversao: string;
+  custoEstimadoPorMensagem: number;
+  custoTotal: number;
+  receitaGerada: number;
+  roiMultiplo: string;
+}
+
+export interface MineracaoJobProgresso {
+  processados: number;
+  total: number;
+  fase: 'LOOKUP' | 'SCRAPING' | 'ASSERTIVA' | 'SALVANDO';
+  percentual: number;
+}
+
+export interface MineracaoJob {
+  runId: string;
+  status: 'PENDENTE' | 'PROCESSANDO' | 'CONCLUIDO' | 'FALHA';
+  progresso: MineracaoJobProgresso | null;
+  resultado?: ExecucaoMineracao;
+  erro?: string;
+  criadoEm: string;
+}
+
+export interface ExecucaoMineracao {
+  id: string;
+  runId: string;
+  modo: string;
+  termo: string;
+  filtros?: Record<string, any>;
+  status: 'SUCESSO' | 'FALHA' | string;
+  erro?: string | null;
+  totalImoveis: number;
+  totalIptus: number;
+  contatosGerados: number;
+  contatosUteis: number;
+  duracoes?: Record<string, any>;
+  criadoPor?: string | null;
+  criadoEm: string;
+  campanha?: CampanhaMarketing | null;
+}
+
+export interface LeadEngajado {
+  id: string;
+  telefone: string;
+  nome?: string | null;
+  bairro?: string | null;
+  status: string;
+  humanRequired: boolean;
+  ultimaInteracaoEm: string;
+  criadoEm: string;
+  ultimaMensagem: { texto: string; origem: 'HUMANO' | 'IA' | 'SISTEMA'; criadoEm: string } | null;
+}
+
+export interface MensagemLead {
+  id: string;
+  origem: 'HUMANO' | 'IA' | 'SISTEMA';
+  texto: string;
+  lida: boolean;
+  criadoEm: string;
+}
+
+export interface LeadConversa {
+  id: string;
+  telefone: string;
+  nome?: string | null;
+  bairro?: string | null;
+  status: string;
+  humanRequired: boolean;
+  mensagens: MensagemLead[];
+}
+
+export interface LeadMarketing {
+  id: string;
+  telefone: string;
+  cpfCnpj?: string | null;
+  telefones?: string[] | null;
+  nome?: string | null;
+  endereco?: string | null;
+  bairro?: string | null;
+  origemMineracao: string;
+  status: 'ATIVO' | 'CONVERTIDO' | 'INVALIDO' | 'OPT_OUT';
+  convertidoEm?: string | null;
+  clienteTelefone?: string | null;
+  criadoEm: string;
+}
+
+export interface CampanhaMarketing {
+  id: string;
+  nome: string;
+  mensagem: string;
+  status: 'RASCUNHO' | 'AGENDADA' | 'ENVIANDO' | 'CONCLUIDA' | 'FALHA' | 'DESATIVADA';
+  filtro?: Record<string, any>;
+  criadoEm: string;
+  atualizadoEm?: string;
+  enviadaEm?: string | null;
+  agendadaPara?: string | null;
+  erro?: string | null;
+  destinatarios?: Array<{
+    id: string;
+    statusEnvio: string;
+    motivoFalha?: string | null;
+    enviadoEm?: string | null;
+    criadoEm?: string;
+    lead?: LeadMarketing;
+  }>;
+}
+
+export interface LocalMineracao {
+  modo: 'bairro' | 'rua' | 'condominio' | 'empreendimento' | 'endereco' | 'iptu';
+  nome: string;
+  bairro?: string | null;
+  logradouro?: string | null;
+  tipo: 'BAIRRO' | 'RUA' | 'CONDOMINIO';
+  totalIptus: number;
+}
+
+export interface IptuMineracao {
+  nrinscr: string;
+  // campos prefeitura (legado)
+  nmbairro?: string | null;
+  nmlogradou?: string | null;
+  nrimovel?: string | null;
+  incompl?: string | null;
+  nrquadra?: string | null;
+  nrlote?: string | null;
+  nmedificio?: string | null;
+  // campos Geo360
+  inscricaoCartografica?: string | null;
+  nomePessoa?: string | null;
+  cpfCnpj?: string | null;
+  bairro?: string | null;
+  endereco?: string | null;
+  cidade?: string | null;
+  // score de qualidade calculado no servidor
+  score?: number;
+  telefonesConhecidos?: number | null;
+}
+
 export interface RelatorioDia {
   id?: string;
   data: string;
@@ -326,6 +520,11 @@ export interface RelatorioDia {
   entregasPorHora: Array<{
     hora: string;
     quantidade: number;
+  }> | null;
+  tempoMedioPorEtapa?: Array<{
+    status: string;
+    mediaSegundos: number;
+    amostras: number;
   }> | null;
 }
 
@@ -401,6 +600,44 @@ export interface Bairro {
 export interface AdminLoginResponse {
   token: string;
   expiresIn: number;
+}
+
+export interface RotaPedido {
+  id: string;
+  clienteTelefone: string;
+  clienteNome: string;
+  enderecoEntrega: string;
+  bairroEntrega: string;
+  lat: number | null;
+  lng: number | null;
+  valorTotal: number;
+  motoboyId: string | null;
+}
+
+export interface ParadaRota {
+  ordem: number;
+  pedidoId: string;
+  clienteTelefone: string;
+  clienteNome: string;
+  enderecoEntrega: string;
+  bairroEntrega: string;
+  lat: number | null;
+  lng: number | null;
+  valorTotal: number;
+  distanciaKm: number;
+}
+
+export interface GrupoRota {
+  pedidos: ParadaRota[];
+  distanciaTotalKm: number;
+  estimativaMinutos: number;
+  lojaLat: number;
+  lojaLng: number;
+}
+
+export interface AgruparRotaResult {
+  grupo: GrupoRota;
+  semCoordenadas: RotaPedido[];
 }
 
 export type ProdutoPayload = {
@@ -575,6 +812,12 @@ export const adminPedidoService = {
   async criarMotoboy(payload: { nome: string; telefone: string; empresa?: 'PROPRIO' | 'IFOOD' | 'MUVE' | 'FOOD99'; status?: 'DISPONIVEL' | 'EM_ENTREGA' | 'INATIVO' }): Promise<MotoboyAdmin> {
     return apiClient.post<MotoboyAdmin>('/admin/motoboys', payload);
   },
+  async atualizarMotoboy(id: string, payload: { tipoRemuneracao?: string; valorFixoPorEntrega?: number | null; percentualEntregas?: number | null }): Promise<MotoboyAdmin> {
+    return apiClient.patch<MotoboyAdmin>(`/admin/motoboys/${id}`, payload);
+  },
+  async acertoMotoboy(id: string, inicio: string, fim: string): Promise<AcertoMotoboy> {
+    return apiClient.get<AcertoMotoboy>(`/admin/motoboys/${id}/acerto?inicio=${inicio}&fim=${fim}`);
+  },
 
   async atribuirMotoboy(id: string, motoboyId: string | null, observacaoEntrega?: string): Promise<any> {
     return apiClient.patch(`/admin/pedidos/${id}/motoboy`, { motoboyId, observacaoEntrega });
@@ -604,12 +847,44 @@ export const adminPedidoService = {
     return apiClient.patch<LojaStatusAdmin>('/admin/loja/status', { status, mensagem, entregadoresDisponiveisDia });
   },
 
+  async clientesGeolocalizados(): Promise<Array<{ telefone: string; nome: string; bairro: string; endereco: string; lat: number; lng: number; nrinscr: string | null; totalPedidos: number }>> {
+    return apiClient.get('/admin/clientes/geo');
+  },
+
+  async obterLocalizacaoLoja(): Promise<{ endereco: string | null; lat: number | null; lng: number | null }> {
+    return apiClient.get('/admin/loja/localizacao');
+  },
+
+  async atualizarLocalizacaoLoja(endereco: string, lat: number, lng: number): Promise<{ endereco: string | null; lat: number | null; lng: number | null }> {
+    return apiClient.patch('/admin/loja/localizacao', { endereco, lat, lng });
+  },
+
+  async pedidosProntos(): Promise<RotaPedido[]> {
+    return apiClient.get('/admin/entregas/prontos');
+  },
+
+  async agruparRota(opts?: { pedidoIds?: string[]; maxPorGrupo?: number; raioKm?: number }): Promise<AgruparRotaResult> {
+    return apiClient.post('/admin/entregas/agrupar', opts ?? {});
+  },
+
+  async despacharGrupo(pedidoIds: string[], motoboyId: string | null): Promise<{ despachados: number }> {
+    return apiClient.post('/admin/entregas/despachar', { pedidoIds, motoboyId });
+  },
+
   async obterFilaUrgente(): Promise<FilaUrgenteItem[]> {
     return apiClient.get<FilaUrgenteItem[]>('/admin/fila-urgente');
   },
 
   async obterMetricas(): Promise<AdminMetricas> {
     return apiClient.get<AdminMetricas>('/admin/metricas');
+  },
+
+  async obterFaixasEntrega(): Promise<Array<{ ateKm: number; tipo: 'GRATIS' | 'FIXO' | 'POR_KM'; valor: number }>> {
+    return apiClient.get('/admin/loja/faixas-entrega');
+  },
+
+  async salvarFaixasEntrega(faixas: Array<{ ateKm: number; tipo: 'GRATIS' | 'FIXO' | 'POR_KM'; valor: number }>): Promise<void> {
+    return apiClient.put('/admin/loja/faixas-entrega', faixas);
   },
 };
 
@@ -661,6 +936,18 @@ export const adminClienteService = {
 
   async atualizarQrCodeWhatsApp(): Promise<WhatsAppSetupAdmin> {
     return apiClient.post<WhatsAppSetupAdmin>('/admin/whatsapp/qrcode', {});
+  },
+  async detalhesWhatsApp(): Promise<WhatsAppDetalhesAdmin> {
+    return apiClient.get<WhatsAppDetalhesAdmin>('/admin/whatsapp/detalhes');
+  },
+  async desconectarWhatsApp(): Promise<{ desconectado: boolean }> {
+    return apiClient.post('/admin/whatsapp/desconectar', {});
+  },
+  async apagarWhatsApp(): Promise<{ apagado: boolean }> {
+    return apiClient.delete('/admin/whatsapp/apagar');
+  },
+  async atualizarConfigWhatsApp(configs: WhatsAppConfigInstancia): Promise<{ atualizado: boolean }> {
+    return apiClient.patch('/admin/whatsapp/config', configs);
   },
 
   async listarMensagens(telefone: string, marcarComoLida = false): Promise<MensagemClienteAdmin[]> {
@@ -790,7 +1077,100 @@ export const adminAuthService = {
   async login(username: string, password: string): Promise<AdminLoginResponse> {
     return apiClient.post<AdminLoginResponse>('/admin/auth/login', { username, password });
   },
+  async refresh(): Promise<AdminLoginResponse> {
+    return apiClient.post<AdminLoginResponse>('/admin/auth/refresh', {});
+  },
 };
+
+export const adminMineracaoService = {
+  async executar(payload: { modo: 'bairro' | 'rua' | 'condominio' | 'empreendimento' | 'endereco' | 'iptu'; termo: string; filtros?: Record<string, unknown> }): Promise<{ runId: string }> {
+    return apiClient.post<{ runId: string }>('/admin/mineracao/executar', payload);
+  },
+  async obterStatusJob(runId: string): Promise<MineracaoJob> {
+    return apiClient.get<MineracaoJob>(`/admin/mineracao/jobs/${runId}`);
+  },
+  async buscarLocais(params: { modo: 'bairro' | 'rua' | 'condominio'; q: string }): Promise<LocalMineracao[]> {
+    const query = new URLSearchParams({ modo: params.modo, q: params.q });
+    return apiClient.get<LocalMineracao[]>(`/admin/mineracao/locais?${query.toString()}`);
+  },
+  async listarIptus(params: { modo: string; nome: string; bairro?: string | null; logradouro?: string | null; limit?: number }): Promise<IptuMineracao[]> {
+    const query = new URLSearchParams({ modo: params.modo, nome: params.nome });
+    if (params.bairro) query.set('bairro', params.bairro);
+    if (params.logradouro) query.set('logradouro', params.logradouro);
+    if (params.limit) query.set('limit', String(params.limit));
+    return apiClient.get<IptuMineracao[]>(`/admin/mineracao/iptus?${query.toString()}`);
+  },
+  async listarExecucoes(limit = 30): Promise<ExecucaoMineracao[]> {
+    return apiClient.get<ExecucaoMineracao[]>(`/admin/mineracao/execucoes?limit=${limit}`);
+  },
+  async listarLeads(params?: { status?: string; origem?: string; q?: string }): Promise<LeadMarketing[]> {
+    const query = new URLSearchParams();
+    if (params?.status) query.set('status', params.status);
+    if (params?.origem) query.set('origem', params.origem);
+    if (params?.q) query.set('q', params.q);
+    const suffix = query.toString() ? `?${query.toString()}` : '';
+    return apiClient.get<LeadMarketing[]>(`/admin/mineracao/leads${suffix}`);
+  },
+  async criarCampanha(payload: { nome: string; mensagem: string; filtro?: Record<string, unknown> }): Promise<CampanhaMarketing> {
+    return apiClient.post<CampanhaMarketing>('/admin/mineracao/campanhas', payload);
+  },
+  async gerarVariacoesMensagem(payload: { intencao: string; bairro?: string; observacoes?: string }): Promise<{ variacoes: { titulo: string; mensagem: string }[] }> {
+    return apiClient.post('/admin/mineracao/campanhas/gerar-mensagem', payload);
+  },
+  async listarCampanhas(limit = 50): Promise<CampanhaMarketing[]> {
+    return apiClient.get<CampanhaMarketing[]>(`/admin/mineracao/campanhas?limit=${limit}`);
+  },
+  async obterCampanha(id: string): Promise<CampanhaMarketing> {
+    return apiClient.get<CampanhaMarketing>(`/admin/mineracao/campanhas/${id}`);
+  },
+  async obterMetricasCampanha(id: string): Promise<MetricasCampanha> {
+    return apiClient.get<MetricasCampanha>(`/admin/mineracao/campanhas/${id}/metricas`);
+  },
+  async atualizarStatusCampanha(id: string, status: CampanhaMarketing['status']): Promise<CampanhaMarketing> {
+    return apiClient.patch<CampanhaMarketing>(`/admin/mineracao/campanhas/${id}/status`, { status });
+  },
+  async atualizarMensagemCampanha(id: string, mensagem: string): Promise<CampanhaMarketing> {
+    return apiClient.patch<CampanhaMarketing>(`/admin/mineracao/campanhas/${id}/mensagem`, { mensagem });
+  },
+  async agendarCampanha(id: string, agendadaPara: string): Promise<CampanhaMarketing> {
+    return apiClient.post<CampanhaMarketing>(`/admin/mineracao/campanhas/${id}/agendar`, { agendadaPara });
+  },
+  async cancelarAgendamentoCampanha(id: string): Promise<CampanhaMarketing> {
+    return apiClient.post<CampanhaMarketing>(`/admin/mineracao/campanhas/${id}/cancelar-agendamento`, {});
+  },
+  async listarLeadsEngajados(limit = 50): Promise<LeadEngajado[]> {
+    return apiClient.get<LeadEngajado[]>(`/admin/mineracao/leads-engajados?limit=${limit}`);
+  },
+  async obterConversaLead(id: string): Promise<LeadConversa> {
+    return apiClient.get<LeadConversa>(`/admin/mineracao/leads/${id}/conversa`);
+  },
+  async excluirCampanha(id: string): Promise<{ id: string; removida: boolean }> {
+    return apiClient.delete<{ id: string; removida: boolean }>(`/admin/mineracao/campanhas/${id}`);
+  },
+  async dispararCampanha(id: string): Promise<{ campanhaId: string; enviados: number; falhas: number }> {
+    return apiClient.post(`/admin/mineracao/campanhas/${id}/disparar`, {});
+  },
+  async reenviarFalhasCampanha(id: string): Promise<{ reenviados: number; total: number; ignorados: number }> {
+    return apiClient.post(`/admin/mineracao/campanhas/${id}/reenviar-falhas`, {});
+  },
+  async adicionarLeadManualCampanha(id: string, payload: { telefone: string; nome?: string; bairro?: string }): Promise<{ adicionado: boolean; ja_existia?: boolean; leadId: string }> {
+    return apiClient.post(`/admin/mineracao/campanhas/${id}/adicionar-lead`, payload);
+  },
+  async removerDestinatarioCampanha(campanhaId: string, destinatarioId: string): Promise<{ removido: boolean }> {
+    return apiClient.delete(`/admin/mineracao/campanhas/${campanhaId}/destinatarios/${destinatarioId}`);
+  },
+  async sincronizarCoordenadas(): Promise<{ runId: string }> {
+    return apiClient.post<{ runId: string }>('/admin/mineracao/prefeitura/sincronizar-coordenadas', {});
+  },
+  async coberturaMapa() {
+    return apiClient.get<any[]>('/admin/mineracao/mapa/cobertura');
+  },
+  async analytics(periodo: '30d' | '90d' | 'all') {
+    return apiClient.get<any>(`/admin/mineracao/analytics?periodo=${periodo}`);
+  },
+};
+
+export const mineracaoApi = adminMineracaoService;
 
 /**
  * Exportação padrão com todos os serviços
@@ -806,6 +1186,7 @@ const api = {
   adminRelatorios: adminRelatorioService,
   adminIa: adminIaService,
   adminAuth: adminAuthService,
+  adminMineracao: adminMineracaoService,
   bairros: bairroService,
 };
 

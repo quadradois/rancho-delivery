@@ -5,6 +5,7 @@ import evolutionService from '../services/evolution.service';
 import { logger } from '../config/logger';
 import realtimeService from '../services/realtime.service';
 import clienteService from '../services/cliente.service';
+import { processarRespostaWhatsApp } from '../services/conversacao.service';
 
 export class WebhookController {
   /**
@@ -125,6 +126,10 @@ export class WebhookController {
       const telefoneNormalizado = String(telefone).replace(/\D/g, '');
       if (telefoneNormalizado && texto) {
         await clienteService.registrarMensagemRecebida(telefoneNormalizado, texto);
+        // Resposta da IA em background — não bloqueia o webhook
+        setImmediate(() => {
+          void processarRespostaWhatsApp(telefoneNormalizado, texto, String(telefone));
+        });
       }
 
       realtimeService.emit('mensagem:nova', {

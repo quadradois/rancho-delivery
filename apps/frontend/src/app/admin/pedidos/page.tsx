@@ -11,14 +11,13 @@ import api, {
   LojaStatusAdmin,
   MensagemClienteAdmin,
   MotoboyAdmin,
-  MotoboyStatusAdmin,
   Produto,
   RelatorioDia,
   SugestaoIA,
 } from '@/lib/api';
 import { formatCurrency, formatTime } from '@/lib/utils';
 import { useToast } from '@/contexts/ToastContext';
-import useCockpitSocket from '@/hooks/useCockpitSocket';
+import useCockpitSocket, { MotoboyLocalizacao } from '@/hooks/useCockpitSocket';
 import useCockpitAudio from '@/hooks/useCockpitAudio';
 import {
   CentralWhatsApp,
@@ -34,13 +33,14 @@ import {
   ModalPedidoManual,
   ModalRelatorio,
   PainelIA,
-  PainelMotoboys,
 } from '@/components/crm';
 import { CockpitHeader } from './_components/CockpitHeader';
 import { MetricasBar } from './_components/MetricasBar';
 import { FiltrosBusca } from './_components/FiltrosBusca';
 import { ListaPedidos } from './_components/ListaPedidos';
 import { ModalCancelar } from './_components/ModalCancelar';
+import { ModalRotaEntrega } from './_components/ModalRotaEntrega';
+import { ModalRastreio } from './_components/ModalRastreio';
 import { PedidoTicket } from './_components/PedidoTicket';
 import {
   CANCEL_MOTIVOS,
@@ -69,7 +69,6 @@ export default function AdminPedidosPage() {
   const knownPedidoIdsRef = useRef<Set<string> | null>(null);
   const unreadTotalRef = useRef<number | null>(null);
   const [filaUrgente, setFilaUrgente] = useState<FilaUrgenteItem[]>([]);
-  const [motoboyStatus, setMotoboyStatus] = useState<MotoboyStatusAdmin[]>([]);
   const [conversas, setConversas] = useState<ConversaNaoLida[]>([]);
   const [whatsappConectado, setWhatsappConectado] = useState(true);
   const [abaCockpit, setAbaCockpit] = useState<'pedidos' | 'whatsapp'>('pedidos');
@@ -118,6 +117,10 @@ export default function AdminPedidosPage() {
   const [selectedMotoboyId, setSelectedMotoboyId] = useState('');
   const [observacaoEntrega, setObservacaoEntrega] = useState('');
   const [showManualModal, setShowManualModal] = useState(false);
+  const [showRotaModal, setShowRotaModal] = useState(false);
+  const [showRastreioModal, setShowRastreioModal] = useState(false);
+  const [posicoesMotoboys, setPosicoesMotoboys] = useState<MotoboyLocalizacao[]>([]);
+  const [lojaCoords, setLojaCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showLojaStatusModal, setShowLojaStatusModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -175,15 +178,6 @@ export default function AdminPedidosPage() {
     try {
       const data = await api.adminPedidos.obterFilaUrgente();
       setFilaUrgente(data);
-    } catch {
-      // silencioso
-    }
-  }, []);
-
-  const carregarMotoboyStatus = useCallback(async () => {
-    try {
-      const data = await api.adminPedidos.obterStatusMotoboys();
-      setMotoboyStatus(data);
     } catch {
       // silencioso
     }
@@ -259,7 +253,7 @@ export default function AdminPedidosPage() {
     } finally {
       if (!opts?.silent) setLoadingDetail(false);
     }
-  }, [motoboys, showError]);
+  }, [showError]);
 
   const carregarResumoCliente = useCallback(async (telefone: string) => {
     try {
@@ -341,11 +335,13 @@ export default function AdminPedidosPage() {
     void carregarStatusLoja();
     void carregarMetricas();
     void carregarFilaUrgente();
-    void carregarMotoboyStatus();
     void carregarConversas();
     void carregarStatusWhatsApp();
     void carregarSugestoesIA();
-  }, [carregarLista, carregarMotoboys, carregarProdutos, carregarStatusLoja, carregarMetricas, carregarFilaUrgente, carregarMotoboyStatus, carregarConversas, carregarStatusWhatsApp, carregarSugestoesIA]);
+    api.adminPedidos.obterLocalizacaoLoja().then((d) => {
+      if (d.lat && d.lng) setLojaCoords({ lat: d.lat, lng: d.lng });
+    }).catch(() => {});
+  }, [carregarLista, carregarMotoboys, carregarProdutos, carregarStatusLoja, carregarMetricas, carregarFilaUrgente, carregarConversas, carregarStatusWhatsApp, carregarSugestoesIA]);
 
   useEffect(() => {
     if (selectedId) void carregarDetalhe(selectedId);
@@ -370,13 +366,11 @@ export default function AdminPedidosPage() {
       void carregarLista({ silent: true });
       void carregarMetricas();
       void carregarFilaUrgente();
-      void carregarMotoboyStatus();
     },
     onPedidoAtualizado: (payload) => {
       void carregarLista({ silent: true });
       void carregarMetricas();
       void carregarFilaUrgente();
-      void carregarMotoboyStatus();
       if (selectedId && payload?.id === selectedId) {
         void carregarDetalhe(selectedId, { silent: true });
       }
@@ -396,11 +390,16 @@ export default function AdminPedidosPage() {
     onLojaStatus: (payload) => {
       setLojaStatus(payload as LojaStatusAdmin);
     },
+    onMotoboyLocalizacao: (payload) => {
+      setPosicoesMotoboys((prev) => {
+        const sem = prev.filter((p) => p.motoboyId !== payload.motoboyId);
+        return [...sem, payload];
+      });
+    },
     onFallbackPoll: () => {
       void carregarLista({ silent: true });
       void carregarMetricas();
       void carregarFilaUrgente();
-      void carregarMotoboyStatus();
       if (selectedId) {
         void carregarDetalhe(selectedId, { silent: true });
       }
@@ -433,14 +432,6 @@ export default function AdminPedidosPage() {
       return pedido.tempoNoEstagio >= sla.dangerAt;
     }),
     [pedidos]
-  );
-
-  const pedidoSemMotoboy = useMemo(
-    () => pedidos.find((p) =>
-      (p.status === 'PREPARANDO' || p.status === 'SAIU_ENTREGA') &&
-      !motoboyStatus.some((m) => m.pedidosAtivos.includes(p.id))
-    )?.id ?? null,
-    [pedidos, motoboyStatus]
   );
 
   const metricItems = useMemo(() => {
@@ -664,13 +655,13 @@ export default function AdminPedidosPage() {
     }
   }, [pedidoDetalhe, tipoEntregaOperacao, empresaTerceirizada, selectedMotoboyId, observacaoEntrega, carregarDetalhe, showSuccess, showError]);
 
-  const enviarMensagem = useCallback(async () => {
+  const enviarMensagem = useCallback(async (textoOverride?: string) => {
     if (!pedidoDetalhe?.cliente?.telefone) return;
-    const texto = textoMensagem.trim();
+    const texto = (textoOverride ?? textoMensagem).trim();
     if (!texto) return;
     try {
       await api.adminClientes.enviarMensagem(pedidoDetalhe.cliente.telefone, texto, pedidoDetalhe.id);
-      setTextoMensagem('');
+      if (!textoOverride) setTextoMensagem('');
       await carregarMensagens(pedidoDetalhe.cliente.telefone, true);
       showSuccess('Mensagem enviada');
     } catch (error: any) {
@@ -780,16 +771,6 @@ export default function AdminPedidosPage() {
     setShowLojaStatusModal(false);
   }, [atualizarStatusLoja, statusLojaModal, entregadoresDisponiveisDia]);
 
-  const handleAtribuirMotoboy = useCallback(async (motoboyId: string, pedidoId: string) => {
-    try {
-      await api.adminPedidos.atribuirMotoboy(pedidoId, motoboyId);
-      await Promise.all([carregarMotoboyStatus(), carregarLista({ silent: true })]);
-      showSuccess('Motoboy atribuído');
-    } catch (error: any) {
-      showError('Falha ao atribuir motoboy', error?.message || 'Tente novamente.');
-    }
-  }, [carregarMotoboyStatus, carregarLista, showSuccess, showError]);
-
   const handleAbrirRelatorio = useCallback(async () => {
     setShowRelatorioModal(true);
     setCarregandoRelatorio(true);
@@ -858,6 +839,10 @@ export default function AdminPedidosPage() {
         muted={muted}
         onToggleMuted={() => setMuted(!muted)}
         onNovoPedidoManual={() => setShowManualModal(true)}
+        onAgruparEntregas={() => setShowRotaModal(true)}
+        prontoCount={pedidos.filter((p) => p.status === 'PRONTO').length}
+        onRastreio={() => setShowRastreioModal(true)}
+        entregadoresAtivos={posicoesMotoboys.length}
         lojaStatus={lojaStatus}
         onGerenciarLojaStatus={() => {
           setStatusLojaModal(lojaStatus?.status || 'ABERTO');
@@ -874,15 +859,6 @@ export default function AdminPedidosPage() {
         onResponder={handleFilaResponder}
         onEstorno={(id) => void handleFilaEstorno(id)}
       />
-
-      {motoboyStatus.length > 0 && (
-        <PainelMotoboys
-          motoboys={motoboyStatus}
-          pedidoSemMotoboyId={pedidoSemMotoboy}
-          onAtribuir={(motoboyId, pedidoId) => void handleAtribuirMotoboy(motoboyId, pedidoId)}
-          onVerPedido={handleFilaVer}
-        />
-      )}
 
       <PainelIA
         sugestoes={sugestoesIA}
@@ -945,8 +921,12 @@ export default function AdminPedidosPage() {
             <>
               <div className="mb-4 flex items-start justify-between">
                 <div>
-                  <h2 className="font-sora text-xl font-bold text-[var(--color-text-primary)]">Pedido #{pedidoDetalhe.numero}</h2>
-                  <p className="text-sm text-[var(--color-text-secondary)]">{pedidoDetalhe.cliente.nome} · {pedidoDetalhe.cliente.telefone}</p>
+                  <h2 className="font-sora text-xl font-bold text-[var(--color-text-primary)]">
+                    {pedidoDetalhe.cliente.nome} #{pedidoDetalhe.numero}
+                  </h2>
+                  <p className="text-sm text-[var(--color-text-secondary)]">
+                    {pedidoDetalhe.cliente.endereco} · {pedidoDetalhe.cliente.telefone}
+                  </p>
                 </div>
                 <CrmBadge variant={toBadgeVariant(pedidoDetalhe.status)}>{labelStatus(pedidoDetalhe.status)}</CrmBadge>
               </div>
@@ -1098,63 +1078,322 @@ export default function AdminPedidosPage() {
                       )}
                     </div>
                     {temBebida && <div className="rounded-md border border-[var(--color-warning)] bg-[var(--color-warning-muted)] p-3"><p className="text-sm font-semibold text-[var(--color-warning-text)]">Não esqueça as bebidas</p></div>}
-                    <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
-                      <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Pagamento</p>
-                      <p className="text-sm text-[var(--color-text-primary)]">Status: {pedidoDetalhe.statusPagamento}</p>
-                      <p className="text-sm text-[var(--color-text-primary)]">
-                        Forma: {(pedidoDetalhe.formaPagamento || 'PIX').replace('_', ' ')}
-                      </p>
-                      <p className="text-sm text-[var(--color-text-primary)]">
-                        Atendimento: {
-                          pedidoDetalhe.tipoAtendimento === 'RETIRADA' ? 'Retirada' :
-                          pedidoDetalhe.tipoAtendimento === 'CONSUMO_LOCAL' ? 'Consumo local' :
-                          'Entrega'
-                        }
-                      </p>
-                      {pedidoDetalhe.trocoPara !== null && pedidoDetalhe.trocoPara !== undefined && (
-                        <p className="text-sm text-[var(--color-text-primary)]">
-                          Troco para: {formatCurrency(Number(pedidoDetalhe.trocoPara))}
-                        </p>
-                      )}
-                    </div>
-                    <div className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
-                      <p className="text-xs uppercase tracking-wide text-[var(--color-text-tertiary)]">Endereço</p>
-                      <p className="text-sm text-[var(--color-text-primary)]">{pedidoDetalhe.cliente.endereco} · {pedidoDetalhe.cliente.bairro}</p>
-                    </div>
+                    {(() => {
+                      const FORMA: Record<string, { label: string; icon: string }> = {
+                        PIX: { label: 'Pix', icon: '⚡' },
+                        CARTAO_CREDITO: { label: 'Cartão de Crédito', icon: '💳' },
+                        CARTAO_DEBITO: { label: 'Cartão de Débito', icon: '💳' },
+                        DINHEIRO: { label: 'Dinheiro', icon: '💵' },
+                      };
+                      const ATEND: Record<string, { label: string; icon: string }> = {
+                        ENTREGA: { label: 'Entrega', icon: '🛵' },
+                        RETIRADA: { label: 'Retirada', icon: '🏃' },
+                        CONSUMO_LOCAL: { label: 'Consumo local', icon: '🍽' },
+                      };
+                      const STATUS_PAG: Record<string, { label: string; cls: string }> = {
+                        PENDENTE:   { label: 'Aguardando pagamento', cls: 'border-[var(--color-warning)] bg-[var(--color-warning-muted)] text-[var(--color-warning-text)]' },
+                        A_RECEBER:  { label: 'A receber na entrega', cls: 'border-[var(--color-info-subtle)] bg-[var(--color-info-muted)] text-[var(--color-info-text)]' },
+                        PAGO:       { label: 'Pago', cls: 'border-[var(--color-success-subtle)] bg-[var(--color-success-muted)] text-[var(--color-success-text)]' },
+                        CONFIRMADO: { label: 'Pago', cls: 'border-[var(--color-success-subtle)] bg-[var(--color-success-muted)] text-[var(--color-success-text)]' },
+                        CANCELADO:  { label: 'Cancelado', cls: 'border-[var(--color-danger)] bg-[var(--color-danger-muted)] text-[var(--color-danger-text)]' },
+                        ESTORNADO:  { label: 'Estornado', cls: 'border-[var(--color-danger)] bg-[var(--color-danger-muted)] text-[var(--color-danger-text)]' },
+                      };
+                      const forma = FORMA[pedidoDetalhe.formaPagamento || 'PIX'] ?? { label: pedidoDetalhe.formaPagamento || 'PIX', icon: '💳' };
+                      const atend = ATEND[pedidoDetalhe.tipoAtendimento || 'ENTREGA'] ?? { label: 'Entrega', icon: '🛵' };
+                      const statusPag = STATUS_PAG[pedidoDetalhe.statusPagamento] ?? { label: pedidoDetalhe.statusPagamento, cls: 'border-[var(--color-border)] bg-[var(--color-surface-raised)] text-[var(--color-text-secondary)]' };
+                      return (
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-2">
+                          <span className="text-sm text-[var(--color-text-primary)]">{forma.icon} {forma.label}</span>
+                          <span className="text-[var(--color-border)]">·</span>
+                          <span className="text-sm text-[var(--color-text-primary)]">{atend.icon} {atend.label}</span>
+                          <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${statusPag.cls}`}>{statusPag.label}</span>
+                          {pedidoDetalhe.trocoPara !== null && pedidoDetalhe.trocoPara !== undefined && (
+                            <span className="ml-auto rounded-full border border-[var(--color-warning)] bg-[var(--color-warning-muted)] px-2 py-0.5 text-xs font-semibold text-[var(--color-warning-text)]">
+                              💵 Troco: {formatCurrency(Number(pedidoDetalhe.trocoPara))}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
                     <PedidoTicket pedido={pedidoDetalhe} />
                   </div>
                 </CrmTabPanel>
 
                 <CrmTabPanel value="timeline">
-                  <div className="space-y-2">
-                    {pedidoDetalhe.timeline.map((item, index) => (
-                      <div key={`${item.timestamp}-${index}`} className={`rounded-md border p-3 ${actorClass(item.ator)}`}>
-                        <p className="text-xs font-semibold uppercase tracking-wide">
-                          {formatTime(item.timestamp)} · {item.ator} · {item.acao}
-                        </p>
+                  {(() => {
+                    const events = pedidoDetalhe.timeline;
+                    if (!events.length) {
+                      return <p className="py-6 text-center text-xs text-[var(--color-text-tertiary)]">Nenhum registro na timeline</p>;
+                    }
+
+                    // Gap in seconds from event[i] to event[i+1]
+                    const gaps = events.slice(0, -1).map((ev, i) => {
+                      const a = new Date(ev.timestamp).getTime();
+                      const b = new Date(events[i + 1].timestamp).getTime();
+                      return Math.round((b - a) / 1000);
+                    });
+
+                    const totalSeconds = gaps.reduce((s, g) => s + g, 0);
+                    const maxGap = gaps.length ? Math.max(...gaps) : 0;
+                    const bottleneckIdx = gaps.indexOf(maxGap);
+
+                    function fmtDuration(s: number): string {
+                      if (s < 60) return `${s}s`;
+                      const m = Math.floor(s / 60);
+                      const sec = s % 60;
+                      if (m < 60) return sec > 0 ? `${m}min ${sec}s` : `${m}min`;
+                      const h = Math.floor(m / 60);
+                      const rem = m % 60;
+                      return rem > 0 ? `${h}h ${rem}min` : `${h}h`;
+                    }
+
+                    const KNOWN_STATUSES = ['AGUARDANDO_PAGAMENTO', 'CONFIRMADO', 'PREPARANDO', 'PRONTO', 'SAIU_ENTREGA', 'ENTREGUE', 'CANCELADO', 'EXPIRADO', 'ABANDONADO'];
+                    function extractStatus(acao: string): string | null {
+                      return KNOWN_STATUSES.find(s => acao.toUpperCase().includes(s)) ?? null;
+                    }
+
+                    const bottleneckPhaseLabel = (() => {
+                      if (bottleneckIdx < 0 || maxGap < 60) return null;
+                      const currentAcao = events[bottleneckIdx]?.acao ?? '';
+                      const nextAcao = events[bottleneckIdx + 1]?.acao ?? '';
+                      // Try current event first; then infer from next event's target status
+                      const directStatus = extractStatus(currentAcao);
+                      if (directStatus) return labelStatus(directStatus);
+                      const nextStatus = extractStatus(nextAcao);
+                      if (nextStatus) {
+                        const seq = ['AGUARDANDO_PAGAMENTO', 'CONFIRMADO', 'PREPARANDO', 'PRONTO', 'SAIU_ENTREGA', 'ENTREGUE'];
+                        const idx = seq.indexOf(nextStatus);
+                        if (idx > 0) return labelStatus(seq[idx - 1]);
+                        if (idx === 0) return labelStatus(seq[0]);
+                      }
+                      return null;
+                    })();
+
+                    function gapColorClass(seconds: number, fromAcao: string): string {
+                      const status = extractStatus(fromAcao);
+                      const { warningAt, dangerAt } = status ? slaByStatus(status) : { warningAt: 300, dangerAt: 900 };
+                      if (seconds >= dangerAt) return 'border-[var(--color-danger-subtle)] bg-[var(--color-danger-muted)] text-[var(--color-danger-text)]';
+                      if (seconds >= warningAt) return 'border-[var(--color-warning-subtle)] bg-[var(--color-warning-muted)] text-[var(--color-warning-text)]';
+                      return 'border-[var(--color-success-subtle)] bg-[var(--color-success-muted)] text-[var(--color-success-text)]';
+                    }
+
+                    const ACTOR_CFG: Record<string, { dot: string; badge: string; label: string }> = {
+                      OPERADOR: { dot: 'bg-[var(--color-info)]',          badge: 'bg-[var(--color-info-muted)] text-[var(--color-info-text)]',        label: 'Operador' },
+                      SISTEMA:  { dot: 'bg-[var(--color-text-tertiary)]', badge: 'bg-[var(--color-surface-raised)] text-[var(--color-text-tertiary)]', label: 'Sistema'  },
+                      CLIENTE:  { dot: 'bg-[var(--color-success)]',       badge: 'bg-[var(--color-success-muted)] text-[var(--color-success-text)]',   label: 'Cliente'  },
+                      IA:       { dot: 'bg-[var(--color-warning)]',       badge: 'bg-[var(--color-warning-muted)] text-[var(--color-warning-text)]',   label: 'IA'       },
+                    };
+
+                    return (
+                      <div>
+                        {/* Summary strip */}
+                        <div className="mb-4 grid grid-cols-3 divide-x divide-[var(--color-border)] rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-raised)] py-2">
+                          <div className="px-3 text-center">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-tertiary)]">Duração total</p>
+                            <p className="mt-0.5 text-sm font-bold text-[var(--color-text-primary)]">{fmtDuration(totalSeconds)}</p>
+                          </div>
+                          <div className="px-3 text-center">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-tertiary)]">Gargalo</p>
+                            <p className="mt-0.5 text-sm font-bold text-[var(--color-danger-text)]">
+                              {maxGap >= 60 ? fmtDuration(maxGap) : '—'}
+                            </p>
+                            {bottleneckPhaseLabel && (
+                              <p className="truncate text-[10px] text-[var(--color-text-tertiary)]">{bottleneckPhaseLabel}</p>
+                            )}
+                          </div>
+                          <div className="px-3 text-center">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-text-tertiary)]">Eventos</p>
+                            <p className="mt-0.5 text-sm font-bold text-[var(--color-text-primary)]">{events.length}</p>
+                          </div>
+                        </div>
+
+                        {/* Timeline entries */}
+                        <div>
+                          {events.map((ev, i) => {
+                            const cfg = ACTOR_CFG[ev.ator] ?? ACTOR_CFG['SISTEMA'];
+                            const gap = gaps[i];
+                            const hasNext = i < events.length - 1;
+                            const isBottleneck = hasNext && i === bottleneckIdx && maxGap >= 300;
+
+                            return (
+                              <div key={`${ev.timestamp}-${i}`} className="flex gap-3">
+                                {/* Spine: dot + extending line */}
+                                <div className="flex w-5 flex-shrink-0 flex-col items-center pt-1">
+                                  <div className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ring-2 ring-[var(--color-surface)] ${cfg.dot}`} />
+                                  {hasNext && <div className="mt-1 flex-1 w-px bg-[var(--color-border)]" />}
+                                </div>
+
+                                {/* Content + duration gap below */}
+                                <div className="flex-1 pb-1">
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className="font-mono text-[10px] text-[var(--color-text-tertiary)]">{formatTime(ev.timestamp)}</span>
+                                    <span className={`rounded px-1.5 py-0.5 text-[10px] font-bold uppercase leading-none ${cfg.badge}`}>{cfg.label}</span>
+                                  </div>
+                                  <p className="mt-0.5 text-xs leading-snug text-[var(--color-text-primary)]">{ev.acao}</p>
+
+                                  {hasNext && gap !== undefined && (
+                                    <div className="mt-2 mb-1">
+                                      <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${gapColorClass(gap, ev.acao)}`}>
+                                        {isBottleneck && <span title="Gargalo identificado">⚠</span>}
+                                        {fmtDuration(gap)}
+                                        {isBottleneck && bottleneckPhaseLabel && <span className="opacity-70">· {bottleneckPhaseLabel}</span>}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })()}
                 </CrmTabPanel>
 
                 <CrmTabPanel value="whatsapp">
-                  <div className="space-y-3">
-                    <div className="max-h-80 space-y-2 overflow-auto rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
+                  <div className="flex flex-col gap-2">
+
+                    {/* Barra de contexto do pedido */}
+                    <div className="flex flex-wrap items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 py-1.5">
+                      <span className="text-xs text-[var(--color-text-tertiary)]">#{pedidoDetalhe.numero}</span>
+                      <CrmBadge variant={toBadgeVariant(pedidoDetalhe.status)}>
+                        {labelStatus(pedidoDetalhe.status)}
+                      </CrmBadge>
+                      {!isFinalStatus(pedidoDetalhe.status) && (() => {
+                        const motivoBloqueio = motivoBloqueioAcao(pedidoDetalhe.status, pedidoDetalhe.statusPagamento, pedidoDetalhe.aguardandoEntregador);
+                        return !motivoBloqueio ? (
+                          <button
+                            type="button"
+                            onClick={() => void avancarStatus()}
+                            disabled={savingStatus}
+                            className="text-xs font-semibold text-[var(--color-accent)] hover:underline disabled:opacity-50"
+                          >
+                            {savingStatus ? '...' : `→ ${ctaStatus(pedidoDetalhe.status, pedidoDetalhe.tipoAtendimento ?? undefined)}`}
+                          </button>
+                        ) : null;
+                      })()}
+                      <span className="ml-auto flex items-center gap-1 text-[10px] text-[var(--color-text-tertiary)]">
+                        <span className={`h-1.5 w-1.5 rounded-full ${whatsappConectado ? 'bg-[var(--color-success)]' : 'bg-[var(--color-danger)]'}`} />
+                        {whatsappConectado ? 'Conectado' : 'Desconectado'}
+                      </span>
+                    </div>
+
+                    {/* Balões de mensagem */}
+                    <div className="flex min-h-[260px] max-h-[340px] flex-col gap-2 overflow-auto rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3">
                       {mensagens.length === 0 ? (
-                        <p className="text-sm text-[var(--color-text-secondary)]">Sem mensagens.</p>
+                        <p className="m-auto text-sm text-[var(--color-text-secondary)]">Nenhuma mensagem ainda.</p>
                       ) : (
-                        mensagens.map((msg) => (
-                          <div key={msg.id} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-2">
-                            <p className="text-xs text-[var(--color-text-tertiary)]">{formatTime(msg.criadoEm)} · {msg.origem === 'SISTEMA' ? '[AUTO]' : 'HUMANO'}</p>
-                            <p className="text-sm text-[var(--color-text-primary)]">{msg.texto}</p>
-                          </div>
-                        ))
+                        mensagens.map((msg) => {
+                          const isCliente = msg.origem === 'HUMANO';
+                          const isAuto = msg.origem === 'SISTEMA';
+                          if (isAuto) {
+                            return (
+                              <div key={msg.id} className="flex justify-center">
+                                <span className="rounded-full bg-[var(--color-surface)] px-2 py-0.5 text-[10px] italic text-[var(--color-text-tertiary)]">
+                                  {formatTime(msg.criadoEm)} · automático · {msg.texto}
+                                </span>
+                              </div>
+                            );
+                          }
+                          return (
+                            <div key={msg.id} className={`flex ${isCliente ? 'justify-start' : 'justify-end'}`}>
+                              <div className={`max-w-[78%] rounded-2xl px-3 py-2 text-sm ${
+                                isCliente
+                                  ? 'rounded-tl-sm bg-[var(--color-surface)] text-[var(--color-text-primary)]'
+                                  : 'rounded-tr-sm bg-[var(--color-accent)] text-[var(--color-text-on-accent)]'
+                              }`}>
+                                <p className="leading-snug">{msg.texto}</p>
+                                <p className={`mt-0.5 text-[10px] ${isCliente ? 'text-[var(--color-text-tertiary)]' : 'opacity-60'}`}>
+                                  {formatTime(msg.criadoEm)}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })
                       )}
                     </div>
-                    <div className="flex gap-2">
-                      <input value={textoMensagem} onChange={(e) => setTextoMensagem(e.target.value)} placeholder="Digite uma mensagem..." className="h-10 flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm text-[var(--color-text-primary)]" />
-                      <CrmButton onClick={() => void enviarMensagem()}>Enviar</CrmButton>
+
+                    {/* Respostas rápidas dinâmicas por status */}
+                    <div className="flex flex-wrap gap-1">
+                      {(() => {
+                        const s = pedidoDetalhe.status;
+                        const replies: string[] = [];
+                        if (s === 'CONFIRMADO' || s === 'PREPARANDO') {
+                          replies.push('Seu pedido está sendo preparado com carinho! 🍳', 'Sairá em breve!');
+                        }
+                        if (s === 'PRONTO') replies.push('Seu pedido está pronto! Saindo em instantes 🛵');
+                        if (s === 'SAIU_ENTREGA') replies.push('Seu entregador já saiu! 🛵 Chegando em breve!', 'Tudo certo com a entrega?');
+                        if (s === 'ENTREGUE') replies.push('Obrigado pela preferência! Até a próxima 💚', 'Avalie nosso atendimento 🌟');
+                        replies.push('Um momento, por favor!', 'Como posso ajudar? 😊');
+                        return replies.map((r) => (
+                          <button
+                            key={r}
+                            type="button"
+                            onClick={() => void enviarMensagem(r)}
+                            className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-2.5 py-1 text-[11px] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-surface-hover)] hover:text-[var(--color-text-primary)]"
+                          >
+                            {r}
+                          </button>
+                        ));
+                      })()}
                     </div>
+
+                    {/* Atalhos de ação */}
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        title="Preencher campo com status atual do pedido"
+                        onClick={() => {
+                          const emoji = pedidoDetalhe.status === 'SAIU_ENTREGA' ? '🛵' : pedidoDetalhe.status === 'PREPARANDO' ? '🍳' : pedidoDetalhe.status === 'ENTREGUE' ? '✅' : '📋';
+                          setTextoMensagem(`${emoji} Olá, ${pedidoDetalhe.cliente.nome.split(' ')[0]}! Seu pedido *#${pedidoDetalhe.numero}* está *${labelStatus(pedidoDetalhe.status).toLowerCase()}*.`);
+                        }}
+                        className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"
+                      >
+                        📋 Enviar status
+                      </button>
+                      {clienteResumo?.topProdutos?.[0] && (
+                        <button
+                          type="button"
+                          title="Sugerir produto favorito do cliente"
+                          onClick={() => setTextoMensagem(`Oi, ${pedidoDetalhe.cliente.nome.split(' ')[0]}! Que tal pedir ${clienteResumo.topProdutos[0].nome} hoje? 😋 Acesse nosso cardápio e faça seu pedido!`)}
+                          className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)]"
+                        >
+                          🍽 Sugerir favorito
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        title="Abrir novo pedido com dados deste cliente"
+                        onClick={() => {
+                          setManualForm((f) => ({
+                            ...f,
+                            nome: pedidoDetalhe.cliente.nome,
+                            telefone: pedidoDetalhe.cliente.telefone,
+                            endereco: pedidoDetalhe.cliente.endereco || '',
+                            bairro: pedidoDetalhe.cliente.bairro || '',
+                          }));
+                          setShowManualModal(true);
+                        }}
+                        className="rounded-md border border-[var(--color-accent)] bg-[var(--color-accent-muted)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-accent)] hover:brightness-95"
+                      >
+                        + Novo pedido
+                      </button>
+                    </div>
+
+                    {/* Input */}
+                    <div className="flex gap-2">
+                      <input
+                        value={textoMensagem}
+                        onChange={(e) => setTextoMensagem(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviarMensagem(); } }}
+                        placeholder="Digite ou use um atalho acima... (Enter para enviar)"
+                        className="h-10 flex-1 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm text-[var(--color-text-primary)]"
+                      />
+                      <CrmButton onClick={() => void enviarMensagem()} disabled={!textoMensagem.trim()}>
+                        Enviar
+                      </CrmButton>
+                    </div>
+
                   </div>
                 </CrmTabPanel>
 
@@ -1244,6 +1483,19 @@ export default function AdminPedidosPage() {
         </CrmCard>
       </div>
       )}
+      <ModalRotaEntrega
+        open={showRotaModal}
+        onClose={() => setShowRotaModal(false)}
+        motoboys={motoboys}
+        onDespachado={() => void carregarLista()}
+      />
+      <ModalRastreio
+        open={showRastreioModal}
+        onClose={() => setShowRastreioModal(false)}
+        posicoes={posicoesMotoboys}
+        lojaLat={lojaCoords?.lat}
+        lojaLng={lojaCoords?.lng}
+      />
       <ModalCancelar
         open={showCancelModal}
         onClose={() => setShowCancelModal(false)}
@@ -1408,14 +1660,42 @@ export default function AdminPedidosPage() {
       )}
       <style jsx global>{`
         @media print {
-          .no-print { display: none !important; }
+          @page {
+            size: 80mm auto;
+            margin: 0;
+          }
+          html, body {
+            width: 80mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #fff !important;
+          }
+          body * {
+            visibility: hidden !important;
+          }
+          .print-ticket,
+          .print-ticket * {
+            visibility: visible !important;
+          }
           .print-ticket {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            max-width: 80mm !important;
             border: 0 !important;
             background: #fff !important;
             color: #000 !important;
             box-shadow: none !important;
             margin: 0 !important;
-            padding: 0 !important;
+            padding: 6mm 4mm !important;
+            font-size: 12px !important;
+            line-height: 1.25 !important;
+          }
+          .no-print { display: none !important; }
+          .print-ticket {
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
           }
         }
       `}</style>

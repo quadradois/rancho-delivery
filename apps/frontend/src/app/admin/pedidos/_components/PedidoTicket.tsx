@@ -7,8 +7,19 @@ interface Props {
 }
 
 export function PedidoTicket({ pedido }: Props) {
+  const pagamentoDestaque =
+    pedido.statusPagamento === 'CONFIRMADO'
+      ? { label: 'PAGO', cls: 'border-[var(--color-success)] bg-[var(--color-success-muted)] text-[var(--color-success-text)]' }
+      : pedido.statusPagamento === 'A_RECEBER'
+      ? { label: 'RECEBER NA ENTREGA', cls: 'border-[var(--color-warning)] bg-[var(--color-warning-muted)] text-[var(--color-warning-text)]' }
+      : { label: 'PAGAMENTO PENDENTE', cls: 'border-[var(--color-danger)] bg-[var(--color-danger-muted)] text-[var(--color-danger-text)]' };
+
   return (
     <div className="print-ticket rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-3" data-testid="print-ticket">
+      <div className={`mb-3 rounded-md border px-3 py-2 text-center ${pagamentoDestaque.cls}`}>
+        <p className="text-[11px] font-semibold uppercase tracking-wider">Status de pagamento</p>
+        <p className="font-sora text-base font-bold">{pagamentoDestaque.label}</p>
+      </div>
       <div className="mb-3 print:block">
         <p className="text-sm font-semibold text-[var(--color-text-primary)]">Pedido #{pedido.numero}</p>
         <p className="text-xs text-[var(--color-text-secondary)]">{new Date(pedido.createdAt).toLocaleString('pt-BR')}</p>

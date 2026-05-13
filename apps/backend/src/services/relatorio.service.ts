@@ -27,6 +27,7 @@ export class RelatorioService {
       mensagensRespondidas,
       produtoMaisVendido,
       pedidosPorHora,
+      timelineEvents,
     ] = await Promise.all([
       prisma.pedido.findMany({
         where: { criadoEm: { gte: inicioDia, lte: fimDia } },
@@ -76,6 +77,11 @@ export class RelatorioService {
         ORDER BY total DESC
         LIMIT 1
       `,
+      prisma.pedidoTimeline.findMany({
+        where: { pedido: { criadoEm: { gte: inicioDia, lte: fimDia } } },
+        select: { pedidoId: true, acao: true, criadoEm: true },
+        orderBy: [{ pedidoId: 'asc' }, { criadoEm: 'asc' }],
+      }),
     ]);
 
     const pedidosRecebidos = pedidosHoje.length;
@@ -128,14 +134,64 @@ export class RelatorioService {
       produtoNome = produto?.nome || null;
     }
 
+    // Compute average time per stage from order timelines
+    const STATUS_SEQUENCE = ['AGUARDANDO_PAGAMENTO', 'CONFIRMADO', 'PREPARANDO', 'PRONTO', 'SAIU_ENTREGA', 'ENTREGUE'];
+    const stageAccum: Record<string, { total: number; count: number }> = {};
+    for (const s of STATUS_SEQUENCE) stageAccum[s] = { total: 0, count: 0 };
+
+    const byPedido = new Map<string, Array<{ pedidoId: string; acao: string; criadoEm: Date }>>();
+    for (const ev of timelineEvents) {
+      if (!byPedido.has(ev.pedidoId)) byPedido.set(ev.pedidoId, []);
+      byPedido.get(ev.pedidoId)!.push(ev);
+    }
+
+    for (const [, events] of byPedido) {
+      let currentStatus: string | null = null;
+      let stageStart: number | null = null;
+
+      for (const ev of events) {
+        const status = STATUS_SEQUENCE.find(s => ev.acao.toUpperCase().includes(s));
+        if (status) {
+          if (currentStatus && stageStart !== null) {
+            const duration = (new Date(ev.criadoEm).getTime() - stageStart) / 1000;
+            if (duration > 0 && duration < 86400) {
+              stageAccum[currentStatus].total += duration;
+              stageAccum[currentStatus].count += 1;
+            }
+          }
+          currentStatus = status;
+          stageStart = new Date(ev.criadoEm).getTime();
+        } else if (!currentStatus && ev.acao.toLowerCase().includes('criado')) {
+          currentStatus = 'AGUARDANDO_PAGAMENTO';
+          stageStart = new Date(ev.criadoEm).getTime();
+        }
+      }
+    }
+
+    const tempoMedioPorEtapa = STATUS_SEQUENCE
+      .filter(s => stageAccum[s].count > 0)
+      .map(s => ({
+        status: s,
+        mediaSegundos: Math.round(stageAccum[s].total / stageAccum[s].count),
+        amostras: stageAccum[s].count,
+      }));
+
+    const tempoMedioPreparoCalculado = stageAccum['PREPARANDO'].count > 0
+      ? Math.round(stageAccum['PREPARANDO'].total / stageAccum['PREPARANDO'].count)
+      : null;
+    const tempoMedioEntregaCalculado = stageAccum['SAIU_ENTREGA'].count > 0
+      ? Math.round(stageAccum['SAIU_ENTREGA'].total / stageAccum['SAIU_ENTREGA'].count)
+      : null;
+
     const relatorio = {
       data: inicioDia,
       pedidosRecebidos,
       pedidosEntregues,
       pedidosCancelados,
       motivosCancelamento,
-      tempoMedioPreparo: null as number | null,
-      tempoMedioEntrega: null as number | null,
+      tempoMedioPreparo: tempoMedioPreparoCalculado,
+      tempoMedioEntrega: tempoMedioEntregaCalculado,
+      tempoMedioPorEtapa,
       receitaBruta: receitaBrutaNum,
       ticketMedio,
       receitaOntem: receitaOntemNum,
@@ -158,6 +214,8 @@ export class RelatorioService {
           pedidosEntregues,
           pedidosCancelados,
           motivosCancelamento,
+          tempoMedioPreparo: tempoMedioPreparoCalculado,
+          tempoMedioEntrega: tempoMedioEntregaCalculado,
           receitaBruta: receitaBrutaNum,
           ticketMedio,
           receitaOntem: receitaOntemNum,
@@ -176,6 +234,8 @@ export class RelatorioService {
           pedidosEntregues,
           pedidosCancelados,
           motivosCancelamento,
+          tempoMedioPreparo: tempoMedioPreparoCalculado,
+          tempoMedioEntrega: tempoMedioEntregaCalculado,
           receitaBruta: receitaBrutaNum,
           ticketMedio,
           receitaOntem: receitaOntemNum,
