@@ -4,31 +4,27 @@ import prisma from '../config/database';
 import evolutionService from './evolution.service';
 import realtimeService from './realtime.service';
 import { logger } from '../config/logger';
+import iaContextoService from './iaContexto.service';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const SYSTEM_PROMPT = `Você é Maria, atendente virtual do Rancho Delivery.
-Somos um delivery de marmitas caseiras em Goiânia. Entregamos em até 40 minutos.
+async function montarSystemPrompt(): Promise<string> {
+  const ctx = await iaContextoService.construirContextoIA();
+  return `Você é ${ctx.nomeAtendente}, atendente virtual do Rancho Delivery.
 
-Cardápio principal:
-- Marmita individual: R$ 18
-- Marmita dupla: R$ 32
-- Almoço executivo: R$ 22
-- Lanche especial: R$ 15
-Frete: R$ 5 (grátis no primeiro pedido)
+${ctx.systemPromptBase}
 
 Seu objetivo: apresentar o Rancho de forma amigável, responder dúvidas e
 direcionar o cliente para fazer o primeiro pedido via link.
 
 Regras:
 - Seja curta e objetiva (máx. 3 linhas por mensagem)
-- Nunca invente preços ou horários que não estão aqui
+- Nunca invente preços ou horários que não estão no contexto acima
 - Se o cliente quiser pedir: informe o link do cardápio (https://ranchodelivery.com.br)
 - Se reclamar ou ficar irritado: encerre com "Vou chamar um atendente humano para te ajudar"
   e pare de responder
-- Nunca diga que é uma IA
-
-Horário de funcionamento: Segunda a Sábado, 10h às 22h. Domingo, 11h às 21h.`;
+- Nunca diga que é uma IA`;
+}
 
 const MAX_MENSAGENS_POR_CONVERSA = 20;
 const THROTTLE_MS = 30_000;
@@ -152,7 +148,8 @@ export async function responderLead(
       messages.push({ role: 'user', content: mensagemRecebida });
     }
 
-    const contextualSystem = `${SYSTEM_PROMPT}
+    const basePrompt = await montarSystemPrompt();
+    const contextualSystem = `${basePrompt}
 ${lead ? `\nContexto: você está falando com ${lead.nome || 'um proprietário'} do bairro ${lead.bairro || 'Goiânia'}.` : ''}
 ${cliente ? `\nContexto: este cliente já comprou conosco antes.` : ''}`;
 

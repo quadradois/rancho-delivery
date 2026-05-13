@@ -1,15 +1,14 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { logger } from '../config/logger';
+import iaContextoService from './iaContexto.service';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const SYSTEM_GERAR_VARIACOES = `Você é um especialista em copywriting de WhatsApp para delivery de comida caseira em Goiânia (Rancho Delivery).
-
-Seu objetivo: gerar 3 variações curtas e eficazes de mensagem outbound para enviar a proprietários de imóveis da região (leads que ainda não são clientes).
+const INSTRUCOES_VARIACOES = `Seu objetivo: gerar 3 variações curtas e eficazes de mensagem outbound para enviar a proprietários de imóveis da região (leads que ainda não são clientes).
 
 Regras das mensagens:
 - Cada mensagem deve ter no máximo 4 linhas
-- Tom: caloroso, próximo, brasileiro — sem soar comercial agressivo
+- Tom: conforme a voz da marca acima — sem soar comercial agressivo
 - Mencionar o Rancho Delivery sutilmente
 - Incluir uma chamada para ação clara (responder, pedir cardápio, fazer pedido)
 - Variar o ângulo entre as 3 opções (ex: 1 — apresentação, 2 — promoção, 3 — pergunta intrigante)
@@ -17,6 +16,7 @@ Regras das mensagens:
 - Não usar gatilhos de spam ("URGENTE", "GRÁTIS!!!", caixa alta)
 - Tratar o destinatário pelo primeiro nome quando disponível usando o placeholder {{nome}}
 - Se o operador pedir personalização por bairro, usar o placeholder {{bairro}}
+- Mencione apenas preços e produtos que estão no cardápio atual fornecido acima
 
 Formato de saída obrigatório (JSON apenas, sem markdown fences):
 {
@@ -41,6 +41,14 @@ export async function gerarVariacoesMensagem(input: {
     throw new Error('ANTHROPIC_API_KEY_NAO_CONFIGURADA');
   }
 
+  const contexto = await iaContextoService.construirContextoIA();
+
+  const systemPrompt = `Você é um especialista em copywriting de WhatsApp para delivery de comida caseira em Goiânia.
+
+${contexto.systemPromptBase}
+
+${INSTRUCOES_VARIACOES}`;
+
   const userPrompt = [
     `Intenção da campanha: ${input.intencao}`,
     input.bairro ? `Bairro alvo: ${input.bairro}` : null,
@@ -52,7 +60,7 @@ export async function gerarVariacoesMensagem(input: {
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 1024,
-    system: SYSTEM_GERAR_VARIACOES,
+    system: systemPrompt,
     messages: [{ role: 'user', content: userPrompt }],
   });
 
@@ -60,7 +68,6 @@ export async function gerarVariacoesMensagem(input: {
 
   logger.info(`campanhaIA.variacoes tokens=${response.usage.input_tokens}in+${response.usage.output_tokens}out intencao="${input.intencao.slice(0, 60)}"`);
 
-  // Tenta parsear JSON — aceita com ou sem fences
   const jsonMatch = texto.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
     throw new Error('IA_RESPOSTA_INVALIDA');

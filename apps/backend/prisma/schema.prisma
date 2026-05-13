@@ -416,6 +416,14 @@ model LojaConfiguracao {
   latLoja          Float?  @map("lat_loja")
   lngLoja          Float?  @map("lng_loja")
   faixasEntrega    Json?   @map("faixas_entrega")
+  // Base de conhecimento da IA
+  iaDescricaoNegocio   String? @map("ia_descricao_negocio") @db.Text
+  iaVozMarca           Json?   @map("ia_voz_marca")
+  iaDiferenciais       Json?   @map("ia_diferenciais")
+  iaHorarios           Json?   @map("ia_horarios")
+  iaPoliticaFrete      String? @map("ia_politica_frete") @db.Text
+  iaPoliticaPrimeiroPedido String? @map("ia_politica_primeiro_pedido") @db.Text
+  iaNomeAtendente      String? @map("ia_nome_atendente") @db.VarChar(100)
   atualizadoEm     DateTime   @updatedAt @map("atualizado_em")
 
   @@map("loja_configuracao")

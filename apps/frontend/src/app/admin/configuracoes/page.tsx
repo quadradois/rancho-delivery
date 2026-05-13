@@ -311,6 +311,25 @@ export default function ConfiguracoesPage() {
 
           {/* Alertas */}
           <PainelAlertas alertas={alertas} onAtualizar={handleAtualizar} />
+
+          {/* Base de Conhecimento da IA */}
+          <section className="rounded-xl border border-[var(--color-border)] bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="font-sora text-lg font-semibold text-[var(--color-text-primary)]">🧠 Base de Conhecimento da IA</h2>
+                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                  Configure o que a IA sabe sobre o restaurante: cardápio, horários, voz da marca e políticas.
+                  Usado no agente WhatsApp e nas campanhas outbound.
+                </p>
+              </div>
+              <a
+                href="/admin/configuracoes/ia-conhecimento"
+                className="shrink-0 rounded-md bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
+              >
+                Gerenciar →
+              </a>
+            </div>
+          </section>
         </div>
       )}
     </div>

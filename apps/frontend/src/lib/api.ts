@@ -1030,9 +1030,45 @@ export const bairroService = {
   },
 };
 
+export interface VozMarca {
+  tom?: string;
+  formalidade?: string;
+  evitar?: string[];
+  preferir?: string[];
+  exemplosBons?: string[];
+  exemplosRuins?: string[];
+}
+
+export interface HorariosDia {
+  abre: string;
+  fecha: string;
+}
+
+export interface IAConhecimento {
+  descricaoNegocio: string | null;
+  vozMarca: VozMarca | null;
+  diferenciais: string[] | null;
+  horarios: { segunda_sabado?: HorariosDia; domingo?: HorariosDia } | null;
+  politicaFrete: string | null;
+  politicaPrimeiroPedido: string | null;
+  nomeAtendente: string | null;
+}
+
 export const adminIaService = {
   async obterSugestoes(): Promise<SugestaoIA[]> {
     return apiClient.get<SugestaoIA[]>('/admin/ia/sugestoes');
+  },
+
+  async obterConhecimento(): Promise<IAConhecimento> {
+    return apiClient.get<IAConhecimento>('/admin/ia/conhecimento');
+  },
+
+  async salvarConhecimento(dados: Partial<IAConhecimento>): Promise<IAConhecimento> {
+    return apiClient.patch<IAConhecimento>('/admin/ia/conhecimento', dados);
+  },
+
+  async previewConhecimento(intencao: string): Promise<{ mensagem: string }> {
+    return apiClient.post<{ mensagem: string }>('/admin/ia/conhecimento/preview', { intencao });
   },
 };
 

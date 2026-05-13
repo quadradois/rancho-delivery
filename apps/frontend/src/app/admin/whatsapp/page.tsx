@@ -246,7 +246,7 @@ export default function WhatsAppPage() {
         </div>
         {!detalhes?.existe && (
           <p className="mt-3 text-xs text-[var(--color-warning-text)]">
-            ⚠️ Crie a instância primeiro (botão "Conectar") para configurar.
+            ⚠️ Crie a instância primeiro (botão &quot;Conectar&quot;) para configurar.
           </p>
         )}
       </CrmCard>
