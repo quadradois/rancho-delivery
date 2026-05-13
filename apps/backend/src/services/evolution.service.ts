@@ -23,6 +23,7 @@ export class EvolutionService {
     
     this.api = axios.create({
       baseURL: process.env.EVOLUTION_API_URL || 'http://localhost:8080',
+      timeout: 8000,
       headers: {
         'Content-Type': 'application/json',
         'apikey': process.env.EVOLUTION_API_KEY || '',
