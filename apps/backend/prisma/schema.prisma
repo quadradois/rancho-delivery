@@ -17,6 +17,14 @@ model Cliente {
   nome       String   @db.VarChar(255)
   endereco   String   @db.Text
   bairro     String   @db.VarChar(100)
+  cep        String?  @db.VarChar(8)
+  numero     String?  @db.VarChar(20)
+  quadra     String?  @db.VarChar(20)
+  lote       String?  @db.VarChar(20)
+  complemento String? @db.VarChar(100)
+  lat        Float?
+  lng        Float?
+  nrinscr    String?  @db.VarChar(14)
   ativo      Boolean  @default(true)
   origem     Origem   @default(SITE)
   criadoEm   DateTime @default(now()) @map("criado_em")
@@ -27,6 +35,7 @@ model Cliente {
   listaNegra ListaNegraCliente?
   indicacoes Indicacao[] @relation("Indicador")
   indicadoPor Indicacao? @relation("Indicado")
+  leadsMarketing LeadMarketing[]
   
   @@map("clientes")
   @@index([bairro])
@@ -40,6 +49,22 @@ enum Origem {
   MINERACAO
   INDICACAO
   CAMPANHA
+}
+
+enum LeadStatus {
+  ATIVO
+  CONVERTIDO
+  INVALIDO
+  OPT_OUT
+}
+
+enum CampanhaStatus {
+  RASCUNHO
+  AGENDADA
+  ENVIANDO
+  CONCLUIDA
+  FALHA
+  DESATIVADA
 }
 
 // Produtos do cardápio
@@ -354,13 +379,16 @@ enum EmpresaEntrega {
 }
 
 model Motoboy {
-  id          String        @id @default(cuid())
-  nome        String        @db.VarChar(255)
-  telefone    String        @unique @db.VarChar(20)
-  empresa     EmpresaEntrega @default(PROPRIO)
-  status      StatusMotoboy @default(DISPONIVEL)
-  criadoEm    DateTime      @default(now()) @map("criado_em")
-  atualizadoEm DateTime     @updatedAt @map("atualizado_em")
+  id                  String         @id @default(cuid())
+  nome                String         @db.VarChar(255)
+  telefone            String         @unique @db.VarChar(20)
+  empresa             EmpresaEntrega @default(PROPRIO)
+  status              StatusMotoboy  @default(DISPONIVEL)
+  tipoRemuneracao     String         @default("FIXO_POR_ENTREGA") @map("tipo_remuneracao")
+  percentualEntregas  Float?         @map("percentual_entregas")
+  valorFixoPorEntrega Float?         @map("valor_fixo_por_entrega")
+  criadoEm            DateTime       @default(now()) @map("criado_em")
+  atualizadoEm        DateTime       @updatedAt @map("atualizado_em")
 
   pedidos     Pedido[]
 
@@ -384,6 +412,10 @@ model LojaConfiguracao {
   mercadopagoAccessToken   String? @map("mercadopago_access_token") @db.Text
   mercadopagoWebhookSecret String? @map("mercadopago_webhook_secret") @db.VarChar(255)
   mercadopagoWebhookUrl    String? @map("mercadopago_webhook_url") @db.VarChar(500)
+  enderecoLoja     String? @map("endereco_loja") @db.VarChar(500)
+  latLoja          Float?  @map("lat_loja")
+  lngLoja          Float?  @map("lng_loja")
+  faixasEntrega    Json?   @map("faixas_entrega")
   atualizadoEm     DateTime   @updatedAt @map("atualizado_em")
 
   @@map("loja_configuracao")
@@ -425,4 +457,193 @@ model RelatorioDia {
 
   @@map("relatorios_dia")
   @@index([data])
+}
+
+model LeadMarketing {
+  id                 String     @id @default(cuid())
+  telefone           String     @unique @db.VarChar(20)
+  cpfCnpj            String?    @unique @map("cpf_cnpj") @db.VarChar(14)
+  telefones          Json?
+  nome               String?    @db.VarChar(255)
+  endereco           String?    @db.Text
+  bairro             String?    @db.VarChar(100)
+  origemMineracao    String     @map("origem_mineracao") @db.VarChar(255)
+  status             LeadStatus @default(ATIVO)
+  notas              String?    @db.Text
+  convertidoEm       DateTime?  @map("convertido_em")
+  clienteTelefone    String?    @map("cliente_telefone") @db.VarChar(20)
+  criadoEm           DateTime   @default(now()) @map("criado_em")
+  atualizadoEm       DateTime   @updatedAt @map("atualizado_em")
+  ultimaInteracaoEm  DateTime?  @map("ultima_interacao_em")
+  humanRequired      Boolean    @default(false) @map("human_required")
+
+  cliente            Cliente?   @relation(fields: [clienteTelefone], references: [telefone], onDelete: SetNull)
+  campanhas          CampanhaDestinatario[]
+  mensagens          MensagemLead[]
+
+  @@map("leads_marketing")
+  @@index([status])
+  @@index([origemMineracao])
+  @@index([bairro])
+  @@index([ultimaInteracaoEm])
+}
+
+model MensagemLead {
+  id          String         @id @default(cuid())
+  leadId      String         @map("lead_id")
+  origem      OrigemMensagem
+  texto       String         @db.Text
+  lida        Boolean        @default(false)
+  criadoEm    DateTime       @default(now()) @map("criado_em")
+
+  lead        LeadMarketing  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@map("mensagens_lead")
+  @@index([leadId, criadoEm])
+}
+
+model ExecucaoMineracao {
+  id                 String    @id @default(cuid())
+  runId              String    @unique @map("run_id") @db.VarChar(64)
+  modo               String    @db.VarChar(40)
+  termo              String    @db.VarChar(255)
+  filtros            Json?
+  status             String    @db.VarChar(40) // SUCESSO | FALHA
+  erro               String?   @db.Text
+  totalImoveis       Int       @default(0) @map("total_imoveis")
+  totalIptus         Int       @default(0) @map("total_iptus")
+  contatosGerados    Int       @default(0) @map("contatos_gerados")
+  contatosUteis      Int       @default(0) @map("contatos_uteis")
+  duracoes           Json?
+  criadoPor          String?   @map("criado_por") @db.VarChar(100)
+  criadoEm           DateTime  @default(now()) @map("criado_em")
+
+  @@map("execucoes_mineracao")
+  @@index([criadoEm])
+}
+
+model ImovelPrefeitura {
+  id           String   @id @default(cuid())
+  objectId     Int?     @unique @map("object_id")
+  nrinscr      String   @unique @db.VarChar(14)
+  instatus     Int?
+  inposfisc    Int?
+  cdlogradou   Int?     @map("cdlogradou")
+  tplogradou   String?  @db.VarChar(10)
+  nmlogradou   String?  @db.VarChar(100)
+  nrimovel     String?  @db.VarChar(20)
+  incompl      String?  @db.VarChar(50)
+  nrquadra     String?  @db.VarChar(20)
+  nrlote       String?  @db.VarChar(20)
+  cdbairro     Int?
+  nmbairro     String?  @db.VarChar(100)
+  cdedificio   Int?
+  nmedificio   String?  @db.VarChar(100)
+  raw          Json?
+  latitude     Float?
+  longitude    Float?
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  @@map("imoveis_prefeitura")
+  @@index([nmbairro])
+  @@index([nmlogradou])
+  @@index([nmedificio])
+  @@index([cdbairro])
+}
+
+model ImovelGeo360 {
+  id                    String   @id @default(cuid())
+  cidade                String   @db.VarChar(50)
+  inscricaoCartografica String   @db.VarChar(20)  @map("inscricao_cartografica")
+  idLote                Int?     @map("id_lote")
+  numeroCadastro        Int?     @map("numero_cadastro")
+  cpfCnpj               String?  @db.VarChar(20)  @map("cpf_cnpj")
+  nomePessoa            String?  @db.VarChar(255) @map("nome_pessoa")
+  tipoPessoa            Int?     @map("tipo_pessoa")
+  endereco              String?  @db.Text
+  bairro                String?  @db.VarChar(100)
+  cep                   String?  @db.VarChar(8)
+  latitude              Float?
+  longitude             Float?
+  sincronizadoEm        DateTime @default(now()) @map("sincronizado_em")
+  atualizadoEm          DateTime @updatedAt       @map("atualizado_em")
+
+  @@unique([cidade, inscricaoCartografica])
+  @@map("imoveis_geo360")
+  @@index([cidade])
+  @@index([cpfCnpj])
+  @@index([bairro])
+  @@index([cep])
+}
+
+model AssertivaConsultaCache {
+  id              String   @id @default(cuid())
+  cpfCnpj         String   @unique @map("cpf_cnpj") @db.VarChar(14)
+  tipoDocumento   String   @map("tipo_documento") @db.VarChar(4)
+  telefones       Json?
+  emails          Json?
+  raw             Json?
+  fonte           String   @default("ASSERTIVA") @db.VarChar(40)
+  consultadoEm    DateTime @default(now()) @map("consultado_em")
+  expiraEm        DateTime @map("expira_em")
+  criadoEm        DateTime @default(now()) @map("criado_em")
+  atualizadoEm    DateTime @updatedAt @map("atualizado_em")
+
+  @@map("assertiva_consultas_cache")
+  @@index([expiraEm])
+  @@index([consultadoEm])
+}
+
+model ScraperErro {
+  id         String   @id @default(cuid())
+  nrinscr    String   @db.VarChar(14)
+  runId      String   @map("run_id") @db.VarChar(64)
+  tentativas Int      @default(1)
+  ultimoErro String   @db.Text
+  httpStatus Int?     @map("http_status")
+  criadoEm   DateTime @default(now()) @map("criado_em")
+
+  @@map("scraper_erros")
+  @@index([runId])
+  @@index([criadoEm])
+}
+
+model CampanhaMarketing {
+  id                 String         @id @default(cuid())
+  nome               String         @db.VarChar(255)
+  mensagem           String         @db.Text
+  filtro             Json?
+  status             CampanhaStatus @default(RASCUNHO)
+  criadoPor          String?        @map("criado_por") @db.VarChar(100)
+  criadoEm           DateTime       @default(now()) @map("criado_em")
+  atualizadoEm       DateTime       @updatedAt @map("atualizado_em")
+  enviadaEm          DateTime?      @map("enviada_em")
+  agendadaPara       DateTime?      @map("agendada_para")
+  erro               String?        @db.Text
+
+  destinatarios      CampanhaDestinatario[]
+
+  @@map("campanhas_marketing")
+  @@index([status])
+  @@index([criadoEm])
+  @@index([agendadaPara])
+}
+
+model CampanhaDestinatario {
+  id                 String   @id @default(cuid())
+  campanhaId         String   @map("campanha_id")
+  leadId             String   @map("lead_id")
+  statusEnvio        String   @map("status_envio") @db.VarChar(40) // PENDENTE | ENVIADO | FALHA | IGNORADO_CONVERTIDO
+  motivoFalha        String?  @map("motivo_falha") @db.Text
+  tentativas         Int      @default(0)
+  enviadoEm          DateTime? @map("enviado_em")
+  criadoEm           DateTime @default(now()) @map("criado_em")
+
+  campanha           CampanhaMarketing @relation(fields: [campanhaId], references: [id], onDelete: Cascade)
+  lead               LeadMarketing     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@map("campanhas_destinatarios")
+  @@unique([campanhaId, leadId])
+  @@index([statusEnvio])
 }
