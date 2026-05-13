@@ -3,6 +3,7 @@ import prisma from '../config/database';
 import { logger } from '../config/logger';
 import clienteService from './cliente.service';
 import bairroService from './bairro.service';
+import taxaEntregaService from './taxaEntrega.service';
 import mercadoPagoService from './mercadopago.service';
 import evolutionService from './evolution.service';
 import realtimeService from './realtime.service';
@@ -90,7 +91,9 @@ export class PedidoService {
       novoStatus === StatusPedido.PRONTO ||
       novoStatus === StatusPedido.SAIU_ENTREGA ||
       novoStatus === StatusPedido.ENTREGUE ||
-      novoStatus === StatusPedido.CANCELADO;
+      novoStatus === StatusPedido.CANCELADO ||
+      novoStatus === StatusPedido.EXPIRADO ||
+      novoStatus === StatusPedido.ABANDONADO;
 
     if (!deveNotificarCliente) return;
 
@@ -591,11 +594,28 @@ export class PedidoService {
         if (!dadosCliente.endereco || !dadosCliente.bairro) {
           throw new Error('ENDERECO_OBRIGATORIO_ENTREGA');
         }
-        const validacaoBairro = await bairroService.validarBairro(dadosCliente.bairro);
-        if (!validacaoBairro.valido) {
-          throw new Error('Bairro não atendido');
+
+        // Calcula taxa de entrega por distância (CEP) ou por bairro
+        const faixas = await taxaEntregaService.obterFaixas();
+        if (taxaEntregaService.usaFaixasPorDistancia(faixas)) {
+          // Modo distância: CEP obrigatório
+          if (!dadosCliente.cep) {
+            throw new Error('CEP_OBRIGATORIO');
+          }
+          const resultado = await taxaEntregaService.calcularPorCep(dadosCliente.cep);
+          if (!resultado.atendido) {
+            logger.warn(`pedido.entrega.fora_area cep=${dadosCliente.cep} motivo=${resultado.erro}`);
+            throw new Error('AREA_NAO_ATENDIDA');
+          }
+          taxaEntrega = resultado.taxa;
+        } else {
+          // Modo bairro (legado)
+          const validacaoBairro = await bairroService.validarBairro(dadosCliente.bairro);
+          if (!validacaoBairro.valido) {
+            throw new Error('AREA_NAO_ATENDIDA');
+          }
+          taxaEntrega = validacaoBairro.taxa!;
         }
-        taxaEntrega = validacaoBairro.taxa!;
       }
 
       // 2. Validar produtos e calcular subtotal (batch — evita N+1)
@@ -901,7 +921,7 @@ export class PedidoService {
     const inicioMs = Date.now();
     const pedido = await prisma.pedido.findUnique({
       where: { id },
-      select: { id: true, status: true, statusPagamento: true, tipoAtendimento: true, motoboyId: true, observacaoEntrega: true },
+      select: { id: true, status: true, statusPagamento: true, formaPagamento: true, tipoAtendimento: true, motoboyId: true, observacaoEntrega: true },
     });
 
     if (!pedido) {
@@ -915,6 +935,16 @@ export class PedidoService {
     const permitidos = this.transicoesPermitidas[pedido.status] || [];
     if (!permitidos.includes(novoStatus)) {
       throw new Error('TRANSICAO_INVALIDA');
+    }
+
+    const pagamentoOnline =
+      pedido.formaPagamento === FormaPagamentoPedido.PIX ||
+      pedido.formaPagamento === FormaPagamentoPedido.CARTAO_CREDITO ||
+      pedido.formaPagamento === FormaPagamentoPedido.CARTAO_DEBITO;
+    const operacaoPermitidaSemConfirmacao =
+      novoStatus === StatusPedido.CANCELADO || novoStatus === StatusPedido.EXPIRADO || novoStatus === StatusPedido.ABANDONADO;
+    if (pagamentoOnline && pedido.statusPagamento !== StatusPagamento.CONFIRMADO && !operacaoPermitidaSemConfirmacao) {
+      throw new Error('PAGAMENTO_NAO_CONFIRMADO');
     }
 
     if (
@@ -959,6 +989,15 @@ export class PedidoService {
 
     await this.notificarMudancaStatus(id, novoStatus, motivoCancelamento);
     realtimeService.emit('pedido:atualizado', { id, status: novoStatus });
+
+    // Notifica entregador quando pedido sai para entrega individualmente
+    if (novoStatus === StatusPedido.SAIU_ENTREGA && pedido.motoboyId) {
+      realtimeService.emit('entregador:novo_pedido', {
+        motoboyId: pedido.motoboyId,
+        pedidoIds: [id],
+        quantidade: 1,
+      });
+    }
 
     return atualizado;
   }
@@ -1017,6 +1056,9 @@ export class PedidoService {
       telefone: m.telefone,
       empresa: m.empresa,
       status: m.status,
+      tipoRemuneracao: m.tipoRemuneracao,
+      percentualEntregas: m.percentualEntregas,
+      valorFixoPorEntrega: m.valorFixoPorEntrega,
     }));
   }
 
@@ -1237,6 +1279,32 @@ export class PedidoService {
       mensagem: loja.mensagemPausado,
       entregadoresDisponiveisDia: loja.entregadoresDisponiveisDia ?? 0,
       atualizadoEm: loja.atualizadoEm.toISOString(),
+    };
+  }
+
+  async obterLocalizacaoLoja() {
+    const loja = await prisma.lojaConfiguracao.upsert({
+      where: { id: 'loja_principal' },
+      update: {},
+      create: { id: 'loja_principal', status: StatusLoja.ABERTO },
+    });
+    return {
+      endereco: loja.enderecoLoja ?? null,
+      lat: loja.latLoja ?? null,
+      lng: loja.lngLoja ?? null,
+    };
+  }
+
+  async atualizarLocalizacaoLoja(endereco: string, lat: number, lng: number) {
+    const loja = await prisma.lojaConfiguracao.upsert({
+      where: { id: 'loja_principal' },
+      update: { enderecoLoja: endereco.trim(), latLoja: lat, lngLoja: lng },
+      create: { id: 'loja_principal', status: StatusLoja.ABERTO, enderecoLoja: endereco.trim(), latLoja: lat, lngLoja: lng },
+    });
+    return {
+      endereco: loja.enderecoLoja ?? null,
+      lat: loja.latLoja ?? null,
+      lng: loja.lngLoja ?? null,
     };
   }
 
@@ -1483,6 +1551,31 @@ export class PedidoService {
           expirados: expirados.count,
           abandonados: abandonados.count,
         });
+      }
+
+      if (expirados.count > 0) {
+        const pedidosExpirados = await prisma.pedido.findMany({
+          where: {
+            formaPagamento: FormaPagamentoPedido.PIX,
+            status: StatusPedido.EXPIRADO,
+            statusMudouEm: { gte: new Date(agora.getTime() - 2 * 60 * 1000) },
+          },
+          select: { id: true },
+          take: 200,
+        });
+        await Promise.all(pedidosExpirados.map((p) => this.notificarMudancaStatus(p.id, StatusPedido.EXPIRADO)));
+      }
+
+      if (abandonados.count > 0) {
+        const pedidosAbandonados = await prisma.pedido.findMany({
+          where: {
+            status: StatusPedido.ABANDONADO,
+            abandonadoEm: { gte: new Date(agora.getTime() - 2 * 60 * 1000) },
+          },
+          select: { id: true },
+          take: 200,
+        });
+        await Promise.all(pedidosAbandonados.map((p) => this.notificarMudancaStatus(p.id, StatusPedido.ABANDONADO)));
       }
 
       return { expirados: expirados.count, abandonados: abandonados.count };

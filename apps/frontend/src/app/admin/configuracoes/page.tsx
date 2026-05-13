@@ -1,17 +1,19 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import api, { ConfiguracaoAlerta, MercadoPagoConfigAdmin, MotoboyAdmin } from '@/lib/api';
+import api, { ConfiguracaoAlerta, MercadoPagoConfigAdmin } from '@/lib/api';
 import { PainelAlertas } from '@/components/crm';
 import { useToast } from '@/contexts/ToastContext';
 
 export default function ConfiguracoesPage() {
   const [alertas, setAlertas] = useState<ConfiguracaoAlerta[]>([]);
   const [mercadoPago, setMercadoPago] = useState<MercadoPagoConfigAdmin | null>(null);
-  const [motoboys, setMotoboys] = useState<MotoboyAdmin[]>([]);
-  const [loadingMotoboys, setLoadingMotoboys] = useState(false);
   const [pagamentosOpen, setPagamentosOpen] = useState(false);
-  const [entregadoresOpen, setEntregadoresOpen] = useState(false);
+  const [localizacaoOpen, setLocalizacaoOpen] = useState(false);
+  const [localizacao, setLocalizacao] = useState<{ endereco: string | null; lat: number | null; lng: number | null } | null>(null);
+  const [loadingLocalizacao, setLoadingLocalizacao] = useState(false);
+  const [savingLocalizacao, setSavingLocalizacao] = useState(false);
+  const [formLocalizacao, setFormLocalizacao] = useState({ endereco: '', lat: '', lng: '' });
   const [loadingMp, setLoadingMp] = useState(false);
   const [formMp, setFormMp] = useState({
     ativo: false,
@@ -21,12 +23,6 @@ export default function ConfiguracoesPage() {
     webhookUrl: '',
   });
   const [savingMp, setSavingMp] = useState(false);
-  const [novoMotoboy, setNovoMotoboy] = useState({
-    nome: '',
-    telefone: '',
-    empresa: 'PROPRIO' as 'PROPRIO' | 'IFOOD' | 'MUVE' | 'FOOD99',
-    status: 'DISPONIVEL' as 'DISPONIVEL' | 'EM_ENTREGA' | 'INATIVO',
-  });
   const [loading, setLoading] = useState(true);
   const { showSuccess, showError } = useToast();
 
@@ -41,9 +37,7 @@ export default function ConfiguracoesPage() {
     }
   }, [showError]);
 
-  useEffect(() => {
-    void carregarDados();
-  }, [carregarDados]);
+  useEffect(() => { void carregarDados(); }, [carregarDados]);
 
   const carregarMercadoPago = useCallback(async () => {
     try {
@@ -70,23 +64,28 @@ export default function ConfiguracoesPage() {
     }
   }, [pagamentosOpen, mercadoPago, loadingMp, carregarMercadoPago]);
 
-  const carregarMotoboys = useCallback(async () => {
+  const carregarLocalizacao = useCallback(async () => {
     try {
-      setLoadingMotoboys(true);
-      const data = await api.adminPedidos.listarMotoboys();
-      setMotoboys(data);
+      setLoadingLocalizacao(true);
+      const data = await api.adminPedidos.obterLocalizacaoLoja();
+      setLocalizacao(data);
+      setFormLocalizacao({
+        endereco: data.endereco ?? '',
+        lat: data.lat?.toString() ?? '',
+        lng: data.lng?.toString() ?? '',
+      });
     } catch {
-      showError('Erro ao carregar entregadores', 'Tente novamente.');
+      showError('Erro ao carregar localização', 'Tente novamente.');
     } finally {
-      setLoadingMotoboys(false);
+      setLoadingLocalizacao(false);
     }
   }, [showError]);
 
   useEffect(() => {
-    if (entregadoresOpen && motoboys.length === 0 && !loadingMotoboys) {
-      void carregarMotoboys();
+    if (localizacaoOpen && !localizacao && !loadingLocalizacao) {
+      void carregarLocalizacao();
     }
-  }, [entregadoresOpen, motoboys.length, loadingMotoboys, carregarMotoboys]);
+  }, [localizacaoOpen, localizacao, loadingLocalizacao, carregarLocalizacao]);
 
   const handleAtualizar = useCallback(async (
     tipo: string,
@@ -121,32 +120,37 @@ export default function ConfiguracoesPage() {
     }
   }, [formMp, showError, showSuccess]);
 
-  const handleCriarMotoboy = useCallback(async () => {
-    if (!novoMotoboy.nome.trim() || !novoMotoboy.telefone.trim()) {
-      showError('Preencha nome e telefone');
+  const handleSalvarLocalizacao = useCallback(async () => {
+    const lat = parseFloat(formLocalizacao.lat);
+    const lng = parseFloat(formLocalizacao.lng);
+    if (!formLocalizacao.endereco.trim() || isNaN(lat) || isNaN(lng)) {
+      showError('Preencha endereço, latitude e longitude');
       return;
     }
     try {
-      await api.adminPedidos.criarMotoboy(novoMotoboy);
-      setNovoMotoboy((prev) => ({ ...prev, nome: '', telefone: '' }));
-      await carregarMotoboys();
-      showSuccess('Entregador cadastrado');
+      setSavingLocalizacao(true);
+      const data = await api.adminPedidos.atualizarLocalizacaoLoja(formLocalizacao.endereco, lat, lng);
+      setLocalizacao(data);
+      showSuccess('Localização da loja salva');
     } catch {
-      showError('Erro ao cadastrar entregador', 'Verifique os dados e tente novamente.');
+      showError('Erro ao salvar localização', 'Verifique os dados e tente novamente.');
+    } finally {
+      setSavingLocalizacao(false);
     }
-  }, [novoMotoboy, carregarMotoboys, showError, showSuccess]);
+  }, [formLocalizacao, showError, showSuccess]);
 
   return (
     <div className="p-5 md:p-6">
       <div className="mb-6">
         <h1 className="font-sora text-2xl font-bold text-[var(--color-text-primary)]">Configurações</h1>
-        <p className="text-sm text-[var(--color-text-secondary)]">Gerencie os alertas e preferências da operação.</p>
+        <p className="text-sm text-[var(--color-text-secondary)]">Integrações, localização da loja e alertas operacionais.</p>
       </div>
 
       {loading ? (
         <p className="text-sm text-[var(--color-text-secondary)]">Carregando...</p>
       ) : (
         <div className="space-y-6">
+          {/* Pagamentos */}
           <section className="rounded-xl border border-[var(--color-border)] bg-white p-4 shadow-sm">
             <button
               type="button"
@@ -160,7 +164,7 @@ export default function ConfiguracoesPage() {
               <span className="text-sm text-[var(--color-text-secondary)]">{pagamentosOpen ? 'Fechar' : 'Abrir'}</span>
             </button>
 
-            {pagamentosOpen ? (
+            {pagamentosOpen && (
               <div className="mt-4 border-t border-[var(--color-border)] pt-4">
                 {loadingMp ? (
                   <p className="text-sm text-[var(--color-text-secondary)]">Carregando Mercado Pago...</p>
@@ -177,11 +181,9 @@ export default function ConfiguracoesPage() {
                         />
                         Integração ativa
                       </label>
-
                       <div className="text-xs text-[var(--color-text-secondary)] md:text-right">
                         Token salvo: {mercadoPago?.accessTokenConfigured ? 'sim' : 'não'} | Secret salvo: {mercadoPago?.webhookSecretConfigured ? 'sim' : 'não'}
                       </div>
-
                       <div className="md:col-span-2">
                         <label className="mb-1 block text-sm text-[var(--color-text-primary)]">Public Key</label>
                         <input
@@ -191,9 +193,8 @@ export default function ConfiguracoesPage() {
                           placeholder="APP_USR-..."
                         />
                       </div>
-
                       <div className="md:col-span-2">
-                        <label className="mb-1 block text-sm text-[var(--color-text-primary)]">Access Token (opcional: preencher só para trocar)</label>
+                        <label className="mb-1 block text-sm text-[var(--color-text-primary)]">Access Token (preencher só para trocar)</label>
                         <input
                           className="w-full rounded-md border border-[var(--color-border)] px-3 py-2 text-sm"
                           value={formMp.accessToken}
@@ -201,7 +202,6 @@ export default function ConfiguracoesPage() {
                           placeholder="APP_USR-..."
                         />
                       </div>
-
                       <div>
                         <label className="mb-1 block text-sm text-[var(--color-text-primary)]">Webhook Secret (opcional)</label>
                         <input
@@ -211,7 +211,6 @@ export default function ConfiguracoesPage() {
                           placeholder="secret"
                         />
                       </div>
-
                       <div>
                         <label className="mb-1 block text-sm text-[var(--color-text-primary)]">Webhook URL</label>
                         <input
@@ -222,7 +221,6 @@ export default function ConfiguracoesPage() {
                         />
                       </div>
                     </div>
-
                     <div className="mt-4">
                       <button
                         className="rounded-md bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
@@ -235,85 +233,83 @@ export default function ConfiguracoesPage() {
                   </div>
                 )}
               </div>
-            ) : null}
+            )}
           </section>
 
+          {/* Localização */}
           <section className="rounded-xl border border-[var(--color-border)] bg-white p-4 shadow-sm">
             <button
               type="button"
               className="flex w-full items-center justify-between text-left"
-              onClick={() => setEntregadoresOpen((prev) => !prev)}
+              onClick={() => setLocalizacaoOpen((prev) => !prev)}
             >
               <div>
-                <h2 className="font-sora text-lg font-semibold text-[var(--color-text-primary)]">Entregadores</h2>
-                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Cadastre e organize motoboys por empresa de entrega.</p>
+                <h2 className="font-sora text-lg font-semibold text-[var(--color-text-primary)]">Localização da loja</h2>
+                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">
+                  {localizacao?.endereco ?? 'Defina o endereço para cálculo de distância e mapa de prospecção.'}
+                </p>
               </div>
-              <span className="text-sm text-[var(--color-text-secondary)]">{entregadoresOpen ? 'Fechar' : 'Abrir'}</span>
+              <span className="text-sm text-[var(--color-text-secondary)]">{localizacaoOpen ? 'Fechar' : 'Abrir'}</span>
             </button>
 
-            {entregadoresOpen ? (
-              <div className="mt-4 border-t border-[var(--color-border)] pt-4 space-y-4">
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-                  <input
-                    value={novoMotoboy.nome}
-                    onChange={(e) => setNovoMotoboy((prev) => ({ ...prev, nome: e.target.value }))}
-                    placeholder="Nome"
-                    className="h-10 rounded-md border border-[var(--color-border)] px-3 text-sm"
-                  />
-                  <input
-                    value={novoMotoboy.telefone}
-                    onChange={(e) => setNovoMotoboy((prev) => ({ ...prev, telefone: e.target.value }))}
-                    placeholder="Telefone"
-                    className="h-10 rounded-md border border-[var(--color-border)] px-3 text-sm"
-                  />
-                  <select
-                    value={novoMotoboy.empresa}
-                    onChange={(e) => setNovoMotoboy((prev) => ({ ...prev, empresa: e.target.value as any }))}
-                    className="h-10 rounded-md border border-[var(--color-border)] px-3 text-sm"
-                  >
-                    <option value="PROPRIO">Próprio</option>
-                    <option value="IFOOD">iFood</option>
-                    <option value="MUVE">Muve</option>
-                    <option value="FOOD99">99Food</option>
-                  </select>
-                  <button
-                    className="rounded-md bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white"
-                    onClick={handleCriarMotoboy}
-                  >
-                    Cadastrar
-                  </button>
-                </div>
-
-                {loadingMotoboys ? (
-                  <p className="text-sm text-[var(--color-text-secondary)]">Carregando entregadores...</p>
+            {localizacaoOpen && (
+              <div className="mt-4 border-t border-[var(--color-border)] pt-4">
+                {loadingLocalizacao ? (
+                  <p className="text-sm text-[var(--color-text-secondary)]">Carregando...</p>
                 ) : (
-                  <div className="overflow-auto rounded-md border border-[var(--color-border)]">
-                    <table className="w-full text-sm">
-                      <thead className="bg-[var(--color-surface-subtle)]">
-                        <tr>
-                          <th className="px-3 py-2 text-left">Nome</th>
-                          <th className="px-3 py-2 text-left">Telefone</th>
-                          <th className="px-3 py-2 text-left">Empresa</th>
-                          <th className="px-3 py-2 text-left">Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {motoboys.map((m) => (
-                          <tr key={m.id} className="border-t border-[var(--color-border)]">
-                            <td className="px-3 py-2">{m.nome}</td>
-                            <td className="px-3 py-2">{m.telefone}</td>
-                            <td className="px-3 py-2">{m.empresa}</td>
-                            <td className="px-3 py-2">{m.status}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="space-y-3">
+                    <p className="text-xs text-[var(--color-text-secondary)]">
+                      Use o{' '}
+                      <a href="https://www.openstreetmap.org" target="_blank" rel="noopener noreferrer" className="underline hover:text-[var(--color-primary)]">
+                        OpenStreetMap
+                      </a>
+                      {' '}ou o Google Maps para obter latitude e longitude.
+                    </p>
+                    <div>
+                      <label className="mb-1 block text-sm text-[var(--color-text-primary)]">Endereço completo</label>
+                      <input
+                        className="w-full rounded-md border border-[var(--color-border)] px-3 py-2 text-sm"
+                        value={formLocalizacao.endereco}
+                        onChange={(e) => setFormLocalizacao((prev) => ({ ...prev, endereco: e.target.value }))}
+                        placeholder="Ex: Rua das Flores, 123 - Setor Bueno, Goiânia - GO"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="mb-1 block text-sm text-[var(--color-text-primary)]">Latitude</label>
+                        <input
+                          className="w-full rounded-md border border-[var(--color-border)] px-3 py-2 text-sm"
+                          value={formLocalizacao.lat}
+                          onChange={(e) => setFormLocalizacao((prev) => ({ ...prev, lat: e.target.value }))}
+                          placeholder="-16.6864"
+                          inputMode="decimal"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-sm text-[var(--color-text-primary)]">Longitude</label>
+                        <input
+                          className="w-full rounded-md border border-[var(--color-border)] px-3 py-2 text-sm"
+                          value={formLocalizacao.lng}
+                          onChange={(e) => setFormLocalizacao((prev) => ({ ...prev, lng: e.target.value }))}
+                          placeholder="-49.2643"
+                          inputMode="decimal"
+                        />
+                      </div>
+                    </div>
+                    <button
+                      className="rounded-md bg-[var(--color-primary)] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                      onClick={handleSalvarLocalizacao}
+                      disabled={savingLocalizacao}
+                    >
+                      {savingLocalizacao ? 'Salvando...' : 'Salvar localização'}
+                    </button>
                   </div>
                 )}
               </div>
-            ) : null}
+            )}
           </section>
 
+          {/* Alertas */}
           <PainelAlertas alertas={alertas} onAtualizar={handleAtualizar} />
         </div>
       )}

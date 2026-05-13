@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { logger } from '../config/logger';
 import axios from 'axios';
 import { Prisma } from '@prisma/client';
+import taxaEntregaService from './taxaEntrega.service';
 
 export interface ViaCepResponse {
   cep: string;
@@ -113,6 +114,8 @@ export class BairroService {
     atendido: boolean;
     endereco?: ViaCepResponse;
     taxa?: number;
+    distanciaKm?: number;
+    usaFaixas?: boolean;
     tempoEntrega?: number;
     bairroId?: string;
     marketplaces?: { ifood?: string; food99?: string; outro?: string; nomeOutro?: string };
@@ -124,6 +127,24 @@ export class BairroService {
       return { atendido: false, erro: 'CEP não encontrado' };
     }
 
+    // Verifica se há faixas de entrega por distância configuradas
+    const faixas = await taxaEntregaService.obterFaixas();
+    if (taxaEntregaService.usaFaixasPorDistancia(faixas)) {
+      const resultado = await taxaEntregaService.calcularPorCep(cep);
+      if (!resultado.atendido) {
+        const marketplaceLinks = await this.buscarLinksMarketplace();
+        return { atendido: false, endereco, marketplaces: marketplaceLinks };
+      }
+      return {
+        atendido: true,
+        endereco,
+        taxa: resultado.taxa,
+        distanciaKm: resultado.distanciaKm,
+        usaFaixas: true,
+      };
+    }
+
+    // Fallback: validação por bairro (comportamento original)
     const bairro = await this.buscarBairroPorNome(endereco.bairro);
 
     if (!bairro) {

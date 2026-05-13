@@ -12,6 +12,10 @@ const criarPedidoSchema = z.object({
     endereco: z.string().optional().default(''),
     bairro: z.string().optional().default(''),
     cep: z.string().min(8).optional(),
+    numero: z.string().optional(),
+    quadra: z.string().optional(),
+    lote: z.string().optional(),
+    complemento: z.string().optional(),
   }),
   itens: z.array(z.object({
     produtoId: z.string(),
@@ -118,12 +122,22 @@ export class PedidoController {
       logger.error('Erro ao criar pedido:', error);
 
       // Erros de negócio
-      if (error.message === 'Bairro não atendido') {
+      if (['Bairro não atendido', 'AREA_NAO_ATENDIDA'].includes(error.message)) {
         return res.status(400).json({
           success: false,
           error: {
-            message: 'Bairro não atendido',
-            code: 'BAIRRO_NAO_ATENDIDO',
+            message: 'Não realizamos entregas nessa área ainda. Verifique o CEP informado.',
+            code: 'AREA_NAO_ATENDIDA',
+          },
+        });
+      }
+
+      if (error.message === 'CEP_OBRIGATORIO') {
+        return res.status(400).json({
+          success: false,
+          error: {
+            message: 'Informe o CEP para calcular a taxa de entrega.',
+            code: 'CEP_OBRIGATORIO',
           },
         });
       }
@@ -373,13 +387,25 @@ export class PedidoController {
         res.write(`data: ${JSON.stringify(payload)}\n\n`);
       };
 
+      const motoboyId = (pedido as any).motoboyId as string | null;
+
       send({ type: 'connected', pedidoId: id, timestamp: new Date().toISOString() });
 
+      // Envia posição atual do motoboy imediatamente se já estiver em rota
+      if (motoboyId) {
+        const pos = realtimeService.getUltimaPosicao(motoboyId);
+        if (pos) send({ type: 'motoboy:localizacao', data: { ...pos, motoboyId } });
+      }
+
       const unsubscribe = realtimeService.subscribe((event) => {
-        if (event.type !== 'pedido:atualizado') return;
-        const pedidoId = event.data?.id || event.data?.pedidoId;
-        if (pedidoId !== id) return;
-        send(event);
+        if (event.type === 'pedido:atualizado') {
+          const pedidoId = event.data?.id || event.data?.pedidoId;
+          if (pedidoId !== id) return;
+          send(event);
+        }
+        if (event.type === 'motoboy:localizacao' && motoboyId && event.data?.motoboyId === motoboyId) {
+          send(event);
+        }
       });
 
       const keepAlive = setInterval(() => {

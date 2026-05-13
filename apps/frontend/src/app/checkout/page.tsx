@@ -12,7 +12,7 @@ import { formatCurrency } from '@/lib/utils';
 import api, { CriarPedidoDTO } from '@/lib/api';
 import { initMercadoPagoSdk } from '@/lib/mercadopago';
 import { getCepValidado, salvarCepValidado } from '@/components/ui/ModalVerificacaoCep';
-import { getCustomerProfile, saveCustomerProfile } from '@/lib/customer-profile';
+import { getCustomerProfile, saveCustomerProfile, salvarEndereco, nomeExibicaoEndereco, type EnderecoSalvo, type LabelEndereco } from '@/lib/customer-profile';
 import { z } from 'zod';
 
 const CHECKOUT_RECOVERY_KEY = 'rancho:checkout_recovery';
@@ -186,10 +186,15 @@ export default function CheckoutPage() {
   const lastEntregaFeeRef = useRef(cartDeliveryFee || 0);
   const prevTipoAtendimentoRef = useRef<TipoAtendimento>('ENTREGA');
   const [cepAtendido, setCepAtendido] = useState(false);
+  const [distanciaKm, setDistanciaKm] = useState<number | null>(null);
   const [errors, setErrors] = useState<AddressErrors>({});
   const [recoveryData, setRecoveryData] = useState<ReturnType<typeof lerRecovery>>(null);
   const [pixData, setPixData] = useState<PixData | null>(null);
   const [checkingPixStatus, setCheckingPixStatus] = useState(false);
+  const [enderecosSalvos, setEnderecosSalvos] = useState<EnderecoSalvo[]>([]);
+  const [labelEndereco, setLabelEndereco] = useState<LabelEndereco>('Casa');
+  const [labelCustom, setLabelCustom] = useState('');
+  const [mostrarSalvarEndereco, setMostrarSalvarEndereco] = useState(false);
 
   const [addressForm, setAddressForm] = useState<AddressForm>({
     nome: '', telefone: '', email: '', cep: '', rua: '', bairro: '',
@@ -230,12 +235,12 @@ export default function CheckoutPage() {
     }
     const perfil = getCustomerProfile();
     if (perfil) {
+      setEnderecosSalvos(perfil.enderecos ?? []);
       setAddressForm((prev) => ({
         ...prev,
         nome: prev.nome || perfil.nome || '',
         telefone: prev.telefone || perfil.telefone || '',
-        bairro: prev.bairro || perfil.bairro || '',
-        cep: prev.cep || (perfil.cep ? formatarCep(perfil.cep) : ''),
+        email: prev.email || perfil.email || '',
       }));
     }
     // Sem recovery: redirecionar se carrinho vazio
@@ -343,6 +348,40 @@ export default function CheckoutPage() {
     return `(${n.slice(0, 2)}) ${n.slice(2, 7)}-${n.slice(7)}`;
   };
 
+  const aplicarEnderecoSalvo = async (end: EnderecoSalvo) => {
+    setAddressForm(prev => ({
+      ...prev,
+      cep: formatarCep(end.cep),
+      rua: end.rua,
+      bairro: end.bairro,
+      numero: end.numero || '',
+      complemento: end.complemento || '',
+      quadra: end.quadra || '',
+      lote: end.lote || '',
+    }));
+    setCepAtendido(false);
+    setDeliveryFee(0);
+    setCartDeliveryFee(0);
+    // Valida o CEP automaticamente
+    setLoadingCep(true);
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const res = await fetch(`${baseUrl}/api/bairros/cep/${end.cep.replace(/\D/g, '')}`);
+      const json = await res.json();
+      const data = json.data ?? json;
+      if (data.atendido) {
+        const taxa = Number(data.taxa || 0);
+        setDeliveryFee(taxa);
+        setCartDeliveryFee(taxa);
+        setCepAtendido(true);
+        setDistanciaKm(data.distanciaKm ? Number(data.distanciaKm.toFixed(1)) : null);
+        salvarCepValidado({ cep: end.cep.replace(/\D/g, ''), bairro: end.bairro, logradouro: end.rua, localidade: '', uf: '', taxa, tempoEntrega: 30 });
+      }
+    } catch { /* silent */ } finally {
+      setLoadingCep(false);
+    }
+  };
+
   const handleCepBlur = async () => {
     const cepLimpo = addressForm.cep.replace(/\D/g, '');
     if (cepLimpo.length !== 8) return;
@@ -386,6 +425,7 @@ export default function CheckoutPage() {
       setDeliveryFee(dadosCep.taxa);
       setCartDeliveryFee(dadosCep.taxa);
       setCepAtendido(true);
+      setDistanciaKm(data.distanciaKm ? Number(data.distanciaKm.toFixed(1)) : null);
     } catch {
       showError('Erro ao buscar CEP', 'Tente novamente');
     } finally {
@@ -466,6 +506,10 @@ export default function CheckoutPage() {
           endereco: enderecoCompleto,
           bairro: addressForm.bairro,
           cep: addressForm.cep.replace(/\D/g, ''),
+          numero: addressForm.numero || undefined,
+          quadra: addressForm.quadra || undefined,
+          lote: addressForm.lote || undefined,
+          complemento: addressForm.complemento || undefined,
         },
         itens: items.map(item => ({
           produtoId: item.id,
@@ -487,10 +531,21 @@ export default function CheckoutPage() {
       saveCustomerProfile({
         nome: addressForm.nome,
         telefone: addressForm.telefone.replace(/\D/g, ''),
-        endereco: enderecoCompleto,
-        bairro: addressForm.bairro,
-        cep: addressForm.cep.replace(/\D/g, ''),
+        email: addressForm.email || undefined,
       });
+      if (tipoAtendimento === 'ENTREGA' && addressForm.cep) {
+        salvarEndereco({
+          label: labelEndereco,
+          labelCustom: labelEndereco === 'Outro' ? labelCustom || 'Outro local' : undefined,
+          cep: addressForm.cep.replace(/\D/g, ''),
+          rua: addressForm.rua,
+          bairro: addressForm.bairro,
+          numero: addressForm.numero || undefined,
+          complemento: addressForm.complemento || undefined,
+          quadra: addressForm.quadra || undefined,
+          lote: addressForm.lote || undefined,
+        });
+      }
 
       const pedido = await api.pedidos.criar(pedidoData);
       if ((pedido as any).tokenAcesso) {
@@ -745,6 +800,36 @@ export default function CheckoutPage() {
             <div className="space-y-4">
               <h2 className="font-brand text-xl font-black uppercase text-[#F4E8CC]">Seus dados</h2>
 
+              {/* Endereços salvos — exibe apenas para clientes com histórico */}
+              {enderecosSalvos.length > 0 && tipoAtendimento === 'ENTREGA' && (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-[#E8D4B0]">Endereços salvos</p>
+                  <div className="flex flex-col gap-2">
+                    {enderecosSalvos.map((end) => (
+                      <button
+                        key={end.id}
+                        type="button"
+                        onClick={() => void aplicarEnderecoSalvo(end)}
+                        className="flex items-center gap-3 rounded-lg border border-[#3E2214] bg-[#1A0D06] p-3 text-left hover:border-[#D4601C] transition-colors"
+                      >
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#D4601C]/15 text-[#D4601C] text-xs font-bold">
+                          {nomeExibicaoEndereco(end)[0]}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-[#F4E8CC]">{nomeExibicaoEndereco(end)}</p>
+                          <p className="truncate text-xs text-[#9A7B5C]">{end.rua}{end.numero ? `, ${end.numero}` : ''} · {end.bairro}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-2 pt-1">
+                    <div className="h-px flex-1 bg-[#3E2214]" />
+                    <span className="text-xs text-[#5C3418]">ou informe um novo endereço</span>
+                    <div className="h-px flex-1 bg-[#3E2214]" />
+                  </div>
+                </div>
+              )}
+
               {/* Tipo de atendimento */}
               <div className="flex gap-2">
                 {([
@@ -807,12 +892,15 @@ export default function CheckoutPage() {
                     </div>
                   )}
                   {cepAtendido && !loadingCep && (
-                    <div className="mb-1 w-10 h-11 flex items-center justify-center">
+                    <div className="mb-1 flex flex-col items-center justify-center gap-0.5">
                       <div className="w-8 h-8 rounded-full bg-[#4A7840]/20 flex items-center justify-center">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4A7840" strokeWidth="2.5">
                           <polyline points="20 6 9 17 4 12" />
                         </svg>
                       </div>
+                      {distanciaKm !== null && (
+                        <span className="text-[10px] text-[#9A7B5C] whitespace-nowrap">{distanciaKm}km</span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -857,6 +945,35 @@ export default function CheckoutPage() {
                   <Input label="Ponto de referência" value={addressForm.pontoReferencia}
                     onChange={e => setAddressForm(p => ({ ...p, pontoReferencia: e.target.value }))}
                     placeholder="Próximo ao..." />
+                </div>
+
+                {/* Label do endereço */}
+                <div className="mt-4">
+                  <p className="mb-2 text-sm font-semibold text-[#E8D4B0]">Salvar endereço como</p>
+                  <div className="flex gap-2">
+                    {(['Casa', 'Trabalho', 'Outro'] as LabelEndereco[]).map((l) => (
+                      <button
+                        key={l}
+                        type="button"
+                        onClick={() => setLabelEndereco(l)}
+                        className={`flex-1 py-2 rounded-lg border text-sm font-semibold transition-all ${
+                          labelEndereco === l
+                            ? 'border-[#D4601C] bg-[#D4601C]/10 text-[#D4601C]'
+                            : 'border-[#3E2214] bg-[#251208] text-[#9A7B5C] hover:border-[#5C3418]'
+                        }`}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                  {labelEndereco === 'Outro' && (
+                    <Input
+                      className="mt-2"
+                      placeholder="Ex: Casa da vovó, Academia..."
+                      value={labelCustom}
+                      onChange={e => setLabelCustom(e.target.value)}
+                    />
+                  )}
                 </div>
               </div>}
             </div>
