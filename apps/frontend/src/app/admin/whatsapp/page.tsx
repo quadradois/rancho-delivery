@@ -116,14 +116,21 @@ export default function WhatsAppPage() {
   const toggleConfig = async (key: keyof WhatsAppConfigInstancia) => {
     if (!detalhes) return;
     const atual = detalhes.configs?.[key] || false;
-    const novo = { [key]: !atual };
+    // Evolution API exige todos os campos — manda o objeto completo com o toggle aplicado
+    const configsCompletas: WhatsAppConfigInstancia = {
+      rejectCall: detalhes.configs?.rejectCall ?? false,
+      groupsIgnore: detalhes.configs?.groupsIgnore ?? false,
+      alwaysOnline: detalhes.configs?.alwaysOnline ?? false,
+      readMessages: detalhes.configs?.readMessages ?? false,
+      readStatus: detalhes.configs?.readStatus ?? false,
+      syncFullHistory: detalhes.configs?.syncFullHistory ?? false,
+      [key]: !atual,
+    };
     try {
-      // Atualiza UI otimisticamente
-      setDetalhes({ ...detalhes, configs: { ...detalhes.configs, ...novo } });
-      await api.adminClientes.atualizarConfigWhatsApp(novo);
+      setDetalhes({ ...detalhes, configs: configsCompletas });
+      await api.adminClientes.atualizarConfigWhatsApp(configsCompletas);
     } catch (err) {
       showError('Falha ao atualizar configuração', err instanceof Error ? err.message : '');
-      // Reverte UI
       setDetalhes({ ...detalhes, configs: { ...detalhes.configs, [key]: atual } });
     }
   };
