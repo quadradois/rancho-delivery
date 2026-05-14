@@ -116,7 +116,11 @@ export class WebhookController {
       const body = req.body || {};
       const event = (req.params as Record<string, string>).event || body?.event || '';
 
-      logger.info(`Webhook WhatsApp recebido: event=${event || 'root'} fromMe=${body?.data?.key?.fromMe} jid=${body?.data?.key?.remoteJid} msgType=${Object.keys(body?.data?.message || {}).join(',')}`);
+      const remoteJid = body?.data?.key?.remoteJid || '';
+      // Para @lid (linked device privacy mode), usar remoteJidAlt que contém o telefone real
+      const remoteJidAlt = body?.data?.key?.remoteJidAlt || '';
+      const jidEfetivo = remoteJid.includes('@lid') && remoteJidAlt ? remoteJidAlt : remoteJid;
+      logger.info(`Webhook WhatsApp recebido: event=${event || 'root'} fromMe=${body?.data?.key?.fromMe} jid=${remoteJid} jidAlt=${remoteJidAlt} msgType=${Object.keys(body?.data?.message || {}).join(',')}`);
 
       // CONNECTION_UPDATE — notifica cockpit sobre mudança de estado
       if (event === 'connection-update' || body?.event === 'CONNECTION_UPDATE') {
@@ -132,11 +136,7 @@ export class WebhookController {
         return;
       }
 
-      const telefone =
-        body?.data?.key?.remoteJid ||
-        body?.data?.from ||
-        body?.from ||
-        '';
+      const telefone = jidEfetivo || body?.data?.from || body?.from || '';
       const texto =
         body?.data?.message?.conversation ||
         body?.data?.message?.extendedTextMessage?.text ||
@@ -145,11 +145,16 @@ export class WebhookController {
         '';
 
       let telefoneNormalizado = String(telefone).replace(/[^\d]/g, '');
-      // Evolution retorna JIDs com prefixo 55 (BR), mas leads/clientes ficam sem ele no BD
+      // Remove prefixo 55 (BR) — leads/clientes ficam sem ele no BD
       if (telefoneNormalizado.startsWith('55') && telefoneNormalizado.length >= 12) {
         telefoneNormalizado = telefoneNormalizado.slice(2);
       }
-      logger.info(`Webhook WhatsApp: telefone=${telefoneNormalizado} texto="${texto.slice(0, 50)}"`);
+      // Normaliza formato antigo de 8 dígitos para novo de 9 dígitos adicionando 9 após DDD
+      // Ex: 6293715693 (10 dig) → 62993715693 (11 dig)
+      if (telefoneNormalizado.length === 10) {
+        telefoneNormalizado = `${telefoneNormalizado.slice(0, 2)}9${telefoneNormalizado.slice(2)}`;
+      }
+      logger.info(`Webhook WhatsApp: telefone=${telefoneNormalizado} jidOriginal=${remoteJid} texto="${texto.slice(0, 50)}"`);
       if (!telefoneNormalizado || !texto) {
         logger.info('Webhook WhatsApp: descartado (telefone ou texto vazios)');
         return;
@@ -165,8 +170,9 @@ export class WebhookController {
       realtimeService.emit('metricas:atualizadas', await pedidoService.obterMetricasAdmin());
 
       // IA responde em background — não bloqueia o webhook
+      // Passa jidEfetivo como rawJid para que o filtro @g.us funcione corretamente
       setImmediate(() => {
-        void processarRespostaWhatsApp(telefoneNormalizado, texto, String(telefone));
+        void processarRespostaWhatsApp(telefoneNormalizado, texto, String(jidEfetivo || telefone));
       });
     } catch (error) {
       logger.error('Erro ao processar webhook WhatsApp:', error);
