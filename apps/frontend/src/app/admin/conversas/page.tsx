@@ -54,10 +54,12 @@ export default function ConversasPage() {
   const [carregandoMsgs, setCarregandoMsgs] = useState(false);
   const [busca, setBusca] = useState('');
   const bottomRef = useRef<HTMLDivElement>(null);
+  const conversasRef = useRef<Conversa[]>([]);
 
   const carregarConversas = useCallback(async () => {
     try {
       const data = await api.adminClientes.listarTodasConversas();
+      conversasRef.current = data;
       setConversas(data);
     } catch (err) {
       showError('Erro ao carregar conversas', err instanceof Error ? err.message : '');
@@ -69,7 +71,8 @@ export default function ConversasPage() {
   const carregarMensagens = useCallback(async (telefone: string) => {
     setCarregandoMsgs(true);
     try {
-      const conversa = conversas.find((c) => c.telefone === telefone);
+      // Usa ref para evitar dependência de conversas e loop infinito
+      const conversa = conversasRef.current.find((c) => c.telefone === telefone);
       let data: Mensagem[];
       if (conversa?.tipo === 'lead' && conversa.leadId) {
         data = await api.adminClientes.listarMensagensLead(conversa.leadId, true) as Mensagem[];
@@ -77,14 +80,13 @@ export default function ConversasPage() {
         data = await api.adminClientes.listarMensagens(telefone, true) as Mensagem[];
       }
       setMensagens(data);
-      // Atualiza contador de não-lidas na lista
       setConversas((prev) => prev.map((c) => c.telefone === telefone ? { ...c, naoLidas: 0 } : c));
     } catch (err) {
       showError('Erro ao carregar mensagens', err instanceof Error ? err.message : '');
     } finally {
       setCarregandoMsgs(false);
     }
-  }, [showError, conversas]);
+  }, [showError]);
 
   useEffect(() => { void carregarConversas(); }, [carregarConversas]);
 
