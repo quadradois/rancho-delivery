@@ -1196,6 +1196,9 @@ export const adminMineracaoService = {
   async adicionarLeadManualCampanha(id: string, payload: { telefone: string; nome?: string; bairro?: string }): Promise<{ adicionado: boolean; ja_existia?: boolean; leadId: string }> {
     return apiClient.post(`/admin/mineracao/campanhas/${id}/adicionar-lead`, payload);
   },
+  async atualizarLead(leadId: string, payload: { nome?: string | null; telefone?: string; bairro?: string | null; endereco?: string | null; notas?: string | null; status?: string }): Promise<Record<string, unknown>> {
+    return apiClient.patch(`/admin/mineracao/leads/${leadId}`, payload);
+  },
   async removerDestinatarioCampanha(campanhaId: string, destinatarioId: string): Promise<{ removido: boolean }> {
     return apiClient.delete(`/admin/mineracao/campanhas/${campanhaId}/destinatarios/${destinatarioId}`);
   },

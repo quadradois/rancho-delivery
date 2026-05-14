@@ -90,6 +90,8 @@ export default function CampanhaDetalhePage({ params }: { params: { id: string }
   const [addLeadNome, setAddLeadNome] = useState('');
   const [addLeadBairro, setAddLeadBairro] = useState('');
   const [addLeadSalvando, setAddLeadSalvando] = useState(false);
+  const [editLead, setEditLead] = useState<{ leadId: string; nome: string; telefone: string; bairro: string; endereco: string; notas: string; status: string } | null>(null);
+  const [editLeadSalvando, setEditLeadSalvando] = useState(false);
 
   useCockpitSocket({
     onCampanhaEnvioProgresso: (p) => {
@@ -334,6 +336,41 @@ export default function CampanhaDetalhePage({ params }: { params: { id: string }
       setErro(error instanceof Error ? error.message : 'Erro ao adicionar lead');
     } finally {
       setAddLeadSalvando(false);
+    }
+  }
+
+  function abrirEdicaoLead(destinatario: NonNullable<CampanhaMarketing['destinatarios']>[number]) {
+    const lead = destinatario.lead;
+    setEditLead({
+      leadId: lead?.id ?? '',
+      nome: lead?.nome ?? '',
+      telefone: lead?.telefone ?? '',
+      bairro: lead?.bairro ?? '',
+      endereco: (lead as any)?.endereco ?? '',
+      notas: (lead as any)?.notas ?? '',
+      status: (lead as any)?.status ?? 'ATIVO',
+    });
+  }
+
+  async function salvarEdicaoLead() {
+    if (!editLead || !campanha) return;
+    setEditLeadSalvando(true);
+    setErro('');
+    try {
+      await api.adminMineracao.atualizarLead(editLead.leadId, {
+        nome: editLead.nome || null,
+        telefone: editLead.telefone || undefined,
+        bairro: editLead.bairro || null,
+        endereco: editLead.endereco || null,
+        notas: editLead.notas || null,
+        status: editLead.status,
+      });
+      setEditLead(null);
+      await carregar();
+    } catch (error) {
+      setErro(error instanceof Error ? error.message : 'Erro ao salvar lead');
+    } finally {
+      setEditLeadSalvando(false);
     }
   }
 
@@ -721,6 +758,57 @@ export default function CampanhaDetalhePage({ params }: { params: { id: string }
           </div>
         )}
 
+        {editLead && (
+          <div className="border-b border-[var(--color-border)] bg-[var(--color-surface-raised)] p-4">
+            <p className="mb-3 text-sm font-semibold text-[var(--color-text-primary)]">Editar lead</p>
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-text-secondary)]">Nome</label>
+                <input type="text" value={editLead.nome} onChange={(e) => setEditLead({ ...editLead, nome: e.target.value })}
+                  className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-text-secondary)]">Telefone</label>
+                <input type="tel" value={editLead.telefone} onChange={(e) => setEditLead({ ...editLead, telefone: e.target.value })}
+                  className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-text-secondary)]">Bairro</label>
+                <input type="text" value={editLead.bairro} onChange={(e) => setEditLead({ ...editLead, bairro: e.target.value })}
+                  className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]" />
+              </div>
+              <div className="lg:col-span-2">
+                <label className="block text-xs font-semibold text-[var(--color-text-secondary)]">Endereço</label>
+                <input type="text" value={editLead.endereco} onChange={(e) => setEditLead({ ...editLead, endereco: e.target.value })}
+                  className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-[var(--color-text-secondary)]">Status</label>
+                <select value={editLead.status} onChange={(e) => setEditLead({ ...editLead, status: e.target.value })}
+                  className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]">
+                  <option value="ATIVO">Ativo</option>
+                  <option value="CONVERTIDO">Convertido</option>
+                  <option value="INATIVO">Inativo</option>
+                  <option value="INVALIDO">Inválido</option>
+                </select>
+              </div>
+              <div className="lg:col-span-3">
+                <label className="block text-xs font-semibold text-[var(--color-text-secondary)]">Notas internas</label>
+                <textarea value={editLead.notas} onChange={(e) => setEditLead({ ...editLead, notas: e.target.value })} rows={2}
+                  className="w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] p-2 text-sm text-[var(--color-text-primary)]" />
+              </div>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <CrmButton onClick={() => void salvarEdicaoLead()} disabled={editLeadSalvando}>
+                {editLeadSalvando ? 'Salvando...' : 'Salvar'}
+              </CrmButton>
+              <CrmButton variant="ghost" onClick={() => setEditLead(null)} disabled={editLeadSalvando}>
+                Cancelar
+              </CrmButton>
+            </div>
+          </div>
+        )}
+
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-[var(--color-surface-raised)] text-left text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
@@ -754,17 +842,29 @@ export default function CampanhaDetalhePage({ params }: { params: { id: string }
                   </td>
                   <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(destinatario.enviadoEm || destinatario.criadoEm)}</td>
                   <td className="px-4 py-3 text-right">
-                    {destinatario.statusEnvio !== 'ENVIADO' && campanha.status !== 'ENVIANDO' && campanha.status !== 'CONCLUIDA' && (
-                      <button
-                        type="button"
-                        onClick={() => void removerDestinatario(destinatario.id, destinatario.lead?.nome ?? null)}
-                        disabled={loadingAction}
-                        className="text-xs font-semibold text-[var(--color-danger-text)] hover:underline disabled:opacity-50"
-                        title="Remove este destinatário da campanha (não apaga o lead do sistema)"
-                      >
-                        Remover
-                      </button>
-                    )}
+                    <div className="flex items-center justify-end gap-3">
+                      {destinatario.lead?.id && (
+                        <button
+                          type="button"
+                          onClick={() => abrirEdicaoLead(destinatario)}
+                          className="text-xs font-semibold text-[var(--color-accent)] hover:underline"
+                          title="Editar dados deste lead"
+                        >
+                          Editar
+                        </button>
+                      )}
+                      {destinatario.statusEnvio !== 'ENVIADO' && campanha.status !== 'ENVIANDO' && campanha.status !== 'CONCLUIDA' && (
+                        <button
+                          type="button"
+                          onClick={() => void removerDestinatario(destinatario.id, destinatario.lead?.nome ?? null)}
+                          disabled={loadingAction}
+                          className="text-xs font-semibold text-[var(--color-danger-text)] hover:underline disabled:opacity-50"
+                          title="Remove este destinatário da campanha (não apaga o lead do sistema)"
+                        >
+                          Remover
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

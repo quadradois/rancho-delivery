@@ -434,6 +434,20 @@ export class AdminMineracaoController {
     }
   }
 
+  async atualizarLead(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { nome, telefone, bairro, endereco, notas, status } = req.body as Record<string, string | null | undefined>;
+      const data = await mineracaoService.atualizarLead(id, { nome, telefone: telefone ?? undefined, bairro, endereco, notas, status: status as any });
+      return res.json({ success: true, data });
+    } catch (error: any) {
+      if (error?.message === 'LEAD_NAO_ENCONTRADO') return res.status(404).json({ success: false, error: { message: 'Lead não encontrado' } });
+      if (error?.message === 'TELEFONE_EM_USO') return res.status(409).json({ success: false, error: { message: 'Telefone já em uso por outro lead', code: 'TELEFONE_EM_USO' } });
+      logger.error('Erro ao atualizar lead:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao atualizar lead' } });
+    }
+  }
+
   async reenviarFalhasCampanha(req: Request, res: Response) {
     try {
       const { id } = req.params;

@@ -985,6 +985,35 @@ export class MineracaoService {
     });
   }
 
+  async atualizarLead(id: string, input: {
+    nome?: string | null;
+    telefone?: string;
+    bairro?: string | null;
+    endereco?: string | null;
+    notas?: string | null;
+    status?: LeadStatus;
+  }) {
+    const lead = await prisma.leadMarketing.findUnique({ where: { id } });
+    if (!lead) throw new Error('LEAD_NAO_ENCONTRADO');
+
+    if (input.telefone && input.telefone !== lead.telefone) {
+      const existe = await prisma.leadMarketing.findUnique({ where: { telefone: input.telefone } });
+      if (existe) throw new Error('TELEFONE_EM_USO');
+    }
+
+    return prisma.leadMarketing.update({
+      where: { id },
+      data: {
+        ...(input.nome !== undefined && { nome: input.nome }),
+        ...(input.telefone !== undefined && { telefone: input.telefone }),
+        ...(input.bairro !== undefined && { bairro: input.bairro }),
+        ...(input.endereco !== undefined && { endereco: input.endereco }),
+        ...(input.notas !== undefined && { notas: input.notas }),
+        ...(input.status !== undefined && { status: input.status }),
+      },
+    });
+  }
+
   async excluirCampanha(campanhaId: string) {
     const campanha = await prisma.campanhaMarketing.findUnique({ where: { id: campanhaId } });
     if (!campanha) throw new Error('CAMPANHA_NAO_ENCONTRADA');

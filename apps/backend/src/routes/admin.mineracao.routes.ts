@@ -16,6 +16,7 @@ router.get('/execucoes', autorizarAdmin('clientes:gerenciar'), adminMineracaoCon
 router.get('/leads', autorizarAdmin('clientes:gerenciar'), adminMineracaoController.listarLeads.bind(adminMineracaoController));
 router.get('/leads-engajados', autorizarAdmin('clientes:gerenciar'), adminMineracaoController.listarLeadsEngajados.bind(adminMineracaoController));
 router.get('/leads/:id/conversa', autorizarAdmin('clientes:gerenciar'), adminMineracaoController.obterConversaLead.bind(adminMineracaoController));
+router.patch('/leads/:id', autorizarAdmin('clientes:gerenciar'), adminMineracaoController.atualizarLead.bind(adminMineracaoController));
 router.post('/campanhas/gerar-mensagem', autorizarAdmin('clientes:gerenciar'), adminMineracaoController.gerarVariacoesMensagem.bind(adminMineracaoController));
 router.post('/campanhas', autorizarAdmin('clientes:gerenciar'), adminMineracaoController.criarCampanha.bind(adminMineracaoController));
 router.get('/campanhas', autorizarAdmin('clientes:gerenciar'), adminMineracaoController.listarCampanhas.bind(adminMineracaoController));
