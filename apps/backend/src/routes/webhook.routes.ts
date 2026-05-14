@@ -10,6 +10,8 @@ const router: ExpressRouter = Router();
  */
 router.use(webhookLimiter);
 router.post('/mercadopago', webhookController.mercadopago.bind(webhookController));
+// Evolution API com webhookByEvents=true envia para /whatsapp/:event (ex: /whatsapp/messages-upsert)
 router.post('/whatsapp', webhookController.whatsapp.bind(webhookController));
+router.post('/whatsapp/:event', webhookController.whatsapp.bind(webhookController));
 
 export default router;

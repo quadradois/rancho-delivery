@@ -950,6 +950,10 @@ export const adminClienteService = {
     return apiClient.patch('/admin/whatsapp/config', configs);
   },
 
+  async listarTodasConversas(limite = 50): Promise<any[]> {
+    return apiClient.get<any[]>(`/admin/conversas?limite=${limite}`);
+  },
+
   async listarMensagens(telefone: string, marcarComoLida = false): Promise<MensagemClienteAdmin[]> {
     const query = marcarComoLida ? '?marcarComoLida=true' : '';
     return apiClient.get<MensagemClienteAdmin[]>(`/admin/clientes/${telefone}/mensagens${query}`);

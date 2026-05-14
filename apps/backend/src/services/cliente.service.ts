@@ -772,6 +772,56 @@ export class ClienteService {
     if (!existente) return null;
     return prisma.listaNegraCliente.delete({ where: { clienteTelefone: telefone } });
   }
+
+  async listarTodasConversas(limite = 50) {
+    // Pega clientes que tiveram ao menos uma mensagem, ordenados pela mais recente
+    const ultimasMensagens = await prisma.mensagemCliente.groupBy({
+      by: ['clienteTelefone'],
+      _max: { criadoEm: true },
+      _count: { _all: true },
+      orderBy: { _max: { criadoEm: 'desc' } },
+      take: limite,
+    });
+
+    if (ultimasMensagens.length === 0) return [];
+
+    const telefones = ultimasMensagens.map((m) => m.clienteTelefone);
+
+    const [clientes, naoLidas, ultimoTexto] = await Promise.all([
+      prisma.cliente.findMany({
+        where: { telefone: { in: telefones } },
+        select: { telefone: true, nome: true },
+      }),
+      prisma.mensagemCliente.groupBy({
+        by: ['clienteTelefone'],
+        where: { clienteTelefone: { in: telefones }, lida: false, origem: OrigemMensagem.HUMANO },
+        _count: { _all: true },
+      }),
+      prisma.mensagemCliente.findMany({
+        where: { clienteTelefone: { in: telefones } },
+        orderBy: { criadoEm: 'desc' },
+        distinct: ['clienteTelefone'],
+        select: { clienteTelefone: true, texto: true, criadoEm: true, origem: true },
+      }),
+    ]);
+
+    const clienteMap = new Map(clientes.map((c) => [c.telefone, c.nome]));
+    const naoLidasMap = new Map(naoLidas.map((n) => [n.clienteTelefone, n._count._all]));
+    const ultimoMap = new Map(ultimoTexto.map((m) => [m.clienteTelefone, m]));
+
+    return ultimasMensagens.map((g) => {
+      const ultimo = ultimoMap.get(g.clienteTelefone);
+      return {
+        telefone: g.clienteTelefone,
+        nome: clienteMap.get(g.clienteTelefone) || 'Cliente',
+        totalMensagens: g._count._all,
+        naoLidas: naoLidasMap.get(g.clienteTelefone) || 0,
+        ultimaMensagem: ultimo?.texto || '',
+        ultimaMensagemEm: ultimo?.criadoEm?.toISOString() || '',
+        ultimaOrigem: ultimo?.origem || 'HUMANO',
+      };
+    });
+  }
 }
 
 export default new ClienteService();

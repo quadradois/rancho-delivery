@@ -107,11 +107,28 @@ export class WebhookController {
 
   /**
    * POST /webhook/whatsapp
-   * Recebe eventos de mensagem WhatsApp para tempo real do cockpit
+   * POST /webhook/whatsapp/:event  (Evolution webhookByEvents=true)
    */
   async whatsapp(req: Request, res: Response) {
+    res.status(200).json({ success: true });
+
     try {
       const body = req.body || {};
+      const event = (req.params as Record<string, string>).event || body?.event || '';
+
+      logger.info(`Webhook WhatsApp recebido: event=${event || 'root'}`);
+
+      // CONNECTION_UPDATE — notifica cockpit sobre mudança de estado
+      if (event === 'connection-update' || body?.event === 'CONNECTION_UPDATE') {
+        const state = body?.data?.state || body?.state || '';
+        realtimeService.emit('whatsapp:status', { state, conectado: state === 'open' });
+        return;
+      }
+
+      // MESSAGES_UPSERT — mensagem recebida
+      const fromMe = body?.data?.key?.fromMe ?? body?.key?.fromMe ?? false;
+      if (fromMe) return; // ignora mensagens enviadas por nós
+
       const telefone =
         body?.data?.key?.remoteJid ||
         body?.data?.from ||
@@ -120,35 +137,28 @@ export class WebhookController {
       const texto =
         body?.data?.message?.conversation ||
         body?.data?.message?.extendedTextMessage?.text ||
+        body?.data?.message?.imageMessage?.caption ||
         body?.message ||
         '';
 
-      const telefoneNormalizado = String(telefone).replace(/\D/g, '');
-      if (telefoneNormalizado && texto) {
-        await clienteService.registrarMensagemRecebida(telefoneNormalizado, texto);
-        // Resposta da IA em background — não bloqueia o webhook
-        setImmediate(() => {
-          void processarRespostaWhatsApp(telefoneNormalizado, texto, String(telefone));
-        });
-      }
+      const telefoneNormalizado = String(telefone).replace(/[^\d]/g, '');
+      if (!telefoneNormalizado || !texto) return;
+
+      await clienteService.registrarMensagemRecebida(telefoneNormalizado, texto);
 
       realtimeService.emit('mensagem:nova', {
-        telefone: telefoneNormalizado || telefone,
+        telefone: telefoneNormalizado,
         texto,
         origem: 'WHATSAPP',
       });
       realtimeService.emit('metricas:atualizadas', await pedidoService.obterMetricasAdmin());
 
-      return res.status(200).json({
-        success: true,
-        message: 'Webhook WhatsApp recebido',
+      // IA responde em background — não bloqueia o webhook
+      setImmediate(() => {
+        void processarRespostaWhatsApp(telefoneNormalizado, texto, String(telefone));
       });
     } catch (error) {
       logger.error('Erro ao processar webhook WhatsApp:', error);
-      return res.status(200).json({
-        success: false,
-        error: { message: 'Erro ao processar webhook WhatsApp' },
-      });
     }
   }
 }

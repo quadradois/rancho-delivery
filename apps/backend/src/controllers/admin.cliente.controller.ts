@@ -66,6 +66,17 @@ export class AdminClienteController {
     }
   }
 
+  async listarTodasConversas(req: Request, res: Response) {
+    try {
+      const limite = typeof req.query.limite === 'string' ? Number(req.query.limite) : 50;
+      const data = await clienteService.listarTodasConversas(limite);
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao listar conversas:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao listar conversas' } });
+    }
+  }
+
   async conversasNaoLidas(_req: Request, res: Response) {
     try {
       const data = await clienteService.listarConversasNaoLidas();

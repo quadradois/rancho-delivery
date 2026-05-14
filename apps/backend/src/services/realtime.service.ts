@@ -11,7 +11,8 @@ export type RealtimeEventName =
   | 'campanha:envio_concluido'
   | 'lead:mensagem'
   | 'motoboy:localizacao'
-  | 'entregador:novo_pedido';
+  | 'entregador:novo_pedido'
+  | 'whatsapp:status';
 
 interface RealtimeEventPayload {
   type: RealtimeEventName;
