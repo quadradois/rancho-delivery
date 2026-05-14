@@ -60,10 +60,14 @@ export async function responderLead(
   if (rawJid.includes('@g.us')) return null;
 
   // Throttle: 1 resposta a cada 30s por número
-  if (estaThrottled(telefone)) return null;
+  if (estaThrottled(telefone)) {
+    logger.info(`conversacao.throttled telefone=${telefone}`);
+    return null;
+  }
 
   try {
     const lojaStatus = await eLojaAberta();
+    logger.info(`conversacao.lojaStatus aberto=${lojaStatus.aberto} telefone=${telefone}`);
     if (!lojaStatus.aberto) {
       throttleMap.set(telefone, Date.now());
       return {
@@ -79,6 +83,8 @@ export async function responderLead(
         select: { id: true, nome: true, bairro: true, status: true },
       }),
     ]);
+
+    logger.info(`conversacao.lookup telefone=${telefone} lead=${lead?.id ?? 'null'} cliente=${cliente?.nome ?? 'null'}`);
 
     // Ignora se não tem relação com o sistema
     if (!lead && !cliente) return null;

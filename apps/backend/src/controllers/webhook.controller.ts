@@ -116,7 +116,7 @@ export class WebhookController {
       const body = req.body || {};
       const event = (req.params as Record<string, string>).event || body?.event || '';
 
-      logger.info(`Webhook WhatsApp recebido: event=${event || 'root'}`);
+      logger.info(`Webhook WhatsApp recebido: event=${event || 'root'} fromMe=${body?.data?.key?.fromMe} jid=${body?.data?.key?.remoteJid} msgType=${Object.keys(body?.data?.message || {}).join(',')}`);
 
       // CONNECTION_UPDATE — notifica cockpit sobre mudança de estado
       if (event === 'connection-update' || body?.event === 'CONNECTION_UPDATE') {
@@ -127,7 +127,10 @@ export class WebhookController {
 
       // MESSAGES_UPSERT — mensagem recebida
       const fromMe = body?.data?.key?.fromMe ?? body?.key?.fromMe ?? false;
-      if (fromMe) return; // ignora mensagens enviadas por nós
+      if (fromMe) {
+        logger.info('Webhook WhatsApp: ignorado (fromMe=true)');
+        return;
+      }
 
       const telefone =
         body?.data?.key?.remoteJid ||
@@ -146,7 +149,11 @@ export class WebhookController {
       if (telefoneNormalizado.startsWith('55') && telefoneNormalizado.length >= 12) {
         telefoneNormalizado = telefoneNormalizado.slice(2);
       }
-      if (!telefoneNormalizado || !texto) return;
+      logger.info(`Webhook WhatsApp: telefone=${telefoneNormalizado} texto="${texto.slice(0, 50)}"`);
+      if (!telefoneNormalizado || !texto) {
+        logger.info('Webhook WhatsApp: descartado (telefone ou texto vazios)');
+        return;
+      }
 
       await clienteService.registrarMensagemRecebida(telefoneNormalizado, texto);
 
