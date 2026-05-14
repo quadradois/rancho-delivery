@@ -959,6 +959,11 @@ export const adminClienteService = {
     return apiClient.get<MensagemClienteAdmin[]>(`/admin/clientes/${telefone}/mensagens${query}`);
   },
 
+  async listarMensagensLead(leadId: string, marcarComoLida = false): Promise<MensagemClienteAdmin[]> {
+    const query = marcarComoLida ? '?marcarComoLida=true' : '';
+    return apiClient.get<MensagemClienteAdmin[]>(`/admin/leads/${leadId}/mensagens${query}`);
+  },
+
   async enviarMensagem(telefone: string, texto: string, pedidoId?: string): Promise<MensagemClienteAdmin> {
     return apiClient.post<MensagemClienteAdmin>(`/admin/clientes/${telefone}/mensagens`, {
       texto,

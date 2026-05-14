@@ -774,52 +774,119 @@ export class ClienteService {
   }
 
   async listarTodasConversas(limite = 50) {
-    // Pega clientes que tiveram ao menos uma mensagem, ordenados pela mais recente
-    const ultimasMensagens = await prisma.mensagemCliente.groupBy({
+    // Clientes com mensagens
+    const msgClientes = await prisma.mensagemCliente.groupBy({
       by: ['clienteTelefone'],
       _max: { criadoEm: true },
-      _count: { _all: true },
       orderBy: { _max: { criadoEm: 'desc' } },
       take: limite,
     });
 
-    if (ultimasMensagens.length === 0) return [];
+    // Leads com mensagens
+    const msgLeads = await prisma.mensagemLead.groupBy({
+      by: ['leadId'],
+      _max: { criadoEm: true },
+      orderBy: { _max: { criadoEm: 'desc' } },
+      take: limite,
+    });
 
-    const telefones = ultimasMensagens.map((m) => m.clienteTelefone);
+    const telefoneClientes = msgClientes.map((m) => m.clienteTelefone);
+    const leadIds = msgLeads.map((m) => m.leadId);
 
-    const [clientes, naoLidas, ultimoTexto] = await Promise.all([
+    const [clientes, naoLidasCliente, ultimoCliente, leads, naoLidasLead, ultimoLead] = await Promise.all([
       prisma.cliente.findMany({
-        where: { telefone: { in: telefones } },
+        where: { telefone: { in: telefoneClientes } },
         select: { telefone: true, nome: true },
       }),
       prisma.mensagemCliente.groupBy({
         by: ['clienteTelefone'],
-        where: { clienteTelefone: { in: telefones }, lida: false, origem: OrigemMensagem.HUMANO },
+        where: { clienteTelefone: { in: telefoneClientes }, lida: false, origem: OrigemMensagem.HUMANO },
         _count: { _all: true },
       }),
       prisma.mensagemCliente.findMany({
-        where: { clienteTelefone: { in: telefones } },
+        where: { clienteTelefone: { in: telefoneClientes } },
         orderBy: { criadoEm: 'desc' },
         distinct: ['clienteTelefone'],
         select: { clienteTelefone: true, texto: true, criadoEm: true, origem: true },
       }),
+      leadIds.length > 0
+        ? prisma.leadMarketing.findMany({
+            where: { id: { in: leadIds } },
+            select: { id: true, telefone: true, nome: true },
+          })
+        : Promise.resolve([]),
+      leadIds.length > 0
+        ? prisma.mensagemLead.groupBy({
+            by: ['leadId'],
+            where: { leadId: { in: leadIds }, lida: false, origem: OrigemMensagem.HUMANO },
+            _count: { _all: true },
+          })
+        : Promise.resolve([]),
+      leadIds.length > 0
+        ? prisma.mensagemLead.findMany({
+            where: { leadId: { in: leadIds } },
+            orderBy: { criadoEm: 'desc' },
+            distinct: ['leadId'],
+            select: { leadId: true, texto: true, criadoEm: true, origem: true },
+          })
+        : Promise.resolve([]),
     ]);
 
     const clienteMap = new Map(clientes.map((c) => [c.telefone, c.nome]));
-    const naoLidasMap = new Map(naoLidas.map((n) => [n.clienteTelefone, n._count._all]));
-    const ultimoMap = new Map(ultimoTexto.map((m) => [m.clienteTelefone, m]));
+    const naoLidasClienteMap = new Map(naoLidasCliente.map((n) => [n.clienteTelefone, n._count._all]));
+    const ultimoClienteMap = new Map(ultimoCliente.map((m) => [m.clienteTelefone, m]));
+    const leadMap = new Map(leads.map((l) => [l.id, l]));
+    const naoLidasLeadMap = new Map(naoLidasLead.map((n) => [n.leadId, n._count._all]));
+    const ultimoLeadMap = new Map(ultimoLead.map((m) => [m.leadId, m]));
 
-    return ultimasMensagens.map((g) => {
-      const ultimo = ultimoMap.get(g.clienteTelefone);
+    const conversasCliente = msgClientes.map((g) => {
+      const ultimo = ultimoClienteMap.get(g.clienteTelefone);
       return {
         telefone: g.clienteTelefone,
         nome: clienteMap.get(g.clienteTelefone) || 'Cliente',
-        totalMensagens: g._count._all,
-        naoLidas: naoLidasMap.get(g.clienteTelefone) || 0,
+        naoLidas: naoLidasClienteMap.get(g.clienteTelefone) || 0,
         ultimaMensagem: ultimo?.texto || '',
-        ultimaMensagemEm: ultimo?.criadoEm?.toISOString() || '',
+        ultimaMensagemEm: ultimo?.criadoEm?.toISOString() || g._max.criadoEm?.toISOString() || '',
         ultimaOrigem: ultimo?.origem || 'HUMANO',
+        tipo: 'cliente' as const,
       };
+    });
+
+    const conversasLead = msgLeads.map((g) => {
+      const lead = leadMap.get(g.leadId);
+      if (!lead) return null;
+      const ultimo = ultimoLeadMap.get(g.leadId);
+      return {
+        telefone: lead.telefone,
+        nome: lead.nome || 'Lead',
+        naoLidas: naoLidasLeadMap.get(g.leadId) || 0,
+        ultimaMensagem: ultimo?.texto || '',
+        ultimaMensagemEm: ultimo?.criadoEm?.toISOString() || g._max.criadoEm?.toISOString() || '',
+        ultimaOrigem: ultimo?.origem || 'HUMANO',
+        tipo: 'lead' as const,
+        leadId: g.leadId,
+      };
+    }).filter(Boolean);
+
+    // Mescla e ordena pelo mais recente, removendo duplicatas (lead que já é cliente)
+    const telefonesCliente = new Set(telefoneClientes);
+    const conversasLeadFiltradas = conversasLead.filter((c) => c && !telefonesCliente.has(c.telefone));
+
+    const todas = [...conversasCliente, ...conversasLeadFiltradas as any[]];
+    todas.sort((a, b) => new Date(b.ultimaMensagemEm).getTime() - new Date(a.ultimaMensagemEm).getTime());
+    return todas.slice(0, limite);
+  }
+
+  async listarMensagensLead(leadId: string, marcarComoLida = false) {
+    if (marcarComoLida) {
+      await prisma.mensagemLead.updateMany({
+        where: { leadId, lida: false, origem: OrigemMensagem.HUMANO },
+        data: { lida: true },
+      });
+    }
+    return prisma.mensagemLead.findMany({
+      where: { leadId },
+      orderBy: { criadoEm: 'asc' },
     });
   }
 }

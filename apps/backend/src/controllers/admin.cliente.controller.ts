@@ -105,6 +105,18 @@ export class AdminClienteController {
     }
   }
 
+  async listarMensagensLead(req: Request, res: Response) {
+    try {
+      const { leadId } = req.params;
+      const marcarComoLida = String(req.query.marcarComoLida || 'false') === 'true';
+      const data = await clienteService.listarMensagensLead(leadId, marcarComoLida);
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao listar mensagens do lead:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao listar mensagens do lead' } });
+    }
+  }
+
   async enviarMensagem(req: Request, res: Response) {
     try {
       const { telefone } = req.params;

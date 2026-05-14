@@ -11,6 +11,8 @@ interface Conversa {
   ultimaMensagem: string;
   ultimaMensagemEm: string;
   ultimaOrigem: string;
+  tipo?: 'cliente' | 'lead';
+  leadId?: string;
 }
 
 interface Mensagem {
@@ -67,8 +69,14 @@ export default function ConversasPage() {
   const carregarMensagens = useCallback(async (telefone: string) => {
     setCarregandoMsgs(true);
     try {
-      const data = await api.adminClientes.listarMensagens(telefone, true);
-      setMensagens(data as Mensagem[]);
+      const conversa = conversas.find((c) => c.telefone === telefone);
+      let data: Mensagem[];
+      if (conversa?.tipo === 'lead' && conversa.leadId) {
+        data = await api.adminClientes.listarMensagensLead(conversa.leadId, true) as Mensagem[];
+      } else {
+        data = await api.adminClientes.listarMensagens(telefone, true) as Mensagem[];
+      }
+      setMensagens(data);
       // Atualiza contador de não-lidas na lista
       setConversas((prev) => prev.map((c) => c.telefone === telefone ? { ...c, naoLidas: 0 } : c));
     } catch (err) {
@@ -76,7 +84,7 @@ export default function ConversasPage() {
     } finally {
       setCarregandoMsgs(false);
     }
-  }, [showError]);
+  }, [showError, conversas]);
 
   useEffect(() => { void carregarConversas(); }, [carregarConversas]);
 
@@ -157,7 +165,12 @@ export default function ConversasPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center justify-between gap-1">
-                  <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{c.nome}</p>
+                  <div className="flex items-center gap-1 min-w-0">
+                    <p className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{c.nome}</p>
+                    {c.tipo === 'lead' && (
+                      <span className="shrink-0 rounded px-1 py-0.5 text-[10px] font-bold bg-orange-100 text-orange-700">Lead</span>
+                    )}
+                  </div>
                   <span className="shrink-0 text-xs text-[var(--color-text-tertiary)]">{formatarTempo(c.ultimaMensagemEm)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-1">
@@ -196,7 +209,9 @@ export default function ConversasPage() {
               <p className="text-xs text-[var(--color-text-tertiary)]">{formatarTelefone(selecionada)}</p>
             </div>
             <a
-              href={`/admin/clientes/${selecionada}`}
+              href={conversaAtual?.tipo === 'lead' && conversaAtual.leadId
+                ? `/admin/mineracao?leadId=${conversaAtual.leadId}`
+                : `/admin/clientes/${selecionada}`}
               className="ml-auto text-xs text-[var(--color-primary)] hover:underline"
             >
               Ver perfil →

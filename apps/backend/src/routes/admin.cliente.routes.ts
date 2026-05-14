@@ -12,6 +12,7 @@ router.delete('/whatsapp/apagar', adminClienteController.apagarWhatsApp.bind(adm
 router.patch('/whatsapp/config', adminClienteController.atualizarConfigWhatsApp.bind(adminClienteController));
 router.get('/conversas', adminClienteController.listarTodasConversas.bind(adminClienteController));
 router.get('/conversas/nao-lidas', adminClienteController.conversasNaoLidas.bind(adminClienteController));
+router.get('/leads/:leadId/mensagens', adminClienteController.listarMensagensLead.bind(adminClienteController));
 router.post('/clientes', adminClienteController.criarManual.bind(adminClienteController));
 router.get('/clientes', adminClienteController.listarGestao.bind(adminClienteController));
 router.get('/clientes/metricas', adminClienteController.metricasGestao.bind(adminClienteController));

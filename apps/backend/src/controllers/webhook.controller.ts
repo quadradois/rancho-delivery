@@ -141,7 +141,11 @@ export class WebhookController {
         body?.message ||
         '';
 
-      const telefoneNormalizado = String(telefone).replace(/[^\d]/g, '');
+      let telefoneNormalizado = String(telefone).replace(/[^\d]/g, '');
+      // Evolution retorna JIDs com prefixo 55 (BR), mas leads/clientes ficam sem ele no BD
+      if (telefoneNormalizado.startsWith('55') && telefoneNormalizado.length >= 12) {
+        telefoneNormalizado = telefoneNormalizado.slice(2);
+      }
       if (!telefoneNormalizado || !texto) return;
 
       await clienteService.registrarMensagemRecebida(telefoneNormalizado, texto);
