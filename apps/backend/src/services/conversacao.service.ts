@@ -35,19 +35,14 @@ export interface RespostaIA {
   humanRequired: boolean;
 }
 
-function eHorarioFuncionamento(): { aberto: boolean; reabreAs?: string } {
-  // BRT = UTC-3
-  const agora = new Date(Date.now() - 3 * 60 * 60 * 1000);
-  const dia = agora.getUTCDay(); // 0=Dom, 1=Seg ... 6=Sáb
-  const hora = agora.getUTCHours();
-
-  const domingo = dia === 0;
-  const abertura = domingo ? 11 : 10;
-  const fechamento = domingo ? 21 : 22;
-
-  if (hora >= abertura && hora < fechamento) return { aberto: true };
-  const reabre = hora < abertura ? `${abertura}h` : `${domingo ? 11 : 10}h de amanhã`;
-  return { aberto: false, reabreAs: reabre };
+async function eLojaAberta(): Promise<{ aberto: boolean; mensagemFechado?: string }> {
+  const loja = await prisma.lojaConfiguracao.findUnique({
+    where: { id: 'loja_principal' },
+    select: { status: true, mensagemPausado: true },
+  });
+  if (!loja || loja.status === 'ABERTO') return { aberto: true };
+  const msg = loja.mensagemPausado || 'Estamos fechados no momento. Voltamos em breve! 😊';
+  return { aberto: false, mensagemFechado: msg };
 }
 
 function estaThrottled(telefone: string): boolean {
@@ -68,11 +63,11 @@ export async function responderLead(
   if (estaThrottled(telefone)) return null;
 
   try {
-    const horario = eHorarioFuncionamento();
-    if (!horario.aberto) {
+    const lojaStatus = await eLojaAberta();
+    if (!lojaStatus.aberto) {
       throttleMap.set(telefone, Date.now());
       return {
-        mensagem: `Olá! Estamos fechados no momento. Voltamos às ${horario.reabreAs} 😊`,
+        mensagem: lojaStatus.mensagemFechado!,
         humanRequired: false,
       };
     }
