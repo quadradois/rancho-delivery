@@ -122,7 +122,7 @@ export class PedidoController {
       logger.error('Erro ao criar pedido:', error);
 
       // Erros de negócio
-      if (['Bairro não atendido', 'AREA_NAO_ATENDIDA'].includes(error.message)) {
+      if (error.message === 'AREA_NAO_ATENDIDA') {
         return res.status(400).json({
           success: false,
           error: {

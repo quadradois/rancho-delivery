@@ -106,7 +106,7 @@ describe('PedidoController - Testes de Regressão', () => {
       mockRequest.body = dadosPedidoValido;
 
       vi.mocked(pedidoService.criarPedido).mockRejectedValue(
-        new Error('Bairro não atendido')
+        new Error('AREA_NAO_ATENDIDA')
       );
 
       // Act
@@ -117,8 +117,8 @@ describe('PedidoController - Testes de Regressão', () => {
       expect(jsonMock).toHaveBeenCalledWith({
         success: false,
         error: {
-          message: 'Bairro não atendido',
-          code: 'BAIRRO_NAO_ATENDIDO',
+          message: 'Não realizamos entregas nessa área ainda. Verifique o CEP informado.',
+          code: 'AREA_NAO_ATENDIDA',
         },
       });
     });

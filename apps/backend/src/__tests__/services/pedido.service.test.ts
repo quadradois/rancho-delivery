@@ -93,7 +93,7 @@ describe('PedidoService', () => {
   it('rejeita pedido com bairro não atendido', async () => {
     vi.mocked(bairroService.validarBairro).mockResolvedValue({ valido: false });
 
-    await expect(pedidoService.criarPedido(dadosPedidoValido as any)).rejects.toThrow('Bairro não atendido');
+    await expect(pedidoService.criarPedido(dadosPedidoValido as any)).rejects.toThrow('AREA_NAO_ATENDIDA');
     expect(prisma.produto.findMany).not.toHaveBeenCalled();
   });
 

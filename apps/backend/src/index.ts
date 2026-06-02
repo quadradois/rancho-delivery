@@ -11,6 +11,8 @@ import { iniciarDeteccaoNovosImoveis } from './jobs/deteccaoNovosImoveis.job';
 import { executarEnriquecimentoIncremental } from './jobs/cargaGeo360.job';
 import { iniciarWorkerCampanhasAgendadas } from './jobs/campanhasAgendadas.job';
 import { enfileirar } from './services/mineracao.queue';
+import cron from 'node-cron';
+import { expirarSessoesInativas } from './agentes/tools/sessao';
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -148,19 +150,23 @@ function iniciarRotinaAbandonoCheckout() {
   logger.info(`Rotina de abandono de checkout iniciada (intervalo: ${intervaloValido} min)`);
 }
 
-// Retoma enriquecimento Geo360 se houver registros pendentes (sem CPF)
+// Enriquecimento Geo360 agendado para 21h (horário de Brasília) — evita sobrecarga da API da Prefeitura
 function iniciarEnriquecimentoGeo360() {
   const cidades = ['aparecidadegoiania', 'goiania'];
-  // Aguarda 10s para o servidor estabilizar antes de iniciar
-  setTimeout(() => {
-    const runId = `startup-geo360-${Date.now()}`;
+
+  const executar = () => {
+    const runId = `geo360-${Date.now()}`;
     enfileirar(runId, async () => {
       for (const cidade of cidades) {
         const total = await executarEnriquecimentoIncremental(cidade);
-        if (total > 0) logger.info(`Geo360 startup [${cidade}]: ${total} registros enriquecidos`);
+        if (total > 0) logger.info(`Geo360 [${cidade}]: ${total} registros enriquecidos`);
       }
     });
-  }, 10_000);
+  };
+
+  // Executa todo dia às 21:00 horário de Brasília (America/Sao_Paulo)
+  cron.schedule('0 21 * * *', executar, { timezone: 'America/Sao_Paulo' });
+  logger.info('Geo360 enriquecimento agendado para 21:00 (America/Sao_Paulo)');
 }
 
 // Iniciar servidor
@@ -172,6 +178,10 @@ app.listen(Number(PORT), HOST, () => {
   iniciarDeteccaoNovosImoveis();
   iniciarEnriquecimentoGeo360();
   iniciarWorkerCampanhasAgendadas();
+
+  // Expira sessões de pedido WhatsApp inativas a cada 5 min
+  const jobSessoes = setInterval(() => { void expirarSessoesInativas(); }, 5 * 60 * 1000);
+  jobSessoes.unref();
 });
 
 export default app;

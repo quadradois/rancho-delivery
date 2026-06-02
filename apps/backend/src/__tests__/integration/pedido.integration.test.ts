@@ -199,7 +199,7 @@ describe('Fluxo de Pedido - Testes de Integração E2E', () => {
       };
 
       vi.mocked(pedidoService.criarPedido).mockRejectedValue(
-        new Error('Bairro não atendido')
+        new Error('AREA_NAO_ATENDIDA')
       );
 
       // Act & Assert
@@ -210,8 +210,8 @@ describe('Fluxo de Pedido - Testes de Integração E2E', () => {
         .expect(400);
 
       expect(resposta.body.success).toBe(false);
-      expect(resposta.body.error.code).toBe('BAIRRO_NAO_ATENDIDO');
-      expect(resposta.body.error.message).toBe('Bairro não atendido');
+      expect(resposta.body.error.code).toBe('AREA_NAO_ATENDIDA');
+      expect(resposta.body.error.message).toBe('Não realizamos entregas nessa área ainda. Verifique o CEP informado.');
     });
 
     it('deve rejeitar pedido com produto inexistente', async () => {

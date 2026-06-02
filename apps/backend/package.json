@@ -6,7 +6,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "tsc && cp -r src/agentes/skills dist/agentes/",
     "start": "node dist/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -37,7 +37,8 @@
     "pbf": "^4.0.1",
     "proj4": "^2.20.8",
     "winston": "^3.11.0",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "ioredis": "^5.3.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

@@ -134,7 +134,7 @@ export async function buscarDetalhe(
       nomePessoa: d.nome___pessoa ?? null,
       tipoPessoa: typeof d.tipo___pessoa === 'number' ? d.tipo___pessoa : null,
       endereco: d.endereco_completo ?? null,
-      bairro: d.nome_bairro ?? null,
+      bairro: d.nome_bairro ?? d['nome___bairro'] ?? null,
       cep: formatarCep(d.cep),
     };
   } catch (err: any) {
@@ -147,8 +147,36 @@ export function cidadesDisponiveis(): string[] {
   return Object.keys(CIDADES);
 }
 
+// Lista verificada por varredura real (2026-05-15) — API de setor omite ~39 setores
+const SETORES_VERIFICADOS: Record<string, string[]> = {
+  goiania: [
+    '101','102','103','104','105','106','107','108','109','110','111','112','113','114','115',
+    '116','117','118','119','120','121','122','123','124','125','127','128','129','130','131',
+    '132','133','135','136','137','138','139','140','141','142','143','144','201','202','203',
+    '204','205','206','207','208','209','210','211','212','213','214','216','217','218','220',
+    '221','222','223','224','225','229','232','234','235','236','237','238','242','243','244',
+    '245','247','301','302','303','304','305','306','307','308','309','310','311','312','313',
+    '314','315','316','317','318','319','320','321','322','323','324','325','326','327','328',
+    '329','330','331','332','333','334','335','336','337','338','339','340','341','343','344',
+    '345','346','347','348','349','350','351','353','354','356','357','358','359','360','361',
+    '362','363','364','365','366','367','368','369','370','371','372','373','374','375','376',
+    '377','378','379','380','381','382','383','401','402','403','404','405','406','407','408',
+    '409','410','411','412','413','414','415','416','417','418','419','420','421','422','423',
+    '424','425','426','427','429','430','431','432','433','435','436','437','439','440','442',
+    '443','444','445','446','447','448','449','452','453','454','455','456','457','458','459',
+    '460','461','462','463','464','465','466','467','468','469','470','471','472','473','474',
+    '475','476',
+  ],
+};
+
 // Busca os setores cadastrais da cidade via API e retorna os códigos como prefixos
 export async function buscarPrefixosDaCidade(cidade: string): Promise<string[]> {
+  // Usa lista verificada quando disponível (API de setor é incompleta para Goiânia)
+  if (SETORES_VERIFICADOS[cidade]) {
+    logger.info(`Geo360 setores [${cidade}]: ${SETORES_VERIFICADOS[cidade].length} setores (lista verificada)`);
+    return SETORES_VERIFICADOS[cidade];
+  }
+
   try {
     const token = await obterToken(cidade);
     const slug = CIDADES[cidade]?.slug ?? cidade;
@@ -166,10 +194,7 @@ export async function buscarPrefixosDaCidade(cidade: string): Promise<string[]> 
     return unicos;
   } catch (err: any) {
     logger.warn(`Geo360 setores [${cidade}] erro: ${err.message} — usando fallback`);
-    // Fallback para prefixos genéricos se o endpoint falhar
-    return cidade === 'goiania'
-      ? ['1', '2', ...Array.from({ length: 100 }, (_, i) => String(300 + i)), '4']
-      : ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    return ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
   }
 }
 

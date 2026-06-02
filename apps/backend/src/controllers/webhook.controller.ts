@@ -137,12 +137,19 @@ export class WebhookController {
       }
 
       const telefone = jidEfetivo || body?.data?.from || body?.from || '';
+
+      // Localização GPS compartilhada pelo cliente via WhatsApp
+      const locationMsg = body?.data?.message?.locationMessage;
+      const localizacao = locationMsg
+        ? { lat: Number(locationMsg.degreesLatitude), lng: Number(locationMsg.degreesLongitude) }
+        : undefined;
+
       const texto =
         body?.data?.message?.conversation ||
         body?.data?.message?.extendedTextMessage?.text ||
         body?.data?.message?.imageMessage?.caption ||
         body?.message ||
-        '';
+        (localizacao ? '' : '');
 
       let telefoneNormalizado = String(telefone).replace(/[^\d]/g, '');
       // Remove prefixo 55 (BR) — leads/clientes ficam sem ele no BD
@@ -155,12 +162,13 @@ export class WebhookController {
         telefoneNormalizado = `${telefoneNormalizado.slice(0, 2)}9${telefoneNormalizado.slice(2)}`;
       }
       logger.info(`Webhook WhatsApp: telefone=${telefoneNormalizado} jidOriginal=${remoteJid} texto="${texto.slice(0, 50)}"`);
-      if (!telefoneNormalizado || !texto) {
-        logger.info('Webhook WhatsApp: descartado (telefone ou texto vazios)');
+      if (!telefoneNormalizado || (!texto && !localizacao)) {
+        logger.info('Webhook WhatsApp: descartado (telefone ou conteúdo vazios)');
         return;
       }
 
-      await clienteService.registrarMensagemRecebida(telefoneNormalizado, texto);
+      const textoRegistro = texto || (localizacao ? `[Localização: ${localizacao.lat},${localizacao.lng}]` : '');
+      await clienteService.registrarMensagemRecebida(telefoneNormalizado, textoRegistro);
 
       realtimeService.emit('mensagem:nova', {
         telefone: telefoneNormalizado,
@@ -172,7 +180,7 @@ export class WebhookController {
       // IA responde em background — não bloqueia o webhook
       // Passa jidEfetivo como rawJid para que o filtro @g.us funcione corretamente
       setImmediate(() => {
-        void processarRespostaWhatsApp(telefoneNormalizado, texto, String(jidEfetivo || telefone));
+        void processarRespostaWhatsApp(telefoneNormalizado, texto, String(jidEfetivo || telefone), localizacao);
       });
     } catch (error) {
       logger.error('Erro ao processar webhook WhatsApp:', error);
