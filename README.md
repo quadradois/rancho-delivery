@@ -1,612 +1,348 @@
-# Rancho
+# Rancho Delivery
 
-Sistema web completo para restaurante delivery-only com foco em conversão, retenção e operação eficiente.
+Sistema web completo para restaurante **delivery-only**, com site de pedidos mobile-first, painel administrativo e um **agente de IA (Claude) para atendimento via WhatsApp**.
 
 ## Visão Geral
 
-**Rancho** é uma plataforma de delivery que integra site de pedidos, agente WhatsApp inteligente, mineração de contatos, sistema de retenção e programa de indicação. O projeto é construído em fases incrementais, priorizando validação comercial antes de complexidade técnica.
+O **Rancho Delivery** é uma plataforma que integra:
+
+- **Site de pedidos** (cardápio, carrinho, checkout e rastreamento)
+- **Painel administrativo** completo (pedidos em tempo real, clientes, entregas, campanhas, mineração de leads e configurações)
+- **Agente de IA conversacional** que atende clientes no WhatsApp via Evolution API, usando o modelo Claude (Anthropic) com sistema de *skills*, *guardrails* e *tools* para montar pedidos diretamente na conversa
+- **Mineração de leads** a partir de bases públicas e parceiras (Geo360, Assertiva)
+- **Pagamento online** via MercadoPago (PIX)
 
 ## Arquitetura do Sistema
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                     SABOR EXPRESS                            │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐      │
-│  │   Frontend   │  │   Backend    │  │   Database   │      │
-│  │  (Mobile 1º) │  │   REST API   │  │  PostgreSQL  │      │
-│  └──────────────┘  └──────────────┘  └──────────────┘      │
-│                                                               │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │              INTEGRAÇÕES EXTERNAS                     │   │
-│  ├──────────────────────────────────────────────────────┤   │
-│  │  • Asaas (Gateway de Pagamento)                      │   │
-│  │  • Evolution API (WhatsApp)                          │   │
-│  │  • Assertiva (Mineração de Contatos)                 │   │
-│  └──────────────────────────────────────────────────────┘   │
-│                                                               │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────────────┐         ┌──────────────────────────────┐
+│   FRONTEND           │◄───────►│   BACKEND (API REST)         │
+│   Next.js 14         │  HTTP   │   Express + TypeScript        │
+│   (mobile-first)     │         │                               │
+│  • Site de pedidos   │         │  • /api  (produtos, pedidos,  │
+│  • Painel /admin     │         │    bairros, loja, admin,      │
+│  • App entregador    │         │    entregador)                │
+│   localhost:3000     │         │  • /webhook (mercadopago,     │
+└──────────────────────┘         │    whatsapp)                  │
+                                 │  • Agente IA (Claude)         │
+                                 │   localhost:3001              │
+                                 └───────────────┬───────────────┘
+                                                 │
+              ┌──────────────────────────────────┼───────────────────────────┐
+              │                                   │                           │
+     ┌────────▼────────┐              ┌───────────▼───────────┐    ┌──────────▼──────────┐
+     │  PostgreSQL     │              │  Integrações externas  │    │   Redis (opcional)  │
+     │  Prisma ORM     │              │  • Claude (Anthropic)  │    │   cache de conversas│
+     │  localhost:5432 │              │  • Evolution API (Wpp) │    │   (fallback em Map) │
+     └─────────────────┘              │  • MercadoPago         │    └─────────────────────┘
+                                      │  • Geo360 / Assertiva  │
+                                      └───────────────────────┘
 ```
-
-## Funcionalidades por Fase
-
-### Fase 1 — Base Operacional
-- **F01: Site de Pedidos**
-  - Cardápio em feed vertical (scroll snap)
-  - Carrinho de compras
-  - Checkout com validação de bairro e taxa
-  - Integração com Asaas (pagamento)
-  - Notificação via WhatsApp para o dono
-  - Painel administrativo (produtos e bairros)
-
-### Fase 2 — Canais de Aquisição
-- **F02: Mineração de Contatos**
-  - Pipeline de captação via Assertiva
-  - Registro automático com origem rastreável
-- **F03: Agente WhatsApp**
-  - Inbound: atendimento automatizado
-  - Outbound: abordagem de leads e campanhas
-
-### Fase 3 — Gestão Financeira
-- **F04: Ficha Técnica e Precificação**
-  - Cálculo de custo por produto
-  - Análise de margem de lucro
-  - Sugestão de preços
-
-### Fase 4 — Retenção e Crescimento
-- **F05: Roleta de Promoções**
-  - Gamificação pós-pedido
-  - Disparos automáticos via WhatsApp
-- **F06: Programa de Indicação**
-  - Link único por cliente
-  - Bonificação via roleta
-  - Rastreamento de conversão
 
 ## Stack Tecnológica
 
 | Camada | Tecnologia |
 |--------|-----------|
-| Frontend | React/Next.js (mobile-first) |
-| Backend | Node.js + Express/Fastify |
-| Banco de Dados | PostgreSQL |
-| Pagamento | Asaas API |
-| WhatsApp | Evolution API |
-| Hospedagem | A definir |
-| CI/CD | GitHub Actions |
+| Monorepo | pnpm workspaces (`pnpm@8.15.0`) |
+| Frontend | Next.js 14 (App Router) · React 18 · TypeScript · Tailwind CSS · React Leaflet · Recharts |
+| Backend | Node.js 18+ · Express 4 · TypeScript · Zod · Winston · Helmet · express-rate-limit · node-cron |
+| Banco de Dados | PostgreSQL · Prisma ORM 5 |
+| IA / Agente | `@anthropic-ai/sdk` (Claude) |
+| Cache | Redis (`ioredis`), com fallback em memória |
+| WhatsApp | Evolution API (self-hosted) |
+| Pagamento | MercadoPago |
+| Testes | Vitest · Supertest · Testing Library |
+| Deploy | PM2 · Nginx · systemd |
 
 ## Estrutura do Projeto
 
 ```
-sabosexprex/
-├── docs/                           # Documentação do projeto
-│   ├── PLANEJAMENTO_SABOR_EXPRESS.md
-│   ├── GUARDIAO_SABOR_EXPRESS.md
-│   ├── SOP_MINERACAO_CONTATOS.md
-│   └── BRAINSTORM_SABOR_EXPRESS.md
-├── backlog/                        # Gestão de tarefas
-├── src/
-│   ├── frontend/                   # Aplicação web
-│   ├── backend/                    # API REST
-│   └── shared/                     # Código compartilhado
-├── tests/                          # Testes automatizados
-├── .github/
-│   └── workflows/
-│       ├── ci-backend.yml
-│       └── ci-frontend.yml
-├── CHANGELOG.md                    # Histórico de versões
-└── README.md                       # Este arquivo
+rancho-delivery/
+├── apps/
+│   ├── backend/                    # API REST (Express + Prisma + Agente IA)
+│   │   ├── prisma/
+│   │   │   ├── schema.prisma       # 29 models, 11 enums
+│   │   │   └── migrations/         # 33 migrações
+│   │   └── src/
+│   │       ├── routes/             # produto, bairro, pedido, loja, admin, entregador, webhook
+│   │       ├── controllers/        # controllers de domínio e admin.*
+│   │       ├── services/           # regras de negócio e integrações
+│   │       ├── agentes/            # agente de IA do WhatsApp (skills, guardrails, tools)
+│   │       ├── jobs/               # tarefas agendadas (node-cron)
+│   │       ├── middlewares/        # auth (JWT/RBAC), rate limit, idempotência, erros
+│   │       └── __tests__/          # testes (Vitest)
+│   └── frontend/                   # Next.js (site + painel admin + app entregador)
+│       └── src/app/                # rotas do App Router
+├── packages/
+│   └── shared/                     # tipos TypeScript compartilhados
+├── deploy/                         # ecosystem PM2, deploy.sh, healthcheck
+├── scripts/                        # utilitários (coordenadas, imóveis, smoke tests)
+├── docs/                           # documentação do projeto
+├── CHANGELOG.md
+└── README.md
 ```
 
-## Workflow de Desenvolvimento
+## Backend — API REST
 
-### Regras Inegociáveis
+Servidor Express com prefixos `/api` e `/webhook`.
 
-1. **100% em Português Brasileiro** — código, commits, documentação, comentários
-2. **Validação antes de construção** — nenhuma funcionalidade sem critério de pronto
-3. **Uma fase por vez** — não iniciar F2 antes de F1 validada em produção
-4. **Mobile-first** — toda interface é pensada para celular primeiro
+### Rotas `/api`
 
-### Protocolo de Implementação
+| Prefixo | Responsabilidade |
+|---------|------------------|
+| `/api/produtos` | Cardápio: listagem pública e CRUD admin |
+| `/api/bairros` | Bairros atendidos e taxa de entrega |
+| `/api/pedidos` | Criação, consulta e rastreamento de pedidos |
+| `/api/loja` | Status e configuração pública da loja |
+| `/api/entregador` | Painel/operação do entregador |
+| `/api/admin/*` | Painel administrativo (ver abaixo) |
 
-Toda nova implementação segue este fluxo obrigatório:
+O grupo `/api/admin` reúne os controllers administrativos: **pedidos** (dashboard, métricas, status da loja, motoboys), **clientes** (CRUD, lista negra, WhatsApp), **realtime**, **alertas**, **relatórios**, **IA** (sugestões e base de conhecimento), **mineração** (leads, Geo360) e **entregas**. O acesso é protegido por JWT com RBAC (`admin` / `operador` / `viewer`).
 
-#### 1. Análise Pré-Implementação
-Antes de escrever qualquer código:
+### Webhooks `/webhook`
 
-```bash
-# Verificar estado atual do projeto
-git status
-git log --oneline -10
+| Rota | Origem |
+|------|--------|
+| `POST /webhook/mercadopago` | Confirmação de pagamento |
+| `POST /webhook/whatsapp` · `POST /webhook/whatsapp/:event` | Mensagens recebidas (Evolution API) |
 
-# Analisar código existente relacionado
-# Usar ferramentas de busca para entender contexto
-```
+### Agente de IA do WhatsApp (`src/agentes/`)
 
-**Checklist de Análise:**
-- [ ] Li o código relacionado à funcionalidade
-- [ ] Entendi as convenções do projeto (nomenclatura, estrutura, padrões)
-- [ ] Identifiquei dependências e integrações necessárias
-- [ ] Verifiquei se existe código reutilizável
+Orquestrado em `services/conversacao.service.ts` sobre o modelo **Claude**. Componentes:
 
-#### 2. Planejamento
-Criar checklist detalhado da implementação:
+- **`cache.ts`** — histórico de conversa por contato (Redis com fallback em `Map`, TTL ~6h)
+- **`classificador-skills.ts`** — seleciona dinamicamente as *skills* relevantes por *triggers* (regex)
+- **`skills/SKILLS_REGISTRY.ts`** — conjunto de *skills* (regras de WhatsApp sempre ativas, horário de funcionamento, cardápio, fluxo de pedido por link e por WhatsApp, opt-out, anti-injeção)
+- **`guardrails.ts`** — proteções contra spam, opt-out, *prompt injection* e contatos em lista negra
+- **`sentiment.ts`** — análise de sentimento da mensagem
+- **`sanitizer.ts`** — sanitização das respostas geradas
+- **`tools/`** — *tools* do Claude para montar pedidos na conversa: `buscarCardapio`, `adicionarItem`, `consultarTaxaEntrega`, `confirmarPedido`, além de `executor`, `geocoder` e gestão de `sessao`
 
-```markdown
-## [NOME_DA_FUNCIONALIDADE]
+### Tarefas agendadas (`src/jobs/`)
 
-### Objetivo
-[Descrição clara do que será implementado]
+Executadas via `node-cron`: detecção de novos imóveis (Geo360), carga incremental de dados e disparo de campanhas agendadas.
 
-### Critério de Pronto
-- [ ] Requisito 1
-- [ ] Requisito 2
-- [ ] Testes passando
-- [ ] Documentação atualizada
+## Banco de Dados (Prisma + PostgreSQL)
 
-### Tarefas Técnicas
-- [ ] Tarefa 1
-- [ ] Tarefa 2
-- [ ] Tarefa 3
+Schema em [apps/backend/prisma/schema.prisma](apps/backend/prisma/schema.prisma): **29 models** e **11 enums**, com **33 migrações** versionadas.
 
-### Validação
-- [ ] Testado localmente
-- [ ] Testado em ambiente de staging
-- [ ] Aprovado pelo responsável
-```
+Entidades centrais:
 
-#### 3. Implementação
-Durante o desenvolvimento:
+- **Cliente** — identificado pelo telefone; rastreia origem (`SITE`, `WHATSAPP`, etc.)
+- **Pedido / ItemPedido / PedidoTimeline** — pedido, itens e histórico de status
+- **Produto** — cardápio
+- **Bairro** — bairros atendidos e taxa de entrega
+- **Motoboy** — entregadores e status
+- **LojaConfiguracao** — configuração da loja e base de conhecimento da IA (descrição, voz da marca, diferenciais, horários, atendente)
+- **MensagemCliente / SessaoPedidoWhatsApp / BlacklistWhatsApp** — atendimento via WhatsApp
+- **LeadMarketing / MensagemLead / CampanhaMarketing / CampanhaDestinatario** — aquisição e campanhas
+- **ContatoMinerado / ImovelGeo360 / ImovelPrefeitura / AssertivaConsultaCache / ExecucaoMineracao** — mineração de leads
+- **FichaTecnica / IngredienteFicha** — custos e precificação
+- **ConfiguracaoAlerta / RelatorioDia** — operação
 
-- **Commits atômicos** — um commit por funcionalidade lógica
-- **Mensagens descritivas** — formato: `tipo(escopo): descrição`
-  - `feat(cardapio): adiciona scroll snap no feed de produtos`
-  - `fix(checkout): corrige cálculo de taxa por bairro`
-  - `refactor(api): reorganiza estrutura de controllers`
-  - `docs(readme): atualiza instruções de instalação`
-  - `test(pedidos): adiciona testes de integração`
+> Os models `RoletaGiro` (roleta de promoções) e `Indicacao` (programa de indicação) existem no schema como base para evolução futura, mas **ainda não possuem implementação no código** (ver Roadmap).
 
-- **Atualização contínua do checklist** — marcar tarefas conforme conclusão
-- **Testes durante desenvolvimento** — não deixar para o final
+## Frontend — Next.js
 
-#### 4. Validação Pré-Commit
+App Router em `apps/frontend/src/app`:
 
-Antes de cada commit:
+### Site público
 
-```bash
-# Executar linter
-npm run lint
+- `/` — cardápio (feed)
+- `/cart` — carrinho
+- `/checkout` — finalização do pedido
+- `/pedido/[id]` — confirmação e rastreamento
 
-# Executar testes
-npm run test
+### App do entregador
 
-# Verificar build
-npm run build
-```
+- `/entregador` — operação de entregas
 
-**Checklist Pré-Commit:**
-- [ ] Código sem erros de lint
-- [ ] Todos os testes passando
-- [ ] Build executado com sucesso
-- [ ] Sem console.log ou código de debug
-- [ ] Comentários em português
+### Painel administrativo `/admin`
 
-#### 5. Commit e Push
+`pedidos` · `produtos` · `bairros` · `clientes` · `entregas` · `conversas` · `whatsapp` · `campanhas` · `engajamento` · `mineracao` · `decisoes` · `configuracoes`
 
-```bash
-# Adicionar arquivos específicos (evitar git add .)
-git add src/caminho/arquivo.ts
-
-# Commit com mensagem descritiva
-git commit -m "feat(escopo): descrição clara da mudança"
-
-# Push para branch de feature
-git push origin feature/nome-da-funcionalidade
-```
-
-#### 6. Finalização da Demanda
-
-Ao concluir a implementação completa:
-
-**a) Verificação Final:**
-- [ ] Todos os itens do checklist concluídos
-- [ ] Testes de integração passando
-- [ ] Documentação atualizada
-- [ ] CHANGELOG.md atualizado
-
-**b) Versionamento Semântico:**
-
-Seguimos [Semantic Versioning 2.0.0](https://semver.org/):
-
-- **MAJOR** (X.0.0) — mudanças incompatíveis na API
-- **MINOR** (0.X.0) — novas funcionalidades compatíveis
-- **PATCH** (0.0.X) — correções de bugs
-
-```bash
-# Atualizar versão no package.json
-npm version patch  # ou minor, ou major
-
-# Criar tag
-git tag -a v1.2.3 -m "Versão 1.2.3 - Descrição"
-git push origin v1.2.3
-```
-
-**c) Atualizar CHANGELOG.md:**
-
-```markdown
-## [1.2.3] - 2026-04-29
-
-### Adicionado
-- Feed vertical com scroll snap no cardápio
-- Validação de bairro no checkout
-
-### Modificado
-- Melhorado cálculo de taxa de entrega
-
-### Corrigido
-- Bug no carrinho ao remover último item
-
-### Removido
-- Código legado de versão anterior
-```
-
-**d) Pull Request:**
-
-```bash
-# Criar PR via GitHub CLI
-gh pr create --title "feat: implementa feed vertical no cardápio" \
-             --body "Implementa F01 - Cardápio com scroll snap
-
-## Mudanças
-- Adiciona CSS scroll snap
-- Implementa feed vertical
-- Ajusta layout mobile
-
-## Testes
-- [x] Testado em Chrome mobile
-- [x] Testado em Safari iOS
-- [x] Testes automatizados passando
-
-## Checklist
-- [x] Código revisado
-- [x] Documentação atualizada
-- [x] CHANGELOG atualizado
-- [x] Testes passando"
-```
-
-#### 7. Code Review
-
-Antes de aprovar PR:
-- [ ] Código segue padrões do projeto
-- [ ] Testes cobrem casos principais
-- [ ] Documentação está clara
-- [ ] Sem código comentado ou debug
-- [ ] Performance adequada
-
-#### 8. Deploy
-
-Após merge na branch principal:
-
-```bash
-# CI/CD executa automaticamente:
-# 1. Testes
-# 2. Build
-# 3. Deploy para staging
-# 4. Testes de fumaça
-# 5. Deploy para produção (se aprovado)
-```
-
-## CI/CD Pipeline
-
-### Backend Workflow (`.github/workflows/ci-backend.yml`)
-
-```yaml
-name: CI Backend
-
-on:
-  push:
-    branches: [main, develop]
-    paths:
-      - 'src/backend/**'
-      - 'tests/backend/**'
-  pull_request:
-    branches: [main, develop]
-    paths:
-      - 'src/backend/**'
-      - 'tests/backend/**'
-
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: rancho_delivery_test
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '18'
-          cache: 'npm'
-      
-      - name: Instalar dependências
-        run: npm ci
-      
-      - name: Executar linter
-        run: npm run lint:backend
-      
-      - name: Executar testes
-        run: npm run test:backend
-        env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rancho_delivery_test
-      
-      - name: Build
-        run: npm run build:backend
-      
-      - name: Verificar cobertura de testes
-        run: npm run test:coverage
-        
-  deploy-staging:
-    needs: test
-    if: github.ref == 'refs/heads/develop'
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Deploy para Staging
-        run: echo "Deploy para staging"
-        
-  deploy-production:
-    needs: test
-    if: github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Deploy para Produção
-        run: echo "Deploy para produção"
-```
-
-### Frontend Workflow (`.github/workflows/ci-frontend.yml`)
-
-Similar ao backend, adaptado para testes de frontend.
+Bibliotecas de apoio em `src/lib`: `api-client.ts`, `api.ts`, `http-client.ts`, `mercadopago.ts`, `customer-profile.ts`, `utils.ts`.
 
 ## Instalação e Configuração
 
 ### Pré-requisitos
 
 - Node.js 18+
+- pnpm 8+
 - PostgreSQL 15+
-- npm ou yarn
+- (Opcional) Redis — sem ele, o cache de conversas usa memória
+- (Opcional) Instância da Evolution API para WhatsApp
 
-### Instalação
+### Passos
 
 ```bash
 # Clonar repositório
-git clone https://github.com/seu-usuario/rancho-delivery.git
+git clone git@github.com:quadradois/rancho-delivery.git
 cd rancho-delivery
 
-# Instalar dependências
-npm install
+# Instalar dependências (monorepo)
+pnpm install
 
-# Configurar variáveis de ambiente
-cp .env.example .env
-# Editar .env com suas credenciais
+# Configurar variáveis de ambiente do backend
+cp apps/backend/.env.example apps/backend/.env
+# Editar apps/backend/.env com suas credenciais
 
-# Executar migrações
-npm run migrate
+# Criar banco e rodar migrações
+createdb rancho_delivery
+pnpm db:migrate
 
-# Iniciar em desenvolvimento
-npm run dev
+# (Opcional) Popular dados de exemplo
+pnpm db:seed
+
+# Iniciar em desenvolvimento (frontend + backend em paralelo)
+pnpm dev
 ```
 
-### Variáveis de Ambiente
+- Frontend: http://localhost:3000
+- Backend: http://localhost:3001
+
+### Variáveis de Ambiente (backend)
+
+Principais chaves de `apps/backend/.env.example`:
 
 ```env
-# Database
-DATABASE_URL=postgresql://user:password@localhost:5432/rancho_delivery
-
-# Asaas
-ASAAS_API_KEY=seu_api_key
-ASAAS_WEBHOOK_URL=https://seudominio.com.br/webhook/asaas
-
-# Evolution API
-EVOLUTION_API_URL=https://sua-instancia.evolution.api
-EVOLUTION_API_KEY=seu_api_key
-
-# WhatsApp
-WHATSAPP_DONO=5562999999999
-
 # App
 NODE_ENV=development
-PORT=3000
+PORT=3001
+HOST=127.0.0.1
+FRONTEND_URL=http://localhost:3000
+
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/rancho_delivery"
+
+# IA (Claude / Anthropic)
+ANTHROPIC_API_KEY=...
+
+# WhatsApp (Evolution API)
+EVOLUTION_API_URL="http://localhost:8080"
+EVOLUTION_API_KEY="sua-api-key"
+EVOLUTION_INSTANCE_NAME="rancho-delivery"
+WHATSAPP_DONO=""
+
+# Pagamento (MercadoPago)
+MERCADOPAGO_ACCESS_TOKEN=...
+MERCADOPAGO_WEBHOOK_URL=...
+
+# Autenticação do painel admin (JWT + RBAC)
+JWT_SECRET="gere-com: openssl rand -base64 32"
+JWT_EXPIRES_IN="12h"
+ADMIN_USERNAME="admin"
+ADMIN_PASSWORD="troque-esta-senha"
+ADMIN_ROLE="admin"        # admin | operador | viewer
+
+# Cache (Redis — opcional)
+REDIS_HOST=...
+REDIS_PORT=...
+
+# Mineração de leads (Assertiva)
+ASSERTIVA_CLIENT_ID=
+ASSERTIVA_CLIENT_SECRET=
+
+# Logs
+LOG_LEVEL="info"
 ```
 
-## Testes
-
-```bash
-# Executar todos os testes
-npm run test
-
-# Testes com cobertura
-npm run test:coverage
-
-# Testes em modo watch
-npm run test:watch
-
-# Testes de integração
-npm run test:integration
-
-# Testes E2E
-npm run test:e2e
-```
+> O arquivo `.env.example` completo lista todas as variáveis disponíveis, incluindo limites de upload e parâmetros de mineração.
 
 ## Scripts Disponíveis
 
+Na raiz do monorepo (`pnpm <script>`):
+
 ```bash
 # Desenvolvimento
-npm run dev              # Inicia servidor de desenvolvimento
-npm run dev:frontend     # Apenas frontend
-npm run dev:backend      # Apenas backend
+pnpm dev                 # frontend + backend em paralelo
+pnpm dev:backend         # apenas backend
+pnpm dev:frontend        # apenas frontend
 
 # Build
-npm run build            # Build completo
-npm run build:frontend   # Build frontend
-npm run build:backend    # Build backend
+pnpm build               # build de todos os pacotes
+pnpm build:backend
+pnpm build:frontend
 
 # Testes
-npm run test             # Executa testes
-npm run test:watch       # Testes em modo watch
-npm run test:coverage    # Testes com cobertura
+pnpm test                # todos os testes
+pnpm test:backend
+pnpm test:frontend
+pnpm test:coverage
 
-# Qualidade de código
-npm run lint             # Executa linter
-npm run lint:fix         # Corrige problemas automaticamente
-npm run format           # Formata código com Prettier
+# Qualidade
+pnpm lint
+pnpm lint:fix
+pnpm typecheck
+pnpm format
 
-# Database
-npm run migrate          # Executa migrações
-npm run migrate:rollback # Reverte última migração
-npm run seed             # Popula banco com dados de teste
+# Banco de dados
+pnpm db:migrate          # migrações (dev)
+pnpm db:seed             # popular dados
+pnpm db:studio           # Prisma Studio
 ```
 
-## Documentação Adicional
+No backend (`apps/backend`) há ainda `db:migrate:deploy` (migrações em produção) e `db:generate` (gerar Prisma Client).
 
-- [Planejamento Completo](./docs/planejamento/PLANEJAMENTO_SABOR_EXPRESS.md) — especificação detalhada de todas as funcionalidades
-- [Guardião do Projeto](./docs/governanca/GUARDIAO_SABOR_EXPRESS.md) — filtro de viabilidade comercial
-- [SOP Mineração](./docs/operacao/SOP_MINERACAO_CONTATOS.md) — processo de captação de leads
-- [Brainstorm](./docs/planejamento/BRAINSTORM_SABOR_EXPRESS.md) — ideias em análise
+## Testes
 
-## Modelo de Dados Principal
+Os testes usam **Vitest** (com Supertest no backend e Testing Library no frontend), com meta de cobertura de **80%**.
 
-### Cliente (Entidade Central)
-
-```typescript
-interface Cliente {
-  telefone: string;        // PK - identificador único
-  nome: string;
-  endereco: string;
-  bairro: string;
-  origem: 'SITE' | 'WHATSAPP' | 'MINERACAO' | 'INDICACAO' | 'CAMPANHA';
-  criadoEm: Date;
-}
+```bash
+pnpm test                # roda backend + frontend
+pnpm test:coverage       # com relatório de cobertura
 ```
 
-### Produto
+## Deploy
 
-```typescript
-interface Produto {
-  id: string;
-  nome: string;
-  preco: number;
-  midia: string;           // URL da foto/vídeo
-  descricao: string;
-  categoria: string;
-  disponivel: boolean;
-  ordem: number;           // Ordem no feed
-}
-```
+- **PM2** gerencia os processos backend (3001) e frontend (3000) via `deploy/ecosystem.config.cjs`.
+- **Nginx** atua como proxy reverso (`/etc/nginx/sites-available/rancho`).
+- **systemd** mantém o PM2 ativo (`pm2-deploy.service`).
+- O script `deploy/deploy.sh` executa: pull → install → build → migrate → reload.
+- Em produção, o backend escuta apenas em `127.0.0.1` e os arquivos `.env` devem ter permissão `600`.
 
-### Pedido
+## Workflow de Desenvolvimento
 
-```typescript
-interface Pedido {
-  id: string;
-  clienteTelefone: string; // FK
-  itens: ItemPedido[];
-  subtotal: number;
-  taxaEntrega: number;
-  total: number;
-  status: 'PENDENTE' | 'CONFIRMADO' | 'PREPARANDO' | 'ENTREGUE' | 'CANCELADO';
-  pagamentoId: string;     // ID do Asaas
-  observacao?: string;
-  criadoEm: Date;
-}
-```
+### Regras Inegociáveis
 
-## Integrações
+1. **100% em Português Brasileiro** — código, commits, documentação e comentários
+2. **Validação antes de construção** — toda funcionalidade tem critério de pronto
+3. **Mobile-first** — toda interface é pensada primeiro para o celular
 
-### Asaas (Pagamento)
+### Convenção de Commits
 
-Webhook configurado em: `POST /webhook/asaas`
+Formato `tipo(escopo): descrição`:
 
-Payload esperado:
-```json
-{
-  "event": "PAYMENT_CONFIRMED",
-  "payment": {
-    "id": "pay_abc123",
-    "status": "CONFIRMED",
-    "value": 32.90
-  }
-}
-```
+- `feat(cardapio): adiciona scroll snap no feed`
+- `fix(checkout): corrige cálculo de taxa por bairro`
+- `refactor(api): reorganiza controllers`
+- `docs(readme): atualiza documentação`
+- `test(pedidos): adiciona testes de integração`
 
-### Evolution API (WhatsApp)
+Versionamento segue [Semantic Versioning](https://semver.org/) e o histórico é registrado em [CHANGELOG.md](CHANGELOG.md).
 
-Endpoints utilizados:
-- `POST /message/sendText` — envio de mensagens
-- `POST /message/sendMedia` — envio de mídia
-- `GET /instance/connectionState` — status da conexão
+## Roadmap
+
+Funcionalidades com modelagem no banco mas ainda **não implementadas** no código:
+
+- **Roleta de promoções** (`RoletaGiro`) — gamificação pós-pedido
+- **Programa de indicação** (`Indicacao`) — bonificação por cliente indicado
 
 ## Segurança
 
-- Validação de entrada em todos os endpoints
-- Sanitização de dados do usuário
-- Rate limiting em APIs públicas
-- Autenticação JWT para painel admin
-- Webhooks validados por assinatura
-- Variáveis sensíveis apenas em .env (nunca no código)
-- HTTPS obrigatório em produção
-
-## Performance
-
-- Cache de cardápio (Redis)
-- Otimização de imagens (WebP, lazy loading)
-- CDN para assets estáticos
-- Índices no banco de dados
-- Paginação em listagens
-- Compressão gzip/brotli
-
-## Monitoramento
-
-- Logs estruturados (Winston/Pino)
-- Métricas de performance (Prometheus)
-- Alertas de erro (Sentry)
-- Uptime monitoring
-- Analytics de conversão
-
-## Contribuindo
-
-1. Leia o [Guardião do Rancho](./docs/governanca/GUARDIAO_SABOR_EXPRESS.md)
-2. Verifique se a funcionalidade passa no filtro de viabilidade
-3. Crie uma branch: `git checkout -b feature/nome-da-funcionalidade`
-4. Siga o protocolo de implementação descrito acima
-5. Faça commit das mudanças: `git commit -m 'feat(escopo): descrição'`
-6. Push para a branch: `git push origin feature/nome-da-funcionalidade`
-7. Abra um Pull Request
+- Autenticação JWT com RBAC no painel admin (`admin` / `operador` / `viewer`)
+- `helmet` para *hardening* de cabeçalhos HTTP
+- *Rate limiting* (`express-rate-limit`) e middleware de idempotência
+- Validação de entrada com **Zod**
+- Guardrails do agente de IA contra spam e *prompt injection*
+- Variáveis sensíveis apenas em `.env` (nunca no código)
 
 ## Licença
 
-Proprietary — Todos os direitos reservados
-
-## Contato
-
-- Projeto: Rancho
-- Documentação: `./docs/`
-- Issues: GitHub Issues
+Proprietary — Todos os direitos reservados.
 
 ---
 
-**Versão atual:** 0.1.0 (Fase 1 em desenvolvimento)
+**Versão atual:** 0.9.0
 
-**Última atualização:** 29/04/2026
+**Última atualização:** 05/06/2026

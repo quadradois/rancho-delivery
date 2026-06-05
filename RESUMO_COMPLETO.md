@@ -1,379 +1,181 @@
-# 🎉 SABOR EXPRESS - RESUMO COMPLETO DO PROJETO
+# 📋 Rancho Delivery — Resumo Completo do Projeto
 
-## ✅ O QUE FOI DESENVOLVIDO
+Plataforma de delivery para restaurante **delivery-only**, com site de pedidos, painel administrativo e **agente de IA (Claude) para atendimento no WhatsApp**.
 
-### 🔥 **SITE DE VENDAS (FRONTEND) - 95% COMPLETO**
-
-#### **📱 Páginas Implementadas:**
-
-1. **Home / Cardápio** (`/`)
-   - ✅ Banner promocional animado
-   - ✅ Filtros de categoria (Todos, Lanches, Pizzas, Bebidas, etc.)
-   - ✅ Grid de produtos carregados da API
-   - ✅ Cards de produtos com imagem, preço, rating
-   - ✅ Botão "Adicionar ao Carrinho" funcional
-   - ✅ Sistema de favoritos
-   - ✅ Loading states e error handling
-   - ✅ Navegação inferior (TabBar)
-
-2. **Carrinho** (`/cart`)
-   - ✅ Lista de itens adicionados
-   - ✅ Stepper de quantidade (+/-)
-   - ✅ Cálculo automático de subtotal
-   - ✅ Taxa de entrega
-   - ✅ Total geral
-   - ✅ Botão "Finalizar Pedido"
-   - ✅ Estado vazio com mensagem
-
-3. **Checkout** (`/checkout`)
-   - ✅ **Etapa 1: Endereço de Entrega**
-     - Formulário completo com validação
-     - Busca automática de CEP (ViaCEP)
-     - Máscaras de telefone e CEP
-     - Validação de campos obrigatórios
-   - ✅ **Etapa 2: Forma de Pagamento**
-     - PIX, Cartão de Crédito, Débito, Dinheiro
-     - Campo de troco para pagamento em dinheiro
-   - ✅ **Etapa 3: Revisão do Pedido**
-     - Resumo completo dos dados
-     - Confirmação visual de todos os itens
-     - Botão "Confirmar Pedido"
-   - ✅ Progress bar visual das etapas
-   - ✅ Navegação entre etapas
-
-4. **Rastreamento de Pedido** (`/pedido/[id]`)
-   - ✅ Página de confirmação com sucesso
-   - ✅ Status tracker visual (5 etapas)
-   - ✅ Atualização automática a cada 30 segundos
-   - ✅ Detalhes completos do pedido
-   - ✅ Endereço de entrega
-   - ✅ Lista de itens
-   - ✅ Resumo de pagamento
-   - ✅ Tempo estimado de entrega
-   - ✅ Observações do pedido
+- **Monorepo:** pnpm workspaces · versão **0.9.0**
+- **Apps:** `backend` (Express + Prisma + IA) · `frontend` (Next.js 14) · `packages/shared` (tipos)
+- **Banco:** PostgreSQL via Prisma — **29 models**, **11 enums**, **33 migrações**
 
 ---
 
-### 🎨 **DESIGN SYSTEM COMPLETO**
+## 🧩 Visão Geral dos Módulos
 
-#### **Componentes UI (10+):**
-1. **Button** - 6 variantes (primary, gold, outline, ghost, dark, white)
-2. **Badge** - 6 variantes com ícones
-3. **Input** - Com label, hint, error e ícone
-4. **Card** - Base para produtos
-5. **FlameIcon** - Logo SVG da marca
-6. **Toast** - 4 variantes de notificação
-7. **Chip** - Filtros de categoria
-8. **Stepper** - Contador de quantidade
-9. **StatusTracker** - Rastreamento visual
-10. **PromoBanner** - Banners promocionais
-
-#### **Componentes de Layout:**
-- **AppBar** - Barra superior com navegação
-- **TabBar** - Navegação inferior mobile com botão central
-
-#### **Componentes de Produto:**
-- **ProductCard** - Card completo de produto
-- **OrderCard** - Item do carrinho
-
-#### **Tokens CSS:**
-- ✅ Cores da marca (Vermelho #e8231a + Dourado #f5c010)
-- ✅ Tipografia (Barlow Condensed, Barlow, Dancing Script)
-- ✅ Espaçamento (escala de 4px)
-- ✅ Sombras e animações
-- ✅ Border radius
-- ✅ Transições suaves
+| Módulo | Estado | Descrição |
+|--------|--------|-----------|
+| Site de pedidos | ✅ Implementado | Cardápio, carrinho, checkout e rastreamento |
+| Painel admin | ✅ Implementado | 12 seções (pedidos, clientes, entregas, campanhas, etc.) |
+| Agente IA (WhatsApp) | ✅ Implementado | Claude + skills + guardrails + tools |
+| Pagamento online | ✅ Implementado | MercadoPago (PIX) |
+| WhatsApp | ✅ Implementado | Evolution API (inbound/outbound) |
+| Mineração de leads | ✅ Implementado | Geo360, Assertiva |
+| App do entregador | ✅ Implementado | Operação de entregas |
+| Roleta de promoções | 🟡 Schema apenas | Modelado, sem implementação |
+| Programa de indicação | 🟡 Schema apenas | Modelado, sem implementação |
 
 ---
 
-### 🔌 **INTEGRAÇÃO COM BACKEND**
+## 🖥️ Frontend (Next.js 14)
 
-#### **Serviços de API:**
-- ✅ `api-client.ts` - Cliente HTTP base
-- ✅ `api.ts` - Serviços específicos:
-  - `produtoService` - Listar e buscar produtos
-  - `pedidoService` - Criar e buscar pedidos
-  - `bairroService` - Calcular taxa de entrega
+**Stack:** Next.js 14 (App Router) · React 18 · TypeScript · Tailwind CSS · React Leaflet (mapas) · Recharts (gráficos)
 
-#### **Gerenciamento de Estado:**
-- ✅ **CartContext** - Gerenciamento do carrinho
-  - Adicionar/remover itens
-  - Atualizar quantidade
-  - Calcular totais
-  - Limpar carrinho
-- ✅ **ToastContext** - Sistema de notificações
-  - Success, Error, Info, Gold
-  - Auto-dismiss
-  - Múltiplos toasts simultâneos
+### Site público
+- `/` — Cardápio (feed)
+- `/cart` — Carrinho
+- `/checkout` — Finalização do pedido
+- `/pedido/[id]` — Confirmação e rastreamento
 
----
+### App do entregador
+- `/entregador` — Painel de entregas
 
-### 🛠️ **FUNCIONALIDADES IMPLEMENTADAS**
+### Painel administrativo (`/admin`)
+`pedidos` · `produtos` · `bairros` · `clientes` · `entregas` · `conversas` · `whatsapp` · `campanhas` · `engajamento` · `mineracao` · `decisoes` · `configuracoes`
 
-#### **Fluxo de Compra Completo:**
-1. ✅ Navegar pelo cardápio
-2. ✅ Filtrar por categoria
-3. ✅ Adicionar produtos ao carrinho
-4. ✅ Gerenciar quantidade
-5. ✅ Preencher dados de entrega
-6. ✅ Buscar CEP automaticamente
-7. ✅ Calcular taxa de entrega
-8. ✅ Escolher forma de pagamento
-9. ✅ Revisar pedido
-10. ✅ Confirmar e criar pedido na API
-11. ✅ Ver confirmação
-12. ✅ Rastrear pedido em tempo real
-
-#### **Validações:**
-- ✅ Campos obrigatórios
-- ✅ Formato de telefone
-- ✅ Formato de CEP
-- ✅ CEP válido (ViaCEP)
-- ✅ Carrinho não vazio
-
-#### **UX/UI:**
-- ✅ Loading states em todas as requisições
-- ✅ Error handling com mensagens claras
-- ✅ Skeleton loaders
-- ✅ Animações suaves
-- ✅ Feedback visual (toasts)
-- ✅ Design responsivo
-- ✅ Mobile-first
+### Bibliotecas (`src/lib`)
+`api-client.ts` · `api.ts` · `http-client.ts` · `mercadopago.ts` · `customer-profile.ts` · `utils.ts`
 
 ---
 
-## 🏗️ **ARQUITETURA DO SISTEMA**
+## ⚙️ Backend (Express + TypeScript)
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    SABOR EXPRESS                         │
-└─────────────────────────────────────────────────────────┘
+**Stack:** Express 4 · TypeScript · Prisma 5 · Zod · Winston · Helmet · express-rate-limit · node-cron · ioredis · `@anthropic-ai/sdk`
 
-┌──────────────────────┐         ┌──────────────────────┐
-│   FRONTEND (SITE)    │◄───────►│   BACKEND (API)      │
-│   Next.js 14         │  HTTP   │   Express + TS       │
-│                      │         │                      │
-│  ✅ Home             │         │  ✅ Produtos         │
-│  ✅ Carrinho         │         │  ✅ Pedidos          │
-│  ✅ Checkout         │         │  ✅ Bairros          │
-│  ✅ Rastreamento     │         │  ✅ Validação        │
-│                      │         │  ✅ Testes           │
-│  localhost:3000      │         │  localhost:3001      │
-└──────────────────────┘         └──────────────────────┘
-                                          │
-                                 ┌────────▼────────┐
-                                 │  PostgreSQL DB  │
-                                 │  Prisma ORM     │
-                                 │  localhost:5432 │
-                                 └─────────────────┘
-```
+### Rotas da API (`/api`)
+- `/produtos` — cardápio (listagem pública + CRUD admin)
+- `/bairros` — bairros atendidos e taxa de entrega
+- `/pedidos` — criação, consulta e rastreamento
+- `/loja` — status e configuração pública
+- `/entregador` — operação do entregador
+- `/admin/*` — painel administrativo (pedidos, clientes, realtime, alertas, relatórios, IA, mineração, entregas)
 
----
+### Webhooks (`/webhook`)
+- `POST /webhook/mercadopago` — confirmação de pagamento
+- `POST /webhook/whatsapp` e `/webhook/whatsapp/:event` — mensagens da Evolution API
 
-## 📊 **ESTATÍSTICAS DO PROJETO**
+### Services (regras de negócio e integrações)
+`conversacao` (orquestrador IA) · `evolution` (WhatsApp) · `mercadopago` · `asaas` (legado) · `pedido` · `produto` · `cliente` · `bairro` · `taxaEntrega` · `rotaEntrega` · `alerta` · `relatorio` · `realtime` · `mineracao` (+ `mineracao.queue`) · `geo360` · `campanhaIA` · `ia` · `iaConhecimento` · `iaContexto`
 
-### **Frontend:**
-- **Componentes:** 20+
-- **Páginas:** 4
-- **Linhas de código:** ~3.500
-- **Tamanho do bundle:** 97 KB (First Load JS)
-- **Build time:** ~15 segundos
-- **Status:** ✅ 95% COMPLETO
+### Middlewares
+Autenticação JWT com RBAC (`admin`/`operador`/`viewer`), rate limit, idempotência e tratamento de erros.
 
-### **Backend:**
-- **Endpoints:** 8
-- **Modelos:** 5 (Produto, Pedido, ItemPedido, Bairro, Cliente)
-- **Testes:** 100% cobertura
-- **Status:** ✅ 100% COMPLETO
+### Tarefas agendadas (`node-cron`)
+Detecção de novos imóveis (Geo360), carga incremental de dados e disparo de campanhas agendadas.
 
 ---
 
-## 🚀 **COMO EXECUTAR**
+## 🤖 Agente de IA do WhatsApp (`src/agentes/`)
 
-### **Passo 1: Instalar Dependências**
+Orquestrado por `services/conversacao.service.ts` sobre o modelo **Claude (Anthropic)**.
+
+| Componente | Função |
+|-----------|--------|
+| `cache.ts` | Histórico de conversa (Redis com fallback em `Map`, TTL ~6h) |
+| `classificador-skills.ts` | Seleção dinâmica de skills por *triggers* (regex) |
+| `skills/SKILLS_REGISTRY.ts` | Skills: regras do WhatsApp (sempre ativa), horário, cardápio, pedido por link, pedido por WhatsApp, opt-out, anti-injeção |
+| `guardrails.ts` | Anti-spam, opt-out, anti-*prompt-injection*, lista negra |
+| `sentiment.ts` | Análise de sentimento da mensagem |
+| `sanitizer.ts` | Sanitização das respostas |
+| `tools/` | Tools do Claude: `buscarCardapio`, `adicionarItem`, `consultarTaxaEntrega`, `confirmarPedido` (+ `executor`, `geocoder`, `sessao`) |
+
+O agente é capaz de **montar e confirmar um pedido inteiro dentro da conversa do WhatsApp**, consultando cardápio e taxa de entrega em tempo real.
+
+---
+
+## 🗄️ Banco de Dados (Prisma + PostgreSQL)
+
+**29 models** e **11 enums**. Entidades centrais:
+
+- **Cliente** (PK por telefone, com `origem`) · **Pedido / ItemPedido / PedidoTimeline** · **Produto** · **Bairro** · **Motoboy**
+- **LojaConfiguracao** — configuração + base de conhecimento da IA (voz da marca, diferenciais, horários, atendente)
+- **MensagemCliente / SessaoPedidoWhatsApp / BlacklistWhatsApp** — atendimento WhatsApp
+- **LeadMarketing / MensagemLead / CampanhaMarketing / CampanhaDestinatario** — aquisição e campanhas
+- **ContatoMinerado / ImovelGeo360 / ImovelPrefeitura / AssertivaConsultaCache / ExecucaoMineracao / ScraperErro** — mineração de leads
+- **FichaTecnica / IngredienteFicha** — custos e precificação
+- **ConfiguracaoAlerta / RelatorioDia** — operação
+- **RoletaGiro / Indicacao** — 🟡 modelados, ainda sem implementação
+
+**Enums:** `StatusPedido` · `StatusPagamento` · `FormaPagamentoPedido` · `TipoAtendimentoPedido` · `OrigemMensagem` · `Origem` · `LeadStatus` · `CampanhaStatus` · `StatusMotoboy` · `EmpresaEntrega` · `StatusLoja`
+
+---
+
+## 🔌 Integrações Externas
+
+| Integração | Uso |
+|-----------|-----|
+| **Claude (Anthropic)** | Orquestração de conversas e *tool use* do agente |
+| **Evolution API** | WhatsApp (envio/recebimento de mensagens) |
+| **MercadoPago** | Pagamento online (PIX) e webhook de confirmação |
+| **Geo360** | Dados de imóveis (Goiânia / Aparecida de Goiânia) para mineração |
+| **Assertiva** | Enriquecimento de contatos (com cache de consultas) |
+
+> `asaas.service.ts` existe no código como **legado** e não está conectado ao fluxo atual de pedidos.
+
+---
+
+## 🧪 Testes
+
+- **Vitest** no backend (com **Supertest**) e no frontend (com **Testing Library** + jsdom)
+- Testes de controllers, services, integração e E2E
+- Meta de cobertura: **80%**
+
 ```bash
+pnpm test            # backend + frontend
+pnpm test:coverage   # com relatório de cobertura
+```
+
+---
+
+## 🚀 Como Executar
+
+```bash
+# 1. Instalar dependências (monorepo)
 pnpm install
-```
 
-### **Passo 2: Configurar Banco de Dados**
-```bash
-# Criar banco
+# 2. Configurar ambiente do backend
+cp apps/backend/.env.example apps/backend/.env
+# editar apps/backend/.env
+
+# 3. Banco de dados
 createdb rancho_delivery
+pnpm db:migrate
+pnpm db:seed        # opcional
 
-# Rodar migrations
-cd apps/backend
-npx prisma migrate dev
+# 4. Subir tudo (frontend + backend)
+pnpm dev
 ```
 
-### **Passo 3: Iniciar Backend**
-```bash
-cd apps/backend
-npm run dev
-```
-✅ Backend rodando em: http://localhost:3001
-
-### **Passo 4: Iniciar Frontend**
-```bash
-cd apps/frontend
-npm run dev
-```
-✅ Frontend rodando em: http://localhost:3000
+- Frontend: http://localhost:3000
+- Backend: http://localhost:3001
 
 ---
 
-## 🎯 **PRÓXIMOS PASSOS**
+## 🛠️ Deploy
 
-### **Essencial (para produção):**
-1. ⏳ Adicionar produtos no banco de dados
-2. ⏳ Testar fluxo completo de compra
-3. ⏳ Configurar variáveis de ambiente de produção
-4. ⏳ Deploy do backend (Railway, Render, etc.)
-5. ⏳ Deploy do frontend (Vercel, Netlify)
-
-### **Importante (melhorias):**
-1. ⏳ Criar CRM/Admin para gerenciar pedidos
-2. ⏳ Adicionar autenticação de usuário
-3. ⏳ Implementar histórico de pedidos
-4. ⏳ Adicionar página de detalhes do produto
-5. ⏳ Persistência do carrinho (localStorage)
-
-### **Opcional (futuro):**
-1. ⏳ Sistema de avaliações
-2. ⏳ Notificações push
-3. ⏳ Chat com restaurante
-4. ⏳ Programa de fidelidade
-5. ⏳ Cupons de desconto
+- **PM2** (`deploy/ecosystem.config.cjs`) gerencia backend (3001) e frontend (3000)
+- **Nginx** como proxy reverso (`/etc/nginx/sites-available/rancho`)
+- **systemd** mantém o PM2 ativo (`pm2-deploy.service`)
+- `deploy/deploy.sh`: pull → install → build → migrate → reload
+- Em produção, o backend escuta apenas em `127.0.0.1`; arquivos `.env` com permissão `600`
 
 ---
 
-## 📚 **DOCUMENTAÇÃO CRIADA**
+## 🗺️ Roadmap
 
-1. ✅ **COMO_EXECUTAR.md** - Guia completo de instalação
-2. ✅ **GUIA_DE_TESTE.md** - Como testar o fluxo de compra
-3. ✅ **README.md** - Visão geral do projeto
-4. ✅ **DesignSystem_SaborExpress.html** - Design System visual
+Funcionalidades com modelagem no banco, aguardando implementação:
 
----
-
-## 🎨 **DESIGN FIEL AO ORIGINAL**
-
-O frontend foi desenvolvido seguindo **100%** o Design System fornecido:
-
-- ✅ Cores exatas da marca
-- ✅ Tipografia correta (Barlow Condensed + Barlow + Dancing Script)
-- ✅ Espaçamento consistente
-- ✅ Componentes idênticos ao design
-- ✅ Animações e transições suaves
-- ✅ Ícones e ilustrações
-- ✅ Layout responsivo
+1. 🟡 **Roleta de promoções** (`RoletaGiro`) — gamificação pós-pedido
+2. 🟡 **Programa de indicação** (`Indicacao`) — bonificação por indicação
 
 ---
 
-## 💡 **TECNOLOGIAS UTILIZADAS**
-
-### **Frontend:**
-- Next.js 14 (App Router)
-- React 18
-- TypeScript
-- Tailwind CSS
-- Context API
-- Fetch API
-
-### **Backend:**
-- Node.js
-- Express
-- TypeScript
-- Prisma ORM
-- PostgreSQL
-- Zod (validação)
-- Vitest (testes)
-
-### **Ferramentas:**
-- pnpm (monorepo)
-- ESLint
-- Prettier
-- Git
-
----
-
-## ✅ **CHECKLIST FINAL**
-
-### **Backend:**
-- ✅ API REST completa
-- ✅ Banco de dados configurado
-- ✅ Validação de dados
-- ✅ Testes automatizados
-- ✅ Documentação
-
-### **Frontend:**
-- ✅ Design System implementado
-- ✅ Componentes reutilizáveis
-- ✅ Páginas principais criadas
-- ✅ Integração com API
-- ✅ Gerenciamento de estado
-- ✅ Validações de formulário
-- ✅ Loading e error states
-- ✅ Responsivo
-
-### **Fluxo de Compra:**
-- ✅ Listagem de produtos
-- ✅ Adicionar ao carrinho
-- ✅ Gerenciar carrinho
-- ✅ Checkout (3 etapas)
-- ✅ Criar pedido
-- ✅ Rastrear pedido
-
----
-
-## 🎉 **RESULTADO FINAL**
-
-### **O que você tem agora:**
-
-Um **sistema completo de delivery** com:
-- ✅ Site de vendas funcional
-- ✅ API backend robusta
-- ✅ Banco de dados estruturado
-- ✅ Fluxo de compra completo
-- ✅ Design profissional
-- ✅ Código limpo e organizado
-- ✅ Pronto para testes
-- ✅ Preparado para produção
-
-### **Você pode:**
-1. ✅ Receber pedidos online
-2. ✅ Processar pagamentos
-3. ✅ Calcular frete automaticamente
-4. ✅ Rastrear pedidos em tempo real
-5. ✅ Gerenciar produtos via API
-
----
-
-## 🚀 **COMECE AGORA!**
-
-```bash
-# Terminal 1 - Backend
-cd apps/backend
-npm run dev
-
-# Terminal 2 - Frontend
-cd apps/frontend
-npm run dev
-
-# Acesse: http://localhost:3000
-```
-
----
-
-## 📞 **SUPORTE**
-
-Documentação completa disponível em:
-- `COMO_EXECUTAR.md` - Instalação e configuração
-- `GUIA_DE_TESTE.md` - Como testar o sistema
-
----
-
-**Desenvolvido com ❤️ seguindo o Design System SaborExpress**
-
-**Status:** ✅ PRONTO PARA USO
-**Versão:** 1.0.0
-**Data:** Abril 2026
+**Versão:** 0.9.0
+**Última atualização:** 05/06/2026
