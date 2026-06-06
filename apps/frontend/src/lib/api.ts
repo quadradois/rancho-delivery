@@ -482,7 +482,7 @@ export interface IptuMineracao {
   nrquadra?: string | null;
   nrlote?: string | null;
   nmedificio?: string | null;
-  // campos Geo360
+  // campos Imóveis
   inscricaoCartografica?: string | null;
   nomePessoa?: string | null;
   cpfCnpj?: string | null;

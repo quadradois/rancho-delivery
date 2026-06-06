@@ -20,7 +20,7 @@ async function geocodificarCliente(dados: {
     // Tentativa 1: por CEP (mais preciso)
     if (cep) {
       const cepLimpo = cep.replace(/\D/g, '').padStart(8, '0').slice(0, 8);
-      const porCep = await (prisma as any).imovelGeo360.findFirst({
+      const porCep = await (prisma as any).imovelRancho.findFirst({
         where: { cep: cepLimpo, latitude: { not: null } },
         select: { latitude: true, longitude: true, inscricaoCartografica: true },
       });
@@ -31,7 +31,7 @@ async function geocodificarCliente(dados: {
 
     // Tentativa 2: centroide do bairro
     if (bairro) {
-      const porBairro = await (prisma as any).imovelGeo360.findMany({
+      const porBairro = await (prisma as any).imovelRancho.findMany({
         where: {
           bairro: { contains: bairro, mode: 'insensitive' },
           latitude: { not: null },
@@ -51,7 +51,7 @@ async function geocodificarCliente(dados: {
       const ruaMatch = endereco.match(/^([^,\d]+)/);
       const rua = ruaMatch ? ruaMatch[1].trim() : '';
       if (rua) {
-        const porRua = await (prisma as any).imovelGeo360.findMany({
+        const porRua = await (prisma as any).imovelRancho.findMany({
           where: {
             endereco: { contains: rua.replace(/^(rua|avenida|av|r)\s+/i, '').trim(), mode: 'insensitive' },
             latitude: { not: null },

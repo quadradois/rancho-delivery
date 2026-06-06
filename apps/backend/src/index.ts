@@ -8,7 +8,7 @@ import webhookRoutes from './routes/webhook.routes';
 import { errorHandler, notFoundHandler, requestLogger } from './middlewares/error.middleware';
 import pedidoService from './services/pedido.service';
 import { iniciarDeteccaoNovosImoveis } from './jobs/deteccaoNovosImoveis.job';
-import { executarEnriquecimentoIncremental } from './jobs/cargaGeo360.job';
+import { executarEnriquecimentoIncremental } from './jobs/cargaImoveis.job';
 import { iniciarWorkerCampanhasAgendadas } from './jobs/campanhasAgendadas.job';
 import { enfileirar } from './services/mineracao.queue';
 import cron from 'node-cron';
@@ -150,23 +150,25 @@ function iniciarRotinaAbandonoCheckout() {
   logger.info(`Rotina de abandono de checkout iniciada (intervalo: ${intervaloValido} min)`);
 }
 
-// Enriquecimento Geo360 agendado para 21h (horário de Brasília) — evita sobrecarga da API da Prefeitura
-function iniciarEnriquecimentoGeo360() {
-  const cidades = ['aparecidadegoiania', 'goiania'];
+// Enriquecimento Imóveis agendado para 21h (Brasília). Imóveis é a fonte viva (a Prefeitura atualiza por ele).
+// Processa em chunk por noite (limite) para não sobrecarregar a API; converge em poucas noites.
+function iniciarEnriquecimentoImoveis() {
+  const cidades = ['goiania', 'aparecidadegoiania']; // Goiânia primeiro (fonte principal)
+  const limitePorNoite = Number(process.env.IMOVEIS_ENRIQUECIMENTO_LIMITE ?? 150000);
 
   const executar = () => {
-    const runId = `geo360-${Date.now()}`;
+    const runId = `imoveis-${Date.now()}`;
     enfileirar(runId, async () => {
       for (const cidade of cidades) {
-        const total = await executarEnriquecimentoIncremental(cidade);
-        if (total > 0) logger.info(`Geo360 [${cidade}]: ${total} registros enriquecidos`);
+        const total = await executarEnriquecimentoIncremental(cidade, limitePorNoite);
+        if (total > 0) logger.info(`Imóveis [${cidade}]: ${total} registros enriquecidos`);
       }
     });
   };
 
   // Executa todo dia às 21:00 horário de Brasília (America/Sao_Paulo)
   cron.schedule('0 21 * * *', executar, { timezone: 'America/Sao_Paulo' });
-  logger.info('Geo360 enriquecimento agendado para 21:00 (America/Sao_Paulo)');
+  logger.info('Imóveis enriquecimento agendado para 21:00 (America/Sao_Paulo)');
 }
 
 // Iniciar servidor
@@ -176,7 +178,7 @@ app.listen(Number(PORT), HOST, () => {
   logger.info(`📡 API disponível em http://${HOST}:${PORT}/api`);
   iniciarRotinaAbandonoCheckout();
   iniciarDeteccaoNovosImoveis();
-  iniciarEnriquecimentoGeo360();
+  iniciarEnriquecimentoImoveis();
   iniciarWorkerCampanhasAgendadas();
 
   // Expira sessões de pedido WhatsApp inativas a cada 5 min

@@ -432,7 +432,7 @@ export class MineracaoService {
 
     const contains = { contains: termo, mode: 'insensitive' as const };
 
-    // Busca na nova tabela Geo360
+    // Busca na nova tabela Imóveis
     const where: any = {
       ...(input.cidade ? { cidade: input.cidade } : {}),
       ...(input.modo === 'rua' || input.modo === 'endereco'
@@ -440,7 +440,7 @@ export class MineracaoService {
         : { bairro: contains }),
     };
 
-    const rows = await (prisma as any).imovelGeo360.findMany({
+    const rows = await (prisma as any).imovelRancho.findMany({
       where,
       select: { bairro: true, endereco: true, inscricaoCartografica: true, cidade: true },
       take: 5000,
@@ -490,7 +490,7 @@ export class MineracaoService {
           }),
     };
 
-    const rows = await (prisma as any).imovelGeo360.findMany({
+    const rows = await (prisma as any).imovelRancho.findMany({
       where,
       select: {
         inscricaoCartografica: true,
@@ -1070,7 +1070,7 @@ export class MineracaoService {
   }
 
   private async minerarContatos(input: ExecutarMineracaoInput, runId: string): Promise<MineracaoResultado> {
-    // Fase 1 — Lookup direto no Geo360 (CPF, nome, endereço já enriquecidos)
+    // Fase 1 — Lookup direto no Imóveis (CPF, nome, endereço já enriquecidos)
     const iptusFiltro = Array.isArray(input.filtros?.iptus)
       ? input.filtros!.iptus!.map((i) => String(i).trim()).filter(Boolean)
       : [];
@@ -1085,7 +1085,7 @@ export class MineracaoService {
     atualizarProgresso(runId, progressoLookup);
     realtimeService.emit('mineracao:progresso', { runId, ...progressoLookup });
 
-    const geo360Rows = await (prisma as any).imovelGeo360.findMany({
+    const imoveisRows = await (prisma as any).imovelRancho.findMany({
       where: { inscricaoCartografica: { in: iptus } },
       select: {
         inscricaoCartografica: true,
@@ -1096,7 +1096,7 @@ export class MineracaoService {
       },
     });
 
-    const base: ProprietarioBase[] = geo360Rows.map((r: any) => ({
+    const base: ProprietarioBase[] = imoveisRows.map((r: any) => ({
       nrinscr: r.inscricaoCartografica,
       nome: sanitizarNomeLead(r.nomePessoa),
       cpfCnpj: r.cpfCnpj,
@@ -1106,10 +1106,10 @@ export class MineracaoService {
 
     const imoveisSemCpf = base.filter((p) => !p.cpfCnpj).length;
 
-    logger.info(`mineracao.lookup_geo360 modo=${input.modo} termo="${input.termo}" iptusSolicitados=${iptus.length} encontrados=${base.length} semCpf=${imoveisSemCpf}`);
+    logger.info(`mineracao.lookup_imoveis modo=${input.modo} termo="${input.termo}" iptusSolicitados=${iptus.length} encontrados=${base.length} semCpf=${imoveisSemCpf}`);
 
     if (base.length === 0) {
-      throw new Error('GEO360_SEM_PROPRIETARIOS');
+      throw new Error('IMOVEIS_SEM_PROPRIETARIOS');
     }
 
     const progressoLookupFim = { processados: base.length, total: iptus.length, fase: 'LOOKUP' as const, percentual: 10 };
@@ -1124,7 +1124,7 @@ export class MineracaoService {
 
     const docs = [...new Set(base.map((b) => this.normalizarDoc(b.cpfCnpj)).filter((d): d is string => Boolean(d)))];
     if (docs.length === 0) {
-      throw new Error('GEO360_SEM_DOCUMENTOS');
+      throw new Error('IMOVEIS_SEM_DOCUMENTOS');
     }
 
     const enrichMap = new Map<string, { telefones: string[]; emails: string[] }>();
@@ -1701,7 +1701,7 @@ export class MineracaoService {
     let offset = 0;
     const lote = 300;
 
-    while (true) {
+    for (;;) {
       const rows = await prisma.imovelPrefeitura.findMany({
         where: { latitude: null, objectId: { not: null } },
         select: { objectId: true, nrinscr: true },

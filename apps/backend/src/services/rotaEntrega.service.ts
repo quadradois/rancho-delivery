@@ -168,14 +168,12 @@ class RotaEntregaService {
     // Estimativa: 8 min/km em zona urbana + 3 min por parada
     const estimativaMinutos = Math.round(distanciaTotal * 8 + ordenados.length * 3);
 
-    let distAcumulada = 0;
     let posAtual = origem;
     const paradas: ParadaRota[] = ordenados.map((p, idx) => {
       const dist =
         p.lat != null && p.lng != null
           ? distanciaHaversineKm(posAtual.lat, posAtual.lng, p.lat, p.lng)
           : 0;
-      distAcumulada += dist;
       if (p.lat != null && p.lng != null) posAtual = { lat: p.lat, lng: p.lng };
       return {
         ordem: idx + 1,
