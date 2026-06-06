@@ -100,14 +100,19 @@ jobs:
   deploy-staging:
     name: Deploy para Staging
     needs: test
-    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     runs-on: ubuntu-latest
     
     steps:
+      - name: Ignorar deploy fora de develop
+        if: github.ref != 'refs/heads/develop' || github.event_name != 'push'
+        run: echo "Deploy de staging executa apenas em push para develop"
+
       - name: Checkout do código
+        if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
         uses: actions/checkout@v4
       
       - name: Deploy para Staging
+        if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
         run: |
           echo "🚀 Deploy para ambiente de staging"
           echo "Implementar script de deploy aqui"
@@ -116,14 +121,19 @@ jobs:
   deploy-production:
     name: Deploy para Produção
     needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
     
     steps:
+      - name: Ignorar deploy fora de main
+        if: github.ref != 'refs/heads/main' || github.event_name != 'push'
+        run: echo "Deploy de produção executa apenas em push para main"
+
       - name: Checkout do código
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: actions/checkout@v4
       
       - name: Deploy para Produção
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
           echo "🚀 Deploy para ambiente de produção"
           echo "Implementar script de deploy aqui"
