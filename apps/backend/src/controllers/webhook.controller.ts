@@ -41,7 +41,9 @@ export class WebhookController {
       }
 
       // Processar evento
-      let { aprovado, order_nsu, evento } = mercadoPagoService.processarEvento(body);
+      const eventoProcessado = mercadoPagoService.processarEvento(body);
+      let { aprovado, order_nsu } = eventoProcessado;
+      const { evento } = eventoProcessado;
       if ((!order_nsu || !aprovado) && body?.data?.id) {
         const pagamento = await mercadoPagoService.buscarPagamento(String(body.data.id));
         if (pagamento) {

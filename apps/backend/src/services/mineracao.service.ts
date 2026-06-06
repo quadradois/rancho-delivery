@@ -1701,7 +1701,7 @@ export class MineracaoService {
     let offset = 0;
     const lote = 300;
 
-    while (true) {
+    for (;;) {
       const rows = await prisma.imovelPrefeitura.findMany({
         where: { latitude: null, objectId: { not: null } },
         select: { objectId: true, nrinscr: true },

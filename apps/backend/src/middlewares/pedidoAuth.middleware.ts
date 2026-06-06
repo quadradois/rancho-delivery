@@ -30,6 +30,7 @@ export function verificarAcessoPedido(req: Request, res: Response, next: NextFun
 
 // Extensão do tipo Request do Express
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       pedidoToken?: string;

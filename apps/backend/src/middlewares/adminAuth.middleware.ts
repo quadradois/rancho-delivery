@@ -35,6 +35,7 @@ const PERMISSOES_POR_ROLE: Record<AdminRole, Permissao[]> = {
 
 // Extensão do tipo Request do Express
 declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
       adminUser?: { username: string; role: AdminRole };
