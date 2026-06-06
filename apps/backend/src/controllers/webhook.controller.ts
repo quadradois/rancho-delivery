@@ -116,44 +116,61 @@ export class WebhookController {
 
     try {
       const body = req.body || {};
+      const data = body?.data || {};
+      const info = data?.Info || {};                    // Evolution Go: data.Info
+      const msg = data?.Message || data?.message || {};  // Go: data.Message | legado: data.message
       const event = (req.params as Record<string, string>).event || body?.event || '';
 
-      const remoteJid = body?.data?.key?.remoteJid || '';
-      // Para @lid (linked device privacy mode), usar remoteJidAlt que contém o telefone real
-      const remoteJidAlt = body?.data?.key?.remoteJidAlt || '';
-      const jidEfetivo = remoteJid.includes('@lid') && remoteJidAlt ? remoteJidAlt : remoteJid;
-      logger.info(`Webhook WhatsApp recebido: event=${event || 'root'} fromMe=${body?.data?.key?.fromMe} jid=${remoteJid} jidAlt=${remoteJidAlt} msgType=${Object.keys(body?.data?.message || {}).join(',')}`);
+      // Remetente: Go usa data.Info.Sender ("55...:38@s.whatsapp.net");
+      // legado usa data.key.remoteJid (+ remoteJidAlt para @lid privacy mode).
+      const senderRaw =
+        info?.Sender ||
+        (String(data?.key?.remoteJid || '').includes('@lid') ? data?.key?.remoteJidAlt : '') ||
+        data?.key?.remoteJid ||
+        data?.from || body?.from || '';
+      // Remove device-id (":38") e domínio ("@s.whatsapp.net")
+      const senderPhonePart = String(senderRaw).split('@')[0].split(':')[0];
 
-      // CONNECTION_UPDATE — notifica cockpit sobre mudança de estado
-      if (event === 'connection-update' || body?.event === 'CONNECTION_UPDATE') {
-        const state = body?.data?.state || body?.state || '';
-        realtimeService.emit('whatsapp:status', { state, conectado: state === 'open' });
+      const fromMe = info?.IsFromMe ?? data?.key?.fromMe ?? body?.key?.fromMe ?? false;
+      const isGroup = info?.IsGroup ?? String(senderRaw).includes('@g.us');
+      const jidEfetivo = senderRaw;
+
+      logger.info(`Webhook WhatsApp recebido: event=${event || 'root'} fromMe=${fromMe} group=${isGroup} sender=${senderRaw} msgType=${Object.keys(msg).join(',')}`);
+
+      // Conexão — notifica cockpit sobre mudança de estado
+      const eventoConexao =
+        ['Connected', 'Disconnected', 'Connection', 'connection-update', 'CONNECTION_UPDATE'].includes(event) ||
+        body?.event === 'CONNECTION_UPDATE';
+      if (eventoConexao) {
+        const conectado =
+          event === 'Connected' || data?.Connected === true || (data?.state || body?.state) === 'open';
+        realtimeService.emit('whatsapp:status', { state: conectado ? 'open' : 'close', conectado });
         return;
       }
 
-      // MESSAGES_UPSERT — mensagem recebida
-      const fromMe = body?.data?.key?.fromMe ?? body?.key?.fromMe ?? false;
       if (fromMe) {
         logger.info('Webhook WhatsApp: ignorado (fromMe=true)');
         return;
       }
-
-      const telefone = jidEfetivo || body?.data?.from || body?.from || '';
+      if (isGroup) {
+        logger.info('Webhook WhatsApp: ignorado (grupo)');
+        return;
+      }
 
       // Localização GPS compartilhada pelo cliente via WhatsApp
-      const locationMsg = body?.data?.message?.locationMessage;
+      const locationMsg = msg?.locationMessage;
       const localizacao = locationMsg
         ? { lat: Number(locationMsg.degreesLatitude), lng: Number(locationMsg.degreesLongitude) }
         : undefined;
 
       const texto =
-        body?.data?.message?.conversation ||
-        body?.data?.message?.extendedTextMessage?.text ||
-        body?.data?.message?.imageMessage?.caption ||
+        msg?.conversation ||
+        msg?.extendedTextMessage?.text ||
+        msg?.imageMessage?.caption ||
         body?.message ||
         (localizacao ? '' : '');
 
-      let telefoneNormalizado = String(telefone).replace(/[^\d]/g, '');
+      let telefoneNormalizado = senderPhonePart.replace(/[^\d]/g, '');
       // Remove prefixo 55 (BR) — leads/clientes ficam sem ele no BD
       if (telefoneNormalizado.startsWith('55') && telefoneNormalizado.length >= 12) {
         telefoneNormalizado = telefoneNormalizado.slice(2);
@@ -163,7 +180,7 @@ export class WebhookController {
       if (telefoneNormalizado.length === 10) {
         telefoneNormalizado = `${telefoneNormalizado.slice(0, 2)}9${telefoneNormalizado.slice(2)}`;
       }
-      logger.info(`Webhook WhatsApp: telefone=${telefoneNormalizado} jidOriginal=${remoteJid} texto="${texto.slice(0, 50)}"`);
+      logger.info(`Webhook WhatsApp: telefone=${telefoneNormalizado} sender=${senderRaw} texto="${texto.slice(0, 50)}"`);
       if (!telefoneNormalizado || (!texto && !localizacao)) {
         logger.info('Webhook WhatsApp: descartado (telefone ou conteúdo vazios)');
         return;
@@ -182,7 +199,7 @@ export class WebhookController {
       // IA responde em background — não bloqueia o webhook
       // Passa jidEfetivo como rawJid para que o filtro @g.us funcione corretamente
       setImmediate(() => {
-        void processarRespostaWhatsApp(telefoneNormalizado, texto, String(jidEfetivo || telefone), localizacao);
+        void processarRespostaWhatsApp(telefoneNormalizado, texto, String(jidEfetivo || senderPhonePart), localizacao);
       });
     } catch (error) {
       logger.error('Erro ao processar webhook WhatsApp:', error);

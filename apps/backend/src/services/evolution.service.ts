@@ -1,40 +1,109 @@
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { logger } from '../config/logger';
+import prisma from '../config/database';
 
 interface EnviarMensagemInput {
   numero: string;
   mensagem: string;
+  conexao?: string; // nome da conexão a usar; ausente = conexão principal
 }
 
-interface EvolutionConnectionStateResponse {
-  instance?: {
-    instanceName?: string;
-    state?: string;
-  };
-  state?: string;
+interface InstanciaResolvida {
+  id: string;
+  token: string;
+  name: string;
+}
+
+// Configurações da instância (forma usada pelo painel/admin)
+interface ConfigInstancia {
+  rejectCall?: boolean;
+  groupsIgnore?: boolean;
+  alwaysOnline?: boolean;
+  readMessages?: boolean;
+  readStatus?: boolean;
+  syncFullHistory?: boolean;
 }
 
 export class EvolutionService {
   private api: AxiosInstance;
-  private instanceName: string;
+  // Evolution Go tem auth em 2 níveis:
+  //  - GLOBAL_API_KEY → endpoints de gestão (/instance/all, /instance/create, /instance/delete)
+  //  - token da instância → endpoints por-instância (/send/text, /instance/status, /qr, /connect...)
+  private globalKey: string;
+  private webhookUrl: string;
+  private webhookEvents: string[];
+  // Cache de id+token por NOME de instância (suporta várias conexões)
+  private cache = new Map<string, InstanciaResolvida>();
 
   constructor() {
-    this.instanceName = process.env.EVOLUTION_INSTANCE_NAME || 'rancho-delivery';
-    
+    this.globalKey = process.env.EVOLUTION_API_KEY || '';
+    this.webhookUrl = process.env.WHATSAPP_WEBHOOK_URL || '';
+    this.webhookEvents = (process.env.WHATSAPP_WEBHOOK_EVENTS || 'MESSAGE,CONNECTION')
+      .split(',')
+      .map((e) => e.trim())
+      .filter(Boolean);
+
     this.api = axios.create({
       baseURL: process.env.EVOLUTION_API_URL || 'http://localhost:8080',
       timeout: 8000,
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': process.env.EVOLUTION_API_KEY || '',
-      },
+      headers: { 'Content-Type': 'application/json' },
     });
 
-    logger.info('EvolutionService inicializado');
+    logger.info('EvolutionService inicializado (Evolution Go)');
+  }
+
+  private cfgGlobal(extra?: AxiosRequestConfig): AxiosRequestConfig {
+    return { ...extra, headers: { ...extra?.headers, apikey: this.globalKey } };
+  }
+
+  /** Nome da conexão a usar: o informado, ou a principal do banco (fallback: única cadastrada). */
+  private async resolverNome(nome?: string): Promise<string> {
+    if (nome) return nome;
+    const principal = await (prisma as any).conexaoWhatsApp.findFirst({ where: { principal: true } });
+    if (principal?.nome) return principal.nome;
+    const todas = await (prisma as any).conexaoWhatsApp.findMany({ take: 2, select: { nome: true } });
+    if (todas.length === 1) return todas[0].nome;
+    throw new Error('Nenhuma conexão WhatsApp principal definida');
+  }
+
+  /** Descobre id+token de uma instância pelo NOME via /instance/all (auth global). Cacheia. */
+  private async resolverInstancia(nome: string, forcar = false): Promise<InstanciaResolvida> {
+    if (!forcar) {
+      const c = this.cache.get(nome);
+      if (c) return c;
+    }
+    const resp = await this.api.get('/instance/all', this.cfgGlobal());
+    const lista: any[] = resp.data?.data || [];
+    const alvo = lista.find((i) => i?.name === nome);
+    if (!alvo?.token) {
+      throw new Error(`Instância '${nome}' não encontrada no servidor Evolution (disponíveis: ${lista.map((i) => i?.name).join(', ')})`);
+    }
+    const r: InstanciaResolvida = { id: alvo.id, token: alvo.token, name: alvo.name };
+    this.cache.set(nome, r);
+    return r;
+  }
+
+  /** Config axios autenticando com o token da instância (per-instância). */
+  private async cfgInstancia(nome: string, extra?: AxiosRequestConfig): Promise<AxiosRequestConfig> {
+    const inst = await this.resolverInstancia(nome);
+    return { ...extra, headers: { ...extra?.headers, apikey: inst.token } };
+  }
+
+  /** Cria uma instância no Evolution Go (gestão → chave global). */
+  async criarInstancia(nome: string): Promise<boolean> {
+    try {
+      await this.api.post('/instance/create', { name: nome }, this.cfgGlobal());
+      this.cache.delete(nome);
+      logger.info('Instância WhatsApp criada', { nome });
+      return true;
+    } catch (error: any) {
+      logger.error('Erro ao criar instância WhatsApp:', error.response?.data || error.message);
+      return false;
+    }
   }
 
   /**
-   * Envia mensagem de texto via WhatsApp
+   * Envia mensagem de texto via WhatsApp (pela conexão informada ou pela principal)
    */
   async enviarMensagem(dados: EnviarMensagemInput): Promise<boolean> {
     const r = await this.enviarMensagemDetalhado(dados);
@@ -46,15 +115,23 @@ export class EvolutionService {
     const numeroFormatado = digits.startsWith('55') ? digits : `55${digits}`;
     const payload = { number: numeroFormatado, text: dados.mensagem };
 
+    let nome: string;
+    try {
+      nome = await this.resolverNome(dados.conexao);
+    } catch (e: any) {
+      logger.error('Envio WhatsApp sem conexão definida:', e?.message);
+      return { ok: false, motivo: 'SEM_CONEXAO', transitorio: false, status: null };
+    }
+
     let ultimoStatus: number | null = null;
     let ultimoMotivo = 'ERRO_DESCONHECIDO';
 
     for (let tentativa = 0; tentativa <= 2; tentativa++) {
       try {
-        const response = await this.api.post(`/message/sendText/${this.instanceName}`, payload);
+        const response = await this.api.post('/send/text', payload, await this.cfgInstancia(nome));
         const ok = response.status === 200 || response.status === 201;
         if (ok) {
-          logger.info(`Mensagem WhatsApp enviada para ${numeroFormatado}`);
+          logger.info(`Mensagem WhatsApp enviada para ${numeroFormatado} (conexão ${nome})`);
           return { ok: true, status: response.status };
         }
         ultimoStatus = response.status;
@@ -65,12 +142,14 @@ export class EvolutionService {
         const providerData = error?.response?.data;
         const providerMsg = (providerData?.message || providerData?.error || error?.message || '').toString().toLowerCase();
 
-        // Classifica o motivo
+        // Token pode ter rotacionado — invalida cache e re-resolve no próximo retry
+        if (status === 401) this.cache.delete(nome);
+
         if (status === 400 && /(not.*exists|invalid.*number|wrong.*format)/.test(providerMsg)) {
           ultimoMotivo = 'NUMERO_INVALIDO';
         } else if (status === 401 || status === 403) {
           ultimoMotivo = 'INSTANCIA_NAO_AUTORIZADA';
-        } else if (/instance.*not.*connected|disconnected|close/.test(providerMsg)) {
+        } else if (/instance.*not.*connected|disconnected|close|not.*logged/.test(providerMsg)) {
           ultimoMotivo = 'INSTANCIA_DESCONECTADA';
         } else if (status === 429) {
           ultimoMotivo = 'RATE_LIMIT';
@@ -82,13 +161,9 @@ export class EvolutionService {
           ultimoMotivo = 'REDE';
         }
 
-        const providerError = {
-          status, message: error?.message, data: providerData,
-          numero: numeroFormatado, motivo: ultimoMotivo,
-        };
+        const providerError = { status, message: error?.message, data: providerData, numero: numeroFormatado, conexao: nome, motivo: ultimoMotivo };
 
-        // 4xx (exceto rate limit) — não faz retry
-        if (status && status >= 400 && status < 500 && status !== 429) {
+        if (status && status >= 400 && status < 500 && status !== 429 && status !== 401) {
           logger.error('Erro ao enviar mensagem WhatsApp (4xx, sem retry):', providerError);
           return { ok: false, motivo: ultimoMotivo, transitorio: false, status };
         }
@@ -101,27 +176,25 @@ export class EvolutionService {
         }
       }
     }
-    // Esgotou retries — erro transitório
     return { ok: false, motivo: ultimoMotivo, transitorio: true, status: ultimoStatus };
   }
 
-  /**
-   * Verifica status da conexão WhatsApp
-   */
-  async verificarConexao(): Promise<boolean> {
-    try {
-      const response = await this.api.get<EvolutionConnectionStateResponse>(
-        `/instance/connectionState/${this.instanceName}`
-      );
-      const state = response.data?.instance?.state || response.data?.state || 'close';
-      const conectado = state === 'open';
-      
-      if (conectado) {
-        logger.info('WhatsApp conectado');
-      } else {
-        logger.warn('WhatsApp desconectado');
-      }
+  /** GET /instance/status (token) → data.Connected / data.LoggedIn */
+  private async lerStatus(nome: string): Promise<{ conectado: boolean; socket: boolean; nome: string }> {
+    const response = await this.api.get('/instance/status', await this.cfgInstancia(nome));
+    const d = response.data?.data || {};
+    return {
+      conectado: d.LoggedIn === true, // logado no WhatsApp (consegue enviar). Connected = só o socket.
+      socket: d.Connected === true,
+      nome: d.Name || nome,
+    };
+  }
 
+  async verificarConexao(nome?: string): Promise<boolean> {
+    try {
+      const n = await this.resolverNome(nome);
+      const { conectado } = await this.lerStatus(n);
+      logger[conectado ? 'info' : 'warn'](conectado ? 'WhatsApp conectado' : 'WhatsApp desconectado');
       return conectado;
     } catch (error: any) {
       logger.error('Erro ao verificar conexão WhatsApp:', error.response?.data || error.message);
@@ -129,74 +202,79 @@ export class EvolutionService {
     }
   }
 
-  async obterStatusInstancia() {
+  async obterStatusInstancia(nome?: string) {
+    let n = nome;
     try {
-      const response = await this.api.get<EvolutionConnectionStateResponse>(
-        `/instance/connectionState/${this.instanceName}`
-      );
-      const state = response.data?.instance?.state || response.data?.state || 'close';
-      return {
-        instanceName: this.instanceName,
-        conectado: state === 'open',
-        state,
-      };
+      n = await this.resolverNome(nome);
+      const { conectado, nome: nm } = await this.lerStatus(n);
+      return { instanceName: nm, conectado, state: conectado ? 'open' : 'close' };
     } catch (error: any) {
       logger.error('Erro ao obter status detalhado do WhatsApp:', error.response?.data || error.message);
-      return {
-        instanceName: this.instanceName,
-        conectado: false,
-        state: 'not_found',
-      };
+      return { instanceName: n || '', conectado: false, state: 'not_found' };
     }
   }
 
-  async garantirInstanciaEObterQrCode() {
-    const existente = await this.obterInstanciaPorNome(this.instanceName);
-    if (!existente) {
-      await this.api.post(
-        '/instance/create',
-        {
-          instanceName: this.instanceName,
-          qrcode: true,
-          integration: 'WHATSAPP-BAILEYS',
-        }
-      );
-      logger.info('Instância WhatsApp criada na Evolution', { instanceName: this.instanceName });
-    }
+  /**
+   * Garante a instância (cria se não existir), configura webhook e retorna QR se não estiver logado.
+   */
+  async garantirInstanciaEObterQrCode(nome?: string) {
+    const n = await this.resolverNome(nome);
 
-    const status = await this.obterStatusInstancia();
-    if (status.conectado) {
-      return {
-        instanceName: this.instanceName,
-        state: status.state,
-        conectado: true,
-        qrCodeBase64: null as string | null,
-      };
-    }
-
-    const qr = await this.obterQrCode();
-    return {
-      instanceName: this.instanceName,
-      state: status.state,
-      conectado: false,
-      qrCodeBase64: qr,
-    };
-  }
-
-  async obterQrCode(): Promise<string | null> {
+    // Cria a instância se ela ainda não existir no Evolution Go
     try {
-      const response = await this.api.get(`/instance/connect/${this.instanceName}`);
-      return response.data?.base64 || response.data?.qrcode?.base64 || null;
+      await this.resolverInstancia(n, true);
+    } catch {
+      await this.criarInstancia(n);
+      await this.resolverInstancia(n, true).catch(() => null);
+    }
+
+    const status = await this.obterStatusInstancia(n);
+    if (status.conectado) {
+      return { instanceName: status.instanceName, state: status.state, conectado: true, qrCodeBase64: null as string | null };
+    }
+    await this.configurarConexao(n).catch(() => null);
+    const qr = await this.obterQrCode(n);
+    return { instanceName: status.instanceName, state: status.state, conectado: false, qrCodeBase64: qr };
+  }
+
+  /** POST /instance/connect (token) — webhook + eventos */
+  async configurarConexao(nome?: string): Promise<boolean> {
+    try {
+      const n = await this.resolverNome(nome);
+      await this.api.post(
+        '/instance/connect',
+        { webhookUrl: this.webhookUrl || undefined, subscribe: this.webhookEvents },
+        await this.cfgInstancia(n),
+      );
+      logger.info('Instância WhatsApp conectada/configurada', { conexao: n, webhookUrl: this.webhookUrl });
+      return true;
+    } catch (error: any) {
+      logger.error('Erro ao configurar conexão WhatsApp:', error.response?.data || error.message);
+      return false;
+    }
+  }
+
+  async obterQrCode(nome?: string): Promise<string | null> {
+    try {
+      const n = await this.resolverNome(nome);
+      // Evolution Go: GET /instance/qr (token) → data.Qrcode (data URI) + data.Code
+      const response = await this.api.get('/instance/qr', await this.cfgInstancia(n));
+      const qr = response.data?.data?.Qrcode || response.data?.Qrcode || null;
+      if (!qr) return null;
+      const s = String(qr);
+      return s.startsWith('data:') ? s : `data:image/png;base64,${s}`;
     } catch (error: any) {
       logger.error('Erro ao obter QR Code da instância WhatsApp:', error.response?.data || error.message);
       return null;
     }
   }
 
-  async desconectarInstancia(): Promise<boolean> {
+  async desconectarInstancia(nome?: string): Promise<boolean> {
     try {
-      await this.api.delete(`/instance/logout/${this.instanceName}`);
-      logger.info('Instância WhatsApp desconectada', { instanceName: this.instanceName });
+      const n = await this.resolverNome(nome);
+      // Evolution Go: POST /instance/disconnect (token) — desloga mas mantém a instância
+      await this.api.post('/instance/disconnect', {}, await this.cfgInstancia(n));
+      logger.info('Instância WhatsApp desconectada', { conexao: n });
       return true;
     } catch (error: any) {
       logger.error('Erro ao desconectar instância WhatsApp:', error.response?.data || error.message);
@@ -204,12 +282,14 @@ export class EvolutionService {
     }
   }
 
-  async apagarInstancia(): Promise<boolean> {
+  async apagarInstancia(nome?: string): Promise<boolean> {
     try {
-      // Tenta deslogar primeiro (ignora erro se já estiver desconectada)
-      await this.api.delete(`/instance/logout/${this.instanceName}`).catch(() => null);
-      await this.api.delete(`/instance/delete/${this.instanceName}`);
-      logger.info('Instância WhatsApp apagada', { instanceName: this.instanceName });
+      const n = await this.resolverNome(nome);
+      const inst = await this.resolverInstancia(n);
+      // DELETE /instance/delete/{instanceId} (gestão → chave global)
+      await this.api.delete(`/instance/delete/${inst.id}`, this.cfgGlobal());
+      this.cache.delete(n);
+      logger.info('Instância WhatsApp apagada', { conexao: n, instanceId: inst.id });
       return true;
     } catch (error: any) {
       logger.error('Erro ao apagar instância WhatsApp:', error.response?.data || error.message);
@@ -217,67 +297,73 @@ export class EvolutionService {
     }
   }
 
-  async obterDetalhesInstancia() {
+  async obterDetalhesInstancia(nome?: string) {
+    let n = nome;
     try {
-      const instancia = await this.obterInstanciaPorNome(this.instanceName);
-      const status = await this.obterStatusInstancia().catch(() => ({ state: 'close', conectado: false }));
+      n = await this.resolverNome(nome);
+      const resp = await this.api.get('/instance/all', this.cfgGlobal());
+      const lista: any[] = resp.data?.data || [];
+      const inst = lista.find((i) => i?.name === n) || {};
+      if (inst.id) this.cache.set(n, { id: inst.id, token: inst.token, name: inst.name });
+      const conectado = inst.connected === true;
       return {
-        instanceName: this.instanceName,
-        existe: Boolean(instancia),
-        conectado: status.conectado,
-        state: status.state,
-        // Detalhes do dispositivo conectado (varia entre versões do Evolution)
-        telefone: instancia?.ownerJid?.split('@')[0] || instancia?.number || null,
-        nomePerfil: instancia?.profileName || null,
-        fotoPerfil: instancia?.profilePicUrl || null,
-        ultimaConexao: instancia?.updatedAt || null,
+        instanceName: inst.name || n,
+        existe: Boolean(inst.id),
+        conectado,
+        state: conectado ? 'open' : 'close',
+        telefone: inst.jid ? String(inst.jid).split('@')[0].split(':')[0] : null,
+        nomePerfil: inst.name || null,
+        fotoPerfil: null as string | null,
+        ultimaConexao: inst.createdAt || null,
       };
     } catch (error: any) {
       logger.error('Erro ao obter detalhes da instância WhatsApp:', error.response?.data || error.message);
       return {
-        instanceName: this.instanceName,
+        instanceName: n || '',
         existe: false, conectado: false, state: 'close',
         telefone: null, nomePerfil: null, fotoPerfil: null, ultimaConexao: null,
       };
     }
   }
 
-  async obterConfigInstancia() {
+  /** GET /instance/{id}/advanced-settings (token) → mapeia p/ a forma do painel */
+  async obterConfigInstancia(nome?: string): Promise<ConfigInstancia> {
     try {
-      const response = await this.api.get(`/settings/find/${this.instanceName}`);
-      return response.data || {};
+      const n = await this.resolverNome(nome);
+      const inst = await this.resolverInstancia(n);
+      const resp = await this.api.get(`/instance/${inst.id}/advanced-settings`, await this.cfgInstancia(n));
+      const s = resp.data?.data || resp.data || {};
+      return {
+        rejectCall: Boolean(s.rejectCall),
+        groupsIgnore: Boolean(s.ignoreGroups),
+        alwaysOnline: Boolean(s.alwaysOnline),
+        readMessages: Boolean(s.readMessages),
+        readStatus: Boolean(s.ignoreStatus),
+      };
     } catch (error: any) {
       logger.warn('Erro ao obter configurações da instância:', error.response?.data || error.message);
       return {};
     }
   }
 
-  async atualizarConfigInstancia(configs: {
-    rejectCall?: boolean;
-    groupsIgnore?: boolean;
-    alwaysOnline?: boolean;
-    readMessages?: boolean;
-    readStatus?: boolean;
-    syncFullHistory?: boolean;
-  }): Promise<boolean> {
+  /** PUT /instance/{id}/advanced-settings (token) — mapeia chaves do painel p/ o Go */
+  async atualizarConfigInstancia(configs: ConfigInstancia, nome?: string): Promise<boolean> {
     try {
-      await this.api.post(`/settings/set/${this.instanceName}`, configs);
-      logger.info('Configurações da instância WhatsApp atualizadas', { instanceName: this.instanceName, configs });
+      const n = await this.resolverNome(nome);
+      const inst = await this.resolverInstancia(n);
+      const body = {
+        rejectCall: configs.rejectCall,
+        ignoreGroups: configs.groupsIgnore,
+        alwaysOnline: configs.alwaysOnline,
+        readMessages: configs.readMessages,
+        ignoreStatus: configs.readStatus,
+      };
+      await this.api.put(`/instance/${inst.id}/advanced-settings`, body, await this.cfgInstancia(n));
+      logger.info('Configurações da instância WhatsApp atualizadas', { conexao: n, body });
       return true;
     } catch (error: any) {
       logger.error('Erro ao atualizar configurações da instância:', error.response?.data || error.message);
       return false;
-    }
-  }
-
-  private async obterInstanciaPorNome(instanceName: string) {
-    try {
-      const response = await this.api.get<any[]>('/instance/fetchInstances');
-      const instancias = Array.isArray(response.data) ? response.data : [];
-      return instancias.find((item) => item?.name === instanceName) || null;
-    } catch (error: any) {
-      logger.error('Erro ao listar instâncias da Evolution:', error.response?.data || error.message);
-      return null;
     }
   }
 
@@ -289,13 +375,13 @@ export class EvolutionService {
 
     let mensagem = `🟢 *NOVO PEDIDO - Rancho*\n\n`;
     mensagem += `📋 *Pedido:* #${id.slice(-8)}\n\n`;
-    
+
     mensagem += `👤 *Cliente:* ${cliente.nome}\n`;
     mensagem += `📱 *WhatsApp:* ${this.formatarTelefone(cliente.telefone)}\n`;
     mensagem += `📍 *Endereço:* ${cliente.endereco}\n`;
     mensagem += `🏘️ *Bairro:* ${cliente.bairro}\n`;
     mensagem += `💰 *Taxa de Entrega:* R$ ${Number(taxaEntrega).toFixed(2)}\n\n`;
-    
+
     mensagem += `🍽️ *Itens do Pedido:*\n`;
     itens.forEach((item: any) => {
       mensagem += `\n• ${item.quantidade}x ${item.produto.nome}`;
@@ -324,18 +410,18 @@ export class EvolutionService {
    */
   private formatarTelefone(telefone: string): string {
     const limpo = telefone.replace(/\D/g, '');
-    
+
     if (limpo.length === 13) {
       return `+${limpo.slice(0, 2)} (${limpo.slice(2, 4)}) ${limpo.slice(4, 9)}-${limpo.slice(9)}`;
     } else if (limpo.length === 11) {
       return `(${limpo.slice(0, 2)}) ${limpo.slice(2, 7)}-${limpo.slice(7)}`;
     }
-    
+
     return telefone;
   }
 
   /**
-   * Notifica dono sobre novo pedido
+   * Notifica dono sobre novo pedido (conexão principal)
    */
   async notificarNovoPedido(pedido: any): Promise<boolean> {
     try {
@@ -347,11 +433,7 @@ export class EvolutionService {
       }
 
       const mensagem = this.formatarMensagemPedido(pedido);
-
-      const enviado = await this.enviarMensagem({
-        numero: numeroDono,
-        mensagem,
-      });
+      const enviado = await this.enviarMensagem({ numero: numeroDono, mensagem });
 
       if (enviado) {
         logger.info(`Notificação de pedido ${pedido.id} enviada para o dono`);
@@ -374,32 +456,25 @@ export class EvolutionService {
     if (status === 'AGUARDANDO_PAGAMENTO') {
       return `Olá ${nome}! Recebemos ${pedidoRef} e estamos aguardando a confirmação do pagamento.`;
     }
-
     if (status === 'CONFIRMADO') {
       return `Olá ${nome}! Pagamento confirmado. ${pedidoRef} entrou na fila da cozinha.`;
     }
-
     if (status === 'PREPARANDO') {
       return `Olá ${nome}! ${pedidoRef} já está em preparo na cozinha.`;
     }
-
     if (status === 'PRONTO') {
       return `Olá ${nome}! ${pedidoRef} ficou pronto e será despachado em instantes.`;
     }
-
     if (status === 'SAIU_ENTREGA') {
       return `Olá ${nome}! ${pedidoRef} saiu para entrega.`;
     }
-
     if (status === 'ENTREGUE') {
       return `Pedido entregue! ${nome}, bom apetite!`;
     }
-
     if (status === 'CANCELADO') {
       const base = `Infelizmente precisamos cancelar ${pedidoRef}${motivoCancelamento ? `: ${motivoCancelamento}` : '.'}`;
       return `${base} Se o pagamento já foi feito, nossa equipe vai tratar o estorno com você.`;
     }
-
     if (status === 'EXPIRADO' || status === 'ABANDONADO') {
       return `Olá ${nome}! O pagamento do ${pedidoRef} não foi confirmado dentro do prazo e o pedido foi cancelado automaticamente. Se quiser, te ajudamos a finalizar agora.`;
     }
@@ -420,15 +495,9 @@ export class EvolutionService {
 
       const enviado = await this.enviarMensagem({ numero, mensagem });
       if (enviado) {
-        logger.info('Mensagem automática de status enviada ao cliente', {
-          pedidoId: pedido?.id,
-          status,
-        });
+        logger.info('Mensagem automática de status enviada ao cliente', { pedidoId: pedido?.id, status });
       } else {
-        logger.warn('Falha ao enviar mensagem automática de status ao cliente', {
-          pedidoId: pedido?.id,
-          status,
-        });
+        logger.warn('Falha ao enviar mensagem automática de status ao cliente', { pedidoId: pedido?.id, status });
       }
 
       return enviado;

@@ -10,6 +10,15 @@ router.get('/whatsapp/detalhes', adminClienteController.detalhesWhatsApp.bind(ad
 router.post('/whatsapp/desconectar', adminClienteController.desconectarWhatsApp.bind(adminClienteController));
 router.delete('/whatsapp/apagar', adminClienteController.apagarWhatsApp.bind(adminClienteController));
 router.patch('/whatsapp/config', adminClienteController.atualizarConfigWhatsApp.bind(adminClienteController));
+// Conexões WhatsApp (multi-instância)
+router.get('/whatsapp/conexoes', adminClienteController.listarConexoesWhatsApp.bind(adminClienteController));
+router.post('/whatsapp/conexoes', adminClienteController.criarConexaoWhatsApp.bind(adminClienteController));
+router.get('/whatsapp/conexoes/:nome/qrcode', adminClienteController.qrcodeConexaoWhatsApp.bind(adminClienteController));
+router.get('/whatsapp/conexoes/:nome/detalhes', adminClienteController.detalhesConexaoWhatsApp.bind(adminClienteController));
+router.post('/whatsapp/conexoes/:nome/desconectar', adminClienteController.desconectarConexaoWhatsApp.bind(adminClienteController));
+router.patch('/whatsapp/conexoes/:nome/principal', adminClienteController.definirPrincipalWhatsApp.bind(adminClienteController));
+router.patch('/whatsapp/conexoes/:nome/config', adminClienteController.configConexaoWhatsApp.bind(adminClienteController));
+router.delete('/whatsapp/conexoes/:nome', adminClienteController.apagarConexaoWhatsApp.bind(adminClienteController));
 router.get('/conversas', adminClienteController.listarTodasConversas.bind(adminClienteController));
 router.get('/conversas/nao-lidas', adminClienteController.conversasNaoLidas.bind(adminClienteController));
 router.get('/leads/:leadId/mensagens', adminClienteController.listarMensagensLead.bind(adminClienteController));

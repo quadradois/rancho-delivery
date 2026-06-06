@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import clienteService from '../services/cliente.service';
 import evolutionService from '../services/evolution.service';
+import prisma from '../config/database';
 import { logger } from '../config/logger';
 
 export class AdminClienteController {
@@ -240,6 +241,149 @@ export class AdminClienteController {
       return res.json({ success: true, data: { atualizado: true, configs } });
     } catch (error) {
       logger.error('Erro ao atualizar configurações do WhatsApp:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao atualizar configurações' } });
+    }
+  }
+
+  // ───────────────────────── Conexões WhatsApp (multi-instância) ─────────────────────────
+
+  async listarConexoesWhatsApp(_req: Request, res: Response) {
+    try {
+      const conexoes = await (prisma as any).conexaoWhatsApp.findMany({
+        orderBy: [{ principal: 'desc' }, { criadoEm: 'asc' }],
+      });
+      // enriquece com status ao vivo (em paralelo)
+      const data = await Promise.all(
+        conexoes.map(async (c: any) => {
+          const det = await evolutionService.obterDetalhesInstancia(c.nome).catch(() => null);
+          return {
+            ...c,
+            conectado: det?.conectado ?? c.conectado,
+            telefone: det?.telefone ?? c.telefone,
+            state: det?.state ?? 'desconhecido',
+          };
+        }),
+      );
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao listar conexões WhatsApp:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao listar conexões' } });
+    }
+  }
+
+  async criarConexaoWhatsApp(req: Request, res: Response) {
+    try {
+      const nome = String(req.body?.nome || '').trim();
+      if (!nome) return res.status(400).json({ success: false, error: { message: 'nome é obrigatório' } });
+      if (!/^[a-zA-Z0-9_-]{3,100}$/.test(nome)) {
+        return res.status(400).json({ success: false, error: { message: 'nome inválido (use 3-100 caracteres: letras, números, _ e -)' } });
+      }
+      const existe = await (prisma as any).conexaoWhatsApp.findUnique({ where: { nome } });
+      if (existe) return res.status(409).json({ success: false, error: { message: 'Já existe uma conexão com esse nome' } });
+
+      const total = await (prisma as any).conexaoWhatsApp.count();
+      const conexao = await (prisma as any).conexaoWhatsApp.create({
+        data: { nome, principal: total === 0 }, // a primeira vira principal
+      });
+
+      // cria a instância no Evolution Go + webhook + QR
+      const qr = await evolutionService.garantirInstanciaEObterQrCode(nome).catch(() => null);
+      return res.status(201).json({ success: true, data: { conexao, ...(qr || {}) } });
+    } catch (error) {
+      logger.error('Erro ao criar conexão WhatsApp:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao criar conexão' } });
+    }
+  }
+
+  async qrcodeConexaoWhatsApp(req: Request, res: Response) {
+    try {
+      const { nome } = req.params;
+      const data = await evolutionService.garantirInstanciaEObterQrCode(nome);
+      await (prisma as any).conexaoWhatsApp
+        .update({ where: { nome }, data: { conectado: data.conectado } })
+        .catch(() => null);
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao obter QR da conexão WhatsApp:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao obter QR Code' } });
+    }
+  }
+
+  async detalhesConexaoWhatsApp(req: Request, res: Response) {
+    try {
+      const { nome } = req.params;
+      const det = await evolutionService.obterDetalhesInstancia(nome);
+      const configs = await evolutionService.obterConfigInstancia(nome);
+      await (prisma as any).conexaoWhatsApp
+        .update({ where: { nome }, data: { conectado: det.conectado, telefone: det.telefone || undefined } })
+        .catch(() => null);
+      return res.json({ success: true, data: { ...det, configs } });
+    } catch (error) {
+      logger.error('Erro ao obter detalhes da conexão WhatsApp:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao obter detalhes' } });
+    }
+  }
+
+  async desconectarConexaoWhatsApp(req: Request, res: Response) {
+    try {
+      const { nome } = req.params;
+      const ok = await evolutionService.desconectarInstancia(nome);
+      await (prisma as any).conexaoWhatsApp.update({ where: { nome }, data: { conectado: false } }).catch(() => null);
+      if (!ok) return res.status(502).json({ success: false, error: { message: 'Falha ao desconectar' } });
+      return res.json({ success: true, data: { desconectado: true } });
+    } catch (error) {
+      logger.error('Erro ao desconectar conexão WhatsApp:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao desconectar' } });
+    }
+  }
+
+  async apagarConexaoWhatsApp(req: Request, res: Response) {
+    try {
+      const { nome } = req.params;
+      const existe = await (prisma as any).conexaoWhatsApp.findUnique({ where: { nome } });
+      if (!existe) return res.status(404).json({ success: false, error: { message: 'Conexão não encontrada' } });
+
+      await evolutionService.apagarInstancia(nome).catch(() => null); // apaga no Evolution Go
+      await (prisma as any).conexaoWhatsApp.delete({ where: { nome } });
+
+      // se era a principal, promove a próxima conexão
+      if (existe.principal) {
+        const prox = await (prisma as any).conexaoWhatsApp.findFirst({ orderBy: { criadoEm: 'asc' } });
+        if (prox) await (prisma as any).conexaoWhatsApp.update({ where: { id: prox.id }, data: { principal: true } });
+      }
+      return res.json({ success: true, data: { apagado: true } });
+    } catch (error) {
+      logger.error('Erro ao apagar conexão WhatsApp:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao apagar conexão' } });
+    }
+  }
+
+  async definirPrincipalWhatsApp(req: Request, res: Response) {
+    try {
+      const { nome } = req.params;
+      const existe = await (prisma as any).conexaoWhatsApp.findUnique({ where: { nome } });
+      if (!existe) return res.status(404).json({ success: false, error: { message: 'Conexão não encontrada' } });
+
+      await (prisma as any).$transaction([
+        (prisma as any).conexaoWhatsApp.updateMany({ where: { principal: true }, data: { principal: false } }),
+        (prisma as any).conexaoWhatsApp.update({ where: { nome }, data: { principal: true } }),
+      ]);
+      return res.json({ success: true, data: { nome, principal: true } });
+    } catch (error) {
+      logger.error('Erro ao definir conexão principal:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao definir principal' } });
+    }
+  }
+
+  async configConexaoWhatsApp(req: Request, res: Response) {
+    try {
+      const { nome } = req.params;
+      const configs = req.body || {};
+      const ok = await evolutionService.atualizarConfigInstancia(configs, nome);
+      if (!ok) return res.status(502).json({ success: false, error: { message: 'Falha ao atualizar configurações' } });
+      return res.json({ success: true, data: { atualizado: true, configs } });
+    } catch (error) {
+      logger.error('Erro ao atualizar config da conexão WhatsApp:', error);
       return res.status(500).json({ success: false, error: { message: 'Erro ao atualizar configurações' } });
     }
   }
