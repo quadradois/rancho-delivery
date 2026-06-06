@@ -65,6 +65,9 @@ vi.mock('../config/database', () => ({
       update: vi.fn().mockResolvedValue({}),
       count: vi.fn().mockResolvedValue(0),
     },
+    bairroRancho: {
+      upsert: vi.fn().mockResolvedValue({}),
+    },
     leadMarketing: {
       findFirst: vi.fn().mockResolvedValue(null),
       findMany: vi.fn().mockResolvedValue([]),
