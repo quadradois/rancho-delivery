@@ -27,6 +27,7 @@ vi.mock('../../services/conversacao.service', () => ({
 }));
 
 import clienteService from '../../services/cliente.service';
+import realtimeService from '../../services/realtime.service';
 import { processarRespostaWhatsApp } from '../../services/conversacao.service';
 
 function makeReq(body: object, params: Record<string, string> = {}): Partial<Request> {
@@ -171,5 +172,69 @@ describe('WebhookController.whatsapp — normalização de telefone', () => {
       '62993715693',
       'Texto longo com formatação',
     );
+  });
+});
+
+describe('WebhookController.whatsapp — payload Evolution Go', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function dispararWebhook(body: object) {
+    const req = makeReq(body);
+    const { res } = makeRes();
+    await webhookController.whatsapp(req as Request, res as Response);
+    await vi.runAllTimersAsync();
+  }
+
+  it('parseia mensagem Go (Info.Sender com device-id + Message.conversation)', async () => {
+    await dispararWebhook({
+      event: 'Message',
+      data: {
+        Info: { Sender: '5562993715693:38@s.whatsapp.net', IsFromMe: false, IsGroup: false },
+        Message: { conversation: 'Olá via Go' },
+      },
+    });
+
+    // device-id ":38", domínio e prefixo 55 removidos
+    expect(clienteService.registrarMensagemRecebida).toHaveBeenCalledWith('62993715693', 'Olá via Go');
+  });
+
+  it('ignora mensagem Go com IsFromMe=true', async () => {
+    await dispararWebhook({
+      event: 'Message',
+      data: {
+        Info: { Sender: '5562993715693@s.whatsapp.net', IsFromMe: true },
+        Message: { conversation: 'enviada por nós' },
+      },
+    });
+
+    expect(clienteService.registrarMensagemRecebida).not.toHaveBeenCalled();
+    expect(processarRespostaWhatsApp).not.toHaveBeenCalled();
+  });
+
+  it('ignora mensagem Go de grupo (IsGroup=true — Sender é o participante)', async () => {
+    await dispararWebhook({
+      event: 'Message',
+      data: {
+        Info: { Sender: '5562993715693@s.whatsapp.net', IsGroup: true },
+        Message: { conversation: 'mensagem de grupo' },
+      },
+    });
+
+    expect(clienteService.registrarMensagemRecebida).not.toHaveBeenCalled();
+    expect(processarRespostaWhatsApp).not.toHaveBeenCalled();
+  });
+
+  it('evento de conexão Go (Connected) emite status e não registra mensagem', async () => {
+    await dispararWebhook({ event: 'Connected', data: {} });
+
+    expect(realtimeService.emit).toHaveBeenCalledWith('whatsapp:status', { state: 'open', conectado: true });
+    expect(clienteService.registrarMensagemRecebida).not.toHaveBeenCalled();
   });
 });
