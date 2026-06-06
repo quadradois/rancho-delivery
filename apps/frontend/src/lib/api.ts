@@ -297,6 +297,15 @@ export interface WhatsAppDetalhesAdmin extends WhatsAppStatusAdmin {
   configs: WhatsAppConfigInstancia;
 }
 
+export interface ConexaoWhatsAppAdmin {
+  id: string;
+  nome: string;
+  telefone: string | null;
+  principal: boolean;
+  conectado: boolean;
+  state?: string;
+}
+
 export interface MotoboyAdmin {
   id: string;
   nome: string;
@@ -948,6 +957,32 @@ export const adminClienteService = {
   },
   async atualizarConfigWhatsApp(configs: WhatsAppConfigInstancia): Promise<{ atualizado: boolean }> {
     return apiClient.patch('/admin/whatsapp/config', configs);
+  },
+
+  // ---- Conexões WhatsApp (multi-instância) ----
+  async listarConexoesWhatsApp(): Promise<ConexaoWhatsAppAdmin[]> {
+    return apiClient.get<ConexaoWhatsAppAdmin[]>('/admin/whatsapp/conexoes');
+  },
+  async criarConexaoWhatsApp(nome: string): Promise<{ conexao: ConexaoWhatsAppAdmin; qrCodeBase64?: string | null; conectado?: boolean }> {
+    return apiClient.post('/admin/whatsapp/conexoes', { nome });
+  },
+  async qrcodeConexaoWhatsApp(nome: string): Promise<WhatsAppSetupAdmin> {
+    return apiClient.get<WhatsAppSetupAdmin>(`/admin/whatsapp/conexoes/${encodeURIComponent(nome)}/qrcode`);
+  },
+  async detalhesConexaoWhatsApp(nome: string): Promise<WhatsAppDetalhesAdmin> {
+    return apiClient.get<WhatsAppDetalhesAdmin>(`/admin/whatsapp/conexoes/${encodeURIComponent(nome)}/detalhes`);
+  },
+  async desconectarConexaoWhatsApp(nome: string): Promise<{ desconectado: boolean }> {
+    return apiClient.post(`/admin/whatsapp/conexoes/${encodeURIComponent(nome)}/desconectar`, {});
+  },
+  async apagarConexaoWhatsApp(nome: string): Promise<{ apagado: boolean }> {
+    return apiClient.delete(`/admin/whatsapp/conexoes/${encodeURIComponent(nome)}`);
+  },
+  async definirPrincipalWhatsApp(nome: string): Promise<{ nome: string; principal: boolean }> {
+    return apiClient.patch(`/admin/whatsapp/conexoes/${encodeURIComponent(nome)}/principal`, {});
+  },
+  async configConexaoWhatsApp(nome: string, configs: WhatsAppConfigInstancia): Promise<{ atualizado: boolean }> {
+    return apiClient.patch(`/admin/whatsapp/conexoes/${encodeURIComponent(nome)}/config`, configs);
   },
 
   async listarTodasConversas(limite = 50): Promise<any[]> {
