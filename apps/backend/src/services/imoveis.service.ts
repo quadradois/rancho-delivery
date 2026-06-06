@@ -1,22 +1,16 @@
 import axios from 'axios';
 import { logger } from '../config/logger';
+import {
+  FONTE_AUTH_URL as BASE_AUTH,
+  FONTE_CADASTRO_URL as BASE_CADASTRO,
+  FONTE_CIDADES as CIDADES,
+} from '../config/fonteCadastro';
 
-const BASE_AUTH = 'https://plataforma.geo360.com.br';
-const BASE_CADASTRO = 'https://cadastro.geo360.com.br';
+// Versão do esquema de enriquecimento. Registros com versão < atual são reprocessados.
+//  0 = legado (pré-bairro)  |  2 = captura completa (bairro + complemento/logradouro/áreas/tipo/ids)
+export const VERSAO_ENRIQUECIMENTO_ATUAL = 2;
 
-const CIDADES: Record<string, { slug: string; email: string }> = {
-  goiania: {
-    slug: 'goiania',
-    // Goiânia usa SSO próprio — usa token da plataforma via Aparecida como fallback
-    email: 'leitor_aparecidadegoiania@vm2info.com',
-  },
-  aparecidadegoiania: {
-    slug: 'aparecidadegoiania',
-    email: 'leitor_aparecidadegoiania@vm2info.com',
-  },
-};
-
-// Token único da plataforma Geo360 (compartilhado entre cidades)
+// Token único da plataforma Imóveis (compartilhado entre cidades)
 let plataformaToken: { token: string; expiracao: number } | null = null;
 
 async function obterToken(cidade: string): Promise<string> {
@@ -38,7 +32,7 @@ async function obterToken(cidade: string): Promise<string> {
   return token;
 }
 
-export interface ImovelGeo360Raw {
+export interface ImovelRaw {
   inscricao_cartografica: string;
   id_lote: number;
   id_imobiliario: number;
@@ -46,7 +40,7 @@ export interface ImovelGeo360Raw {
   geom?: string;
 }
 
-export interface ImovelGeo360Detalhe {
+export interface ImovelDetalhe {
   inscricaoCartografica: string;
   numeroCadastro: number | null;
   cpfCnpj: string | null;
@@ -55,6 +49,17 @@ export interface ImovelGeo360Detalhe {
   endereco: string | null;
   bairro: string | null;
   cep: string | null;
+  // Campos ricos (antes descartados)
+  complemento: string | null;
+  logradouro: string | null;
+  areaConstruida: number | null;
+  areaTerreno: number | null;
+  tipoEdificacao: number | null;
+  nrLote: string | null;
+  idBairro: number | null;
+  idQuadra: number | null;
+  idSetor: number | null;
+  raw: unknown; // payload bruto do Detalhe (para reprocessamento futuro)
 }
 
 // Converte WKT POLYGON para centróide — APENAS para dados do search
@@ -82,11 +87,24 @@ function formatarCep(cep: number | string | null): string | null {
   return s === '00000000' ? null : s;
 }
 
+// A API às vezes manda número como string ("96") — converte defensivamente, descarta lixo
+function paraNumero(v: unknown): number | null {
+  if (v === null || v === undefined || v === '') return null;
+  const n = typeof v === 'number' ? v : parseFloat(String(v).replace(',', '.'));
+  return Number.isFinite(n) ? n : null;
+}
+
+function limparTexto(v: unknown): string | null {
+  if (v === null || v === undefined) return null;
+  const s = String(v).trim();
+  return s === '' ? null : s;
+}
+
 // Fase 1 — busca em massa por prefixo, retorna inscrição + id_lote + lat/lng (do WKT)
 export async function buscarPorPrefixo(
   cidade: string,
   prefixo: string,
-): Promise<Array<ImovelGeo360Raw & { lat: number | null; lng: number | null }>> {
+): Promise<Array<ImovelRaw & { lat: number | null; lng: number | null }>> {
   const token = await obterToken(cidade);
   const slug = CIDADES[cidade]?.slug ?? cidade;
 
@@ -96,7 +114,7 @@ export async function buscarPorPrefixo(
     timeout: 45000,
   });
 
-  const lista: ImovelGeo360Raw[] = Array.isArray(resp.data) ? resp.data : [];
+  const lista: ImovelRaw[] = Array.isArray(resp.data) ? resp.data : [];
 
   return lista.map((item) => {
     const coords = item.geom ? wktParaLatLng(item.geom) : null;
@@ -109,12 +127,14 @@ export async function buscarPorPrefixo(
   });
 }
 
-// Fase 2 — enriquece um registro com CPF, nome, endereço (sem geom — já foi extraído)
+// Fase 2 — enriquece um registro com CPF, nome, endereço e características (sem geom — já foi extraído)
+// Importante p/ idempotência: erros de REDE/timeout/5xx/429 PROPAGAM (o lote será revisitado);
+// só retorna null quando a resposta é válida mas sem ficha (200 vazio) ou 4xx definitivo.
 export async function buscarDetalhe(
   cidade: string,
   idLote: number,
   inscricao: string,
-): Promise<ImovelGeo360Detalhe | null> {
+): Promise<ImovelDetalhe | null> {
   const token = await obterToken(cidade);
   const slug = CIDADES[cidade]?.slug ?? cidade;
 
@@ -134,12 +154,28 @@ export async function buscarDetalhe(
       nomePessoa: d.nome___pessoa ?? null,
       tipoPessoa: typeof d.tipo___pessoa === 'number' ? d.tipo___pessoa : null,
       endereco: d.endereco_completo ?? null,
-      bairro: d.nome_bairro ?? d['nome___bairro'] ?? null,
-      cep: formatarCep(d.cep),
+      bairro: d['nome___bairro'] ?? null,
+      cep: formatarCep(d.cep_inicial), // a API expõe o CEP em cep_inicial (não em "cep")
+      complemento: limparTexto(d.complemento),
+      logradouro: limparTexto(d.nome___logradouro),
+      areaConstruida: paraNumero(d.area_construida_privativa___imobiliario),
+      areaTerreno: paraNumero(d.area_terreno_privativa),
+      tipoEdificacao: Number.isInteger(d.tipo_edificacao) ? d.tipo_edificacao : null,
+      nrLote: limparTexto(d.nr_lote),
+      idBairro: Number.isInteger(d.id_bairro) ? d.id_bairro : null,
+      idQuadra: Number.isInteger(d.id_quadra) ? d.id_quadra : null,
+      idSetor: Number.isInteger(d.id_setor) ? d.id_setor : null,
+      raw: d,
     };
   } catch (err: any) {
-    logger.warn(`Geo360 detalhe lote ${idLote} (${inscricao}): ${err.message}`);
-    return null;
+    const status = err?.response?.status;
+    // 4xx definitivo (exceto 429) = lote sem ficha → null (não revisitar para sempre)
+    if (status && status >= 400 && status < 500 && status !== 429) {
+      logger.warn(`Imóveis detalhe lote ${idLote} (${inscricao}): HTTP ${status} sem ficha`);
+      return null;
+    }
+    // rede/timeout/5xx/429 → propaga para o lote ser reprocessado depois
+    throw err;
   }
 }
 
@@ -169,18 +205,14 @@ const SETORES_VERIFICADOS: Record<string, string[]> = {
   ],
 };
 
-// Busca os setores cadastrais da cidade via API e retorna os códigos como prefixos
+// Busca os setores cadastrais da cidade via API e retorna os códigos como prefixos de SEED.
+// IMPORTANTE: o endpoint exige BARRA FINAL ('/setor/') — sem ela responde 301 e parece "vazio".
+// Esse era o motivo da lista manual no passado. Ordem: endpoint vivo → lista verificada → 00..99.
 export async function buscarPrefixosDaCidade(cidade: string): Promise<string[]> {
-  // Usa lista verificada quando disponível (API de setor é incompleta para Goiânia)
-  if (SETORES_VERIFICADOS[cidade]) {
-    logger.info(`Geo360 setores [${cidade}]: ${SETORES_VERIFICADOS[cidade].length} setores (lista verificada)`);
-    return SETORES_VERIFICADOS[cidade];
-  }
-
   try {
     const token = await obterToken(cidade);
     const slug = CIDADES[cidade]?.slug ?? cidade;
-    const resp = await axios.get(`${BASE_CADASTRO}/${slug}/setor`, {
+    const resp = await axios.get(`${BASE_CADASTRO}/${slug}/setor/`, {
       headers: { Authorization: `Bearer ${token}` },
       timeout: 15000,
     });
@@ -190,18 +222,64 @@ export async function buscarPrefixosDaCidade(cidade: string): Promise<string[]> 
       .map((s) => String(s.codigo ?? s.setor ?? '').trim())
       .filter((c) => c.length > 0);
     const unicos = [...new Set(codigos)].sort();
-    logger.info(`Geo360 setores [${cidade}]: ${unicos.length} setores encontrados`);
-    return unicos;
+    if (unicos.length > 0) {
+      logger.info(`Imóveis setores [${cidade}]: ${unicos.length} setores (endpoint /setor/ vivo)`);
+      return unicos;
+    }
   } catch (err: any) {
-    logger.warn(`Geo360 setores [${cidade}] erro: ${err.message} — usando fallback`);
-    return ['1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    logger.warn(`Imóveis setores [${cidade}] /setor/ erro: ${err.message} — caindo p/ fallback`);
   }
+
+  // Fallback 1: lista verificada manualmente (Goiânia)
+  if (SETORES_VERIFICADOS[cidade]) {
+    logger.info(`Imóveis setores [${cidade}]: ${SETORES_VERIFICADOS[cidade].length} setores (lista verificada/fallback)`);
+    return SETORES_VERIFICADOS[cidade];
+  }
+
+  // Fallback 2: raiz da árvore de prefixos (2 dígitos) — a varredura adaptativa desce a partir daqui
+  logger.warn(`Imóveis setores [${cidade}]: usando varredura 00..99 (sem lista de setores)`);
+  return Array.from({ length: 100 }, (_, i) => String(i).padStart(2, '0'));
+}
+
+export interface BairroRaw {
+  id: number;
+  codigo: string | null;
+  nome: string | null;
+  nomeFormatado: string | null;
+  codigoZona: number | null;
+  areaTerreno: number | null;
+  areaUrbanizavel: number | null;
+  geom: string | null;
+}
+
+// Dicionário de bairros (endpoint público /{cidade}/bairro/ — exige BARRA FINAL)
+export async function buscarBairros(cidade: string): Promise<BairroRaw[]> {
+  const token = await obterToken(cidade);
+  const slug = CIDADES[cidade]?.slug ?? cidade;
+  const resp = await axios.get(`${BASE_CADASTRO}/${slug}/bairro/`, {
+    headers: { Authorization: `Bearer ${token}` },
+    timeout: 30000,
+  });
+  const lista: any[] = Array.isArray(resp.data) ? resp.data : [];
+  return lista
+    .filter((b) => Number.isInteger(b.id))
+    .map((b) => ({
+      id: b.id,
+      codigo: limparTexto(b.codigo),
+      nome: limparTexto(b.nome),
+      nomeFormatado: limparTexto(b.nome_formatado),
+      codigoZona: Number.isInteger(b.codigo_zona) ? b.codigo_zona : null,
+      areaTerreno: paraNumero(b.area_terreno),
+      areaUrbanizavel: paraNumero(b.area_urbanizavel),
+      geom: limparTexto(b.geom),
+    }));
 }
 
 export default {
   obterToken,
   buscarPorPrefixo,
   buscarDetalhe,
+  buscarBairros,
   buscarPrefixosDaCidade,
   cidadesDisponiveis,
   wktParaLatLng,

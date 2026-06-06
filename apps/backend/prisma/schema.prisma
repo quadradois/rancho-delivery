@@ -560,7 +560,7 @@ model ImovelPrefeitura {
   @@index([cdbairro])
 }
 
-model ImovelGeo360 {
+model ImovelRancho {
   id                    String   @id @default(cuid())
   cidade                String   @db.VarChar(50)
   inscricaoCartografica String   @db.VarChar(20)  @map("inscricao_cartografica")
@@ -572,17 +572,52 @@ model ImovelGeo360 {
   endereco              String?  @db.Text
   bairro                String?  @db.VarChar(100)
   cep                   String?  @db.VarChar(8)
+  // Campos ricos capturados do Detalhe (busca_imoveis_all) — antes descartados
+  complemento           String?  @db.VarChar(120)
+  logradouro            String?  @db.VarChar(255)
+  areaConstruida        Float?   @map("area_construida")
+  areaTerreno           Float?   @map("area_terreno")
+  tipoEdificacao        Int?     @map("tipo_edificacao")
+  nrLote                String?  @db.VarChar(20)  @map("nr_lote")
+  idBairro              Int?     @map("id_bairro")
+  idQuadra              Int?     @map("id_quadra")
+  idSetor               Int?     @map("id_setor")
+  raw                   Json?    // payload bruto do Detalhe para reprocessamento futuro
   latitude              Float?
   longitude             Float?
+  // Controle de enriquecimento (idempotência/backfill) — 0 = legado, alvo atual = VERSAO_ENRIQUECIMENTO_ATUAL
+  versaoEnriquecimento  Int      @default(0) @map("versao_enriquecimento")
+  detalheEm             DateTime? @map("detalhe_em")
   sincronizadoEm        DateTime @default(now()) @map("sincronizado_em")
   atualizadoEm          DateTime @updatedAt       @map("atualizado_em")
 
   @@unique([cidade, inscricaoCartografica])
-  @@map("imoveis_geo360")
+  @@map("imoveis_rancho")
   @@index([cidade])
   @@index([cpfCnpj])
   @@index([bairro])
   @@index([cep])
+  @@index([cidade, versaoEnriquecimento])
+}
+
+/// Dicionário de bairros (endpoint público /{cidade}/bairro/) — referência + geometria
+model BairroRancho {
+  id              String   @id @default(cuid())
+  cidade          String   @db.VarChar(50)
+  idBairro        Int      @map("id_bairro")
+  codigo          String?  @db.VarChar(20)
+  nome            String?  @db.VarChar(150)
+  nomeFormatado   String?  @db.VarChar(200) @map("nome_formatado")
+  codigoZona      Int?     @map("codigo_zona")
+  areaTerreno     Float?   @map("area_terreno")
+  areaUrbanizavel Float?   @map("area_urbanizavel")
+  geom            String?  @db.Text
+  atualizadoEm    DateTime @updatedAt @map("atualizado_em")
+
+  @@unique([cidade, idBairro])
+  @@map("bairros_rancho")
+  @@index([cidade])
+  @@index([nome])
 }
 
 model AssertivaConsultaCache {

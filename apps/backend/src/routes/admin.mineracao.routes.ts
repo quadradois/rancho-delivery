@@ -6,10 +6,10 @@ const router: ExpressRouter = Router();
 
 router.post('/executar', autorizarAdmin('clientes:gerenciar'), adminMineracaoController.executar.bind(adminMineracaoController));
 router.get('/jobs/:runId', autorizarAdmin('clientes:gerenciar'), adminMineracaoController.obterStatusJob.bind(adminMineracaoController));
-// Geo360 — carga e consulta
-router.post('/geo360/sincronizar', autorizarAdmin('clientes:gerenciar'), adminMineracaoController.sincronizarGeo360.bind(adminMineracaoController));
-router.post('/geo360/enriquecer', autorizarAdmin('clientes:gerenciar'), adminMineracaoController.enriquecerGeo360.bind(adminMineracaoController));
-router.get('/geo360/status', autorizarAdmin('clientes:gerenciar'), adminMineracaoController.statusGeo360.bind(adminMineracaoController));
+// Imóveis — carga e consulta
+router.post('/imoveis/sincronizar', autorizarAdmin('clientes:gerenciar'), adminMineracaoController.sincronizarImoveis.bind(adminMineracaoController));
+router.post('/imoveis/enriquecer', autorizarAdmin('clientes:gerenciar'), adminMineracaoController.enriquecerImoveis.bind(adminMineracaoController));
+router.get('/imoveis/status', autorizarAdmin('clientes:gerenciar'), adminMineracaoController.statusImoveis.bind(adminMineracaoController));
 router.get('/locais', autorizarAdmin('clientes:gerenciar'), adminMineracaoController.buscarLocais.bind(adminMineracaoController));
 router.get('/iptus', autorizarAdmin('clientes:gerenciar'), adminMineracaoController.listarIptus.bind(adminMineracaoController));
 router.get('/execucoes', autorizarAdmin('clientes:gerenciar'), adminMineracaoController.listarExecucoes.bind(adminMineracaoController));

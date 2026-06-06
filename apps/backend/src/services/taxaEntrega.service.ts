@@ -31,8 +31,8 @@ async function geocodificarCep(cep: string): Promise<{ lat: number; lng: number 
   try {
     const cepLimpo = cep.replace(/\D/g, '').padStart(8, '0').slice(0, 8);
 
-    // 1. Busca por CEP na tabela Geo360 (centróide dos imóveis daquele CEP)
-    const porCep = await (prisma as any).imovelGeo360.findMany({
+    // 1. Busca por CEP na tabela Imóveis (centróide dos imóveis daquele CEP)
+    const porCep = await (prisma as any).imovelRancho.findMany({
       where: { cep: cepLimpo, latitude: { not: null } },
       select: { latitude: true, longitude: true },
       take: 20,
@@ -43,12 +43,12 @@ async function geocodificarCep(cep: string): Promise<{ lat: number; lng: number 
       return { lat, lng };
     }
 
-    // 2. Fallback: ViaCEP → bairro → centróide Geo360
+    // 2. Fallback: ViaCEP → bairro → centróide Imóveis
     const viacep = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
     if (viacep.ok) {
       const dados = await viacep.json() as Record<string, string>;
       if (!dados.erro && dados.bairro) {
-        const porBairro = await (prisma as any).imovelGeo360.findMany({
+        const porBairro = await (prisma as any).imovelRancho.findMany({
           where: {
             bairro: { contains: dados.bairro, mode: 'insensitive' },
             latitude: { not: null },

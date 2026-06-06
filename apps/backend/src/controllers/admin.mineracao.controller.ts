@@ -4,9 +4,9 @@ import { CampanhaStatus, LeadStatus } from '@prisma/client';
 import mineracaoService from '../services/mineracao.service';
 import { enfileirar, obterJob } from '../services/mineracao.queue';
 import { logger } from '../config/logger';
-import { executarCargaGeo360, executarEnriquecimentoIncremental } from '../jobs/cargaGeo360.job';
+import { executarCargaImoveis, executarEnriquecimentoIncremental } from '../jobs/cargaImoveis.job';
 import prisma from '../config/database';
-import geo360Service from '../services/geo360.service';
+import imoveisService, { VERSAO_ENRIQUECIMENTO_ATUAL } from '../services/imoveis.service';
 import campanhaIAService from '../services/campanhaIA.service';
 
 export class AdminMineracaoController {
@@ -58,35 +58,35 @@ export class AdminMineracaoController {
     }
   }
 
-  async enriquecerGeo360(req: Request, res: Response) {
+  async enriquecerImoveis(req: Request, res: Response) {
     try {
       const cidades: string[] = req.body?.cidades ?? ['aparecidadegoiania', 'goiania'];
       const runId = randomUUID();
 
       enfileirar(runId, async () => {
         for (const cidade of cidades) {
-          logger.info(`Geo360 enriquecimento incremental iniciado: ${cidade}`);
+          logger.info(`Imóveis enriquecimento incremental iniciado: ${cidade}`);
           const total = await executarEnriquecimentoIncremental(cidade);
-          logger.info(`Geo360 enriquecimento incremental concluído: ${cidade} — ${total} registros`);
+          logger.info(`Imóveis enriquecimento incremental concluído: ${cidade} — ${total} registros`);
         }
       });
 
       return res.status(202).json({ success: true, data: { runId, cidades } });
     } catch (error) {
-      logger.error('Erro ao iniciar enriquecimento Geo360:', error);
+      logger.error('Erro ao iniciar enriquecimento Imóveis:', error);
       return res.status(500).json({ success: false, error: { message: 'Erro ao iniciar enriquecimento' } });
     }
   }
 
-  async sincronizarGeo360(req: Request, res: Response) {
+  async sincronizarImoveis(req: Request, res: Response) {
     try {
       const cidades: string[] | undefined = req.body?.cidades;
       const runId = randomUUID();
 
       // Dispara em background e retorna imediatamente
       enfileirar(runId, () =>
-        executarCargaGeo360(cidades, (cidade, fase, processados, total) => {
-          logger.info(`Geo360 [${runId}] ${cidade} [${fase}]: ${processados}${total > 0 ? `/${total}` : ''}`);
+        executarCargaImoveis(cidades, (cidade, fase, processados, total) => {
+          logger.info(`Imóveis [${runId}] ${cidade} [${fase}]: ${processados}${total > 0 ? `/${total}` : ''}`);
         }),
       );
 
@@ -94,26 +94,35 @@ export class AdminMineracaoController {
         success: true,
         data: {
           runId,
-          mensagem: `Carga Geo360 iniciada para: ${cidades?.join(', ') ?? 'todas as cidades'}`,
-          cidades: cidades ?? geo360Service.cidadesDisponiveis(),
+          mensagem: `Carga Imóveis iniciada para: ${cidades?.join(', ') ?? 'todas as cidades'}`,
+          cidades: cidades ?? imoveisService.cidadesDisponiveis(),
         },
       });
     } catch (error) {
-      logger.error('Erro ao iniciar sincronização Geo360:', error);
-      return res.status(500).json({ success: false, error: { message: 'Erro ao iniciar sincronização Geo360' } });
+      logger.error('Erro ao iniciar sincronização Imóveis:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao iniciar sincronização Imóveis' } });
     }
   }
 
-  async statusGeo360(_req: Request, res: Response) {
+  async statusImoveis(_req: Request, res: Response) {
     try {
-      const cidades = geo360Service.cidadesDisponiveis();
+      const cidades = imoveisService.cidadesDisponiveis();
       const stats = await Promise.all(
         cidades.map(async (cidade) => {
-          const total = await (prisma as any).imovelGeo360.count({ where: { cidade } });
-          const comCpf = await (prisma as any).imovelGeo360.count({
+          const total = await (prisma as any).imovelRancho.count({ where: { cidade } });
+          const comCpf = await (prisma as any).imovelRancho.count({
             where: { cidade, cpfCnpj: { not: null } },
           });
-          const ultima = await (prisma as any).imovelGeo360.findFirst({
+          const comBairro = await (prisma as any).imovelRancho.count({
+            where: { cidade, bairro: { not: null } },
+          });
+          const naVersaoAtual = await (prisma as any).imovelRancho.count({
+            where: { cidade, versaoEnriquecimento: { gte: VERSAO_ENRIQUECIMENTO_ATUAL } },
+          });
+          const pendentesReprocesso = await (prisma as any).imovelRancho.count({
+            where: { cidade, versaoEnriquecimento: { lt: VERSAO_ENRIQUECIMENTO_ATUAL }, idLote: { not: null } },
+          });
+          const ultima = await (prisma as any).imovelRancho.findFirst({
             where: { cidade },
             orderBy: { sincronizadoEm: 'desc' },
             select: { sincronizadoEm: true },
@@ -123,14 +132,18 @@ export class AdminMineracaoController {
             total,
             comCpf,
             semCpf: total - comCpf,
+            comBairro,
+            semBairro: total - comBairro,
+            naVersaoAtual,
+            pendentesReprocesso,
             ultimaSincronizacao: ultima?.sincronizadoEm ?? null,
           };
         }),
       );
       return res.json({ success: true, data: stats });
     } catch (error) {
-      logger.error('Erro ao obter status Geo360:', error);
-      return res.status(500).json({ success: false, error: { message: 'Erro ao obter status Geo360' } });
+      logger.error('Erro ao obter status Imóveis:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao obter status Imóveis' } });
     }
   }
 

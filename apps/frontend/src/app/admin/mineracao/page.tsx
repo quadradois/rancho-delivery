@@ -403,7 +403,7 @@ export default function MineracaoPage() {
                     const pct = (n: number, base: number) => base > 0 ? Math.round((n / base) * 100) : 0;
                     return (
                       <>
-                        <p>📋 <b>{totalImoveis}</b> imóveis localizados no Geo360</p>
+                        <p>📋 <b>{totalImoveis}</b> imóveis localizados no Imóveis</p>
                         {semCpf > 0 && (
                           <p className="pl-4 text-xs text-[var(--color-warning-text)]">
                             ⚠️ {semCpf} sem CPF cadastrado ({pct(semCpf, totalImoveis)}%) — não puderam ser enriquecidos
