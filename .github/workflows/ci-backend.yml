@@ -20,7 +20,7 @@ jobs:
   test:
     name: Testes e Build do Backend
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: postgres:15
@@ -35,19 +35,19 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-    
+
     steps:
       - name: Checkout do código
         uses: actions/checkout@v4
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
-      
+
       - name: Obter cache do pnpm
         uses: actions/cache@v4
         with:
@@ -55,10 +55,10 @@ jobs:
           key: ${{ runner.os }}-pnpm-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-
-      
+
       - name: Instalar dependências
         run: pnpm install --frozen-lockfile
-      
+
       - name: Gerar Prisma Client
         run: pnpm --filter @rancho-delivery/backend db:generate
         env:
@@ -66,30 +66,30 @@ jobs:
 
       - name: Verificar tipos TypeScript
         run: pnpm --filter @rancho-delivery/backend typecheck
-      
+
       - name: Executar linter
         run: pnpm --filter @rancho-delivery/backend lint
-      
+
       - name: Executar migrações
         run: pnpm --filter @rancho-delivery/backend db:migrate:deploy
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rancho_delivery_test
-      
+
       - name: Executar testes
         run: pnpm --filter @rancho-delivery/backend test
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rancho_delivery_test
           NODE_ENV: test
-      
+
       - name: Verificar cobertura de testes
         run: pnpm --filter @rancho-delivery/backend test:coverage
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/rancho_delivery_test
           NODE_ENV: test
-      
+
       - name: Build do backend
         run: pnpm --filter @rancho-delivery/backend build
-      
+
       - name: Upload de artefatos
         uses: actions/upload-artifact@v4
         with:
@@ -100,41 +100,43 @@ jobs:
   deploy-staging:
     name: Deploy para Staging
     needs: test
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     runs-on: ubuntu-latest
-    
-    steps:
-      - name: Ignorar deploy fora de develop
-        if: github.ref != 'refs/heads/develop' || github.event_name != 'push'
-        run: echo "Deploy de staging executa apenas em push para develop"
 
-      - name: Checkout do código
-        if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
-        uses: actions/checkout@v4
-      
-      - name: Deploy para Staging
-        if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
-        run: |
-          echo "🚀 Deploy para ambiente de staging"
-          echo "Implementar script de deploy aqui"
-        # TODO: Implementar deploy real quando ambiente estiver configurado
-        
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true
+          script: |
+            cd ${{ secrets.STAGING_PATH }}
+            git pull origin develop
+            pnpm install --frozen-lockfile
+            pnpm --filter @rancho-delivery/backend db:migrate:deploy
+            pnpm --filter @rancho-delivery/backend build
+            pm2 restart rancho-backend-staging || pm2 start apps/backend/dist/index.js --name rancho-backend-staging
+
   deploy-production:
     name: Deploy para Produção
     needs: test
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     runs-on: ubuntu-latest
-    
-    steps:
-      - name: Ignorar deploy fora de main
-        if: github.ref != 'refs/heads/main' || github.event_name != 'push'
-        run: echo "Deploy de produção executa apenas em push para main"
 
-      - name: Checkout do código
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: actions/checkout@v4
-      
-      - name: Deploy para Produção
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: |
-          echo "🚀 Deploy para ambiente de produção"
-          echo "Implementar script de deploy aqui"
-        # TODO: Implementar deploy real quando ambiente estiver configurado
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true
+          script: |
+            cd ${{ secrets.PROD_PATH }}
+            git pull origin master
+            pnpm install --frozen-lockfile
+            pnpm --filter @rancho-delivery/backend db:migrate:deploy
+            pnpm --filter @rancho-delivery/backend build
+            pm2 restart rancho-backend
