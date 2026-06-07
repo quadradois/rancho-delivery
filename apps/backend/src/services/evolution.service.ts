@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import axios, { AxiosInstance, AxiosRequestConfig } from 'axios';
 import { logger } from '../config/logger';
 import prisma from '../config/database';
@@ -92,7 +93,8 @@ export class EvolutionService {
   /** Cria uma instância no Evolution Go (gestão → chave global). */
   async criarInstancia(nome: string): Promise<boolean> {
     try {
-      await this.api.post('/instance/create', { name: nome }, this.cfgGlobal());
+      const token = crypto.randomBytes(32).toString('hex');
+      await this.api.post('/instance/create', { name: nome, token }, this.cfgGlobal());
       this.cache.delete(nome);
       logger.info('Instância WhatsApp criada', { nome });
       return true;
@@ -224,8 +226,11 @@ export class EvolutionService {
     try {
       await this.resolverInstancia(n, true);
     } catch {
-      await this.criarInstancia(n);
-      await this.resolverInstancia(n, true).catch(() => null);
+      const criada = await this.criarInstancia(n);
+      if (!criada) {
+        throw new Error(`Falha ao criar instância '${n}' no servidor Evolution`);
+      }
+      await this.resolverInstancia(n, true);
     }
 
     const status = await this.obterStatusInstancia(n);
@@ -234,6 +239,9 @@ export class EvolutionService {
     }
     await this.configurarConexao(n).catch(() => null);
     const qr = await this.obterQrCode(n);
+    if (!qr) {
+      throw new Error(`QR Code não retornado pela Evolution para a instância '${n}'`);
+    }
     return { instanceName: status.instanceName, state: status.state, conectado: false, qrCodeBase64: qr };
   }
 

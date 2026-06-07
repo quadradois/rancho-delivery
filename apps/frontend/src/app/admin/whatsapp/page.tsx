@@ -33,12 +33,25 @@ export default function WhatsAppPage() {
   const [settingsAberto, setSettingsAberto] = useState<string | null>(null);
   const [settings, setSettings] = useState<WhatsAppConfigInstancia | null>(null);
 
-  const carregar = useCallback(async () => {
+  const carregar = useCallback(async (opcoes: { silencioso?: boolean } = {}) => {
     try {
       const data = await api.adminClientes.listarConexoesWhatsApp();
       setConexoes(data);
+      setQrs((atuais) => {
+        let mudou = false;
+        const proximos = { ...atuais };
+        data.forEach((conexao) => {
+          if (conexao.conectado && proximos[conexao.nome]) {
+            proximos[conexao.nome] = null;
+            mudou = true;
+          }
+        });
+        return mudou ? proximos : atuais;
+      });
     } catch (err) {
-      showError('Erro ao carregar conexões', err instanceof Error ? err.message : '');
+      if (!opcoes.silencioso) {
+        showError('Erro ao carregar conexões', err instanceof Error ? err.message : '');
+      }
     } finally {
       setCarregando(false);
     }
@@ -49,6 +62,14 @@ export default function WhatsAppPage() {
     const interval = setInterval(() => void carregar(), 10000);
     return () => clearInterval(interval);
   }, [carregar]);
+
+  const aguardandoConexao = conexoes.some((conexao) => !conexao.conectado && Boolean(qrs[conexao.nome]));
+
+  useEffect(() => {
+    if (!aguardandoConexao) return undefined;
+    const interval = setInterval(() => void carregar({ silencioso: true }), 2500);
+    return () => clearInterval(interval);
+  }, [aguardandoConexao, carregar]);
 
   const criar = async () => {
     const nome = novoNome.trim();
