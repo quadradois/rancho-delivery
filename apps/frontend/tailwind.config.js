@@ -9,11 +9,10 @@ module.exports = {
     extend: {
       fontFamily: {
         brand:   ['Rustic Printed', 'serif'],
-        display: ['Rustic Printed', 'serif'],
+        display: ['Alfa Slab One', 'serif'],
         body:    ['Nunito', 'sans-serif'],
         produto: ['Alfa Slab One', 'serif'],
         sora: ['Sora', 'sans-serif'],
-        'dm-sans': ['DM Sans', 'sans-serif'],
         'mono-crm': ['JetBrains Mono', 'monospace'],
       },
     },

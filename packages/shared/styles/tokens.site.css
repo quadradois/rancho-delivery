@@ -31,18 +31,19 @@
   --color-surface-alt: var(--madeira-fundo);
   --color-surface-raised: var(--madeira-clara);
   --color-border: var(--madeira-clara);
-  --color-border-strong: var(--couro-escuro);
+  --color-border-strong: #7a6253;            /* contorno de inputs/controles: 3.35:1 sobre fundo (UI AA). couro-escuro falhava (1.77:1) */
   --color-text-primary: var(--bege-claro);
   --color-text-secondary: var(--cinza-couro);
-  --color-text-disabled: var(--couro-escuro);
-  --color-text-on-primary: #ffffff;
+  --color-text-disabled: #6b5249;            /* 2.65:1 — apagado mas perceptível; couro-escuro era quase invisível (1.77:1) */
+  --color-text-on-primary: #1a0d06;          /* texto escuro sobre brasa: 4.97:1 (AA). Branco falhava (3.83:1) */
   --color-text-on-accent: var(--madeira-fundo);
-  --color-success: var(--verde-campo);
+  --color-success: var(--verde-campo);       /* verde-campo: usar em PREENCHIMENTO/badge (texto claro/branco em cima) */
+  --color-success-fg: #6aa05c;               /* verde para TEXTO de status sobre fundo escuro: 6.15:1 (AA). verde-campo como texto falhava (3.67:1) */
   --color-warning: var(--mel-campo);
   --color-error: var(--brasa-viva);
 
-  --font-display: 'Rustic Printed', serif;
-  --font-brand: 'Rustic Printed', serif;
+  --font-display: 'Alfa Slab One', serif;    /* títulos/preços legíveis */
+  --font-brand: 'Rustic Printed', serif;     /* stamp: SÓ logo/marca */
   --font-body: 'Nunito', sans-serif;
   --font-corpo: 'Nunito', sans-serif;
   --font-script: 'Nunito', sans-serif;
