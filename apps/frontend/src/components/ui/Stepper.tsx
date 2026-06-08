@@ -25,24 +25,24 @@ const Stepper: React.FC<StepperProps> = ({
   };
 
   return (
-    <div className={cn('flex items-center gap-0 bg-[#1A0D06] rounded-full p-1 w-fit', className)}>
+    <div className={cn('flex items-center gap-0 bg-[var(--madeira-fundo)] rounded-full p-1 w-fit', className)}>
       <button
         onClick={handleDecrement}
         disabled={value <= min}
         className={cn(
-          'w-8 h-8 bg-[#3E2214] rounded-full',
+          'w-8 h-8 bg-[var(--madeira-clara)] rounded-full',
           'flex items-center justify-center',
-          'text-lg font-bold text-[#D4601C] leading-none',
+          'text-lg font-bold text-[var(--brasa-viva)] leading-none',
           'transition-all duration-[120ms]',
-          'hover:bg-[#D4601C] hover:text-white',
+          'hover:bg-[var(--brasa-viva)] hover:text-white',
           'active:scale-95',
-          'disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#3E2214] disabled:hover:text-[#D4601C]'
+          'disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[var(--madeira-clara)] disabled:hover:text-[var(--brasa-viva)]'
         )}
       >
         −
       </button>
 
-      <span className="font-body text-md font-black text-[#F4E8CC] min-w-8 text-center">
+      <span className="font-body text-md font-black text-[var(--bege-claro)] min-w-8 text-center">
         {value}
       </span>
 
@@ -50,13 +50,13 @@ const Stepper: React.FC<StepperProps> = ({
         onClick={handleIncrement}
         disabled={value >= max}
         className={cn(
-          'w-8 h-8 bg-[#3E2214] rounded-full',
+          'w-8 h-8 bg-[var(--madeira-clara)] rounded-full',
           'flex items-center justify-center',
-          'text-lg font-bold text-[#D4601C] leading-none',
+          'text-lg font-bold text-[var(--brasa-viva)] leading-none',
           'transition-all duration-[120ms]',
-          'hover:bg-[#D4601C] hover:text-white',
+          'hover:bg-[var(--brasa-viva)] hover:text-white',
           'active:scale-95',
-          'disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[#3E2214] disabled:hover:text-[#D4601C]'
+          'disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-[var(--madeira-clara)] disabled:hover:text-[var(--brasa-viva)]'
         )}
       >
         +
