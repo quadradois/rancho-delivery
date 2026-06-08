@@ -608,32 +608,32 @@ export default function CheckoutPage() {
   // ── TELA DE RETORNO DO GATEWAY ──────────────────────────────────────────────
   if (currentStep === 'return' && recoveryData) {
     return (
-      <div className="min-h-screen flex flex-col" style={{ background: '#1A0D06' }}>
+      <div className="min-h-screen flex flex-col" style={{ background: 'var(--madeira-fundo)' }}>
         <AppBar title="Retorno do Pagamento" />
         <main className="flex-1 flex items-center justify-center p-6">
           <div className="w-full max-w-md space-y-6">
             {/* Ícone de aviso */}
             <div className="text-center">
               <div className="w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4"
-                style={{ background: '#3E2214' }}>
-                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#E8A040" strokeWidth="2">
+                style={{ background: 'var(--madeira-clara)' }}>
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--mel-campo)" strokeWidth="2">
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="8" x2="12" y2="12" />
                   <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
               </div>
-              <h2 className="font-display text-2xl text-[#F4E8CC] mb-2">Você voltou do pagamento</h2>
-              <p className="text-[#9A7B5C] text-sm">
+              <h2 className="font-display text-2xl text-[var(--bege-claro)] mb-2">Você voltou do pagamento</h2>
+              <p className="text-[var(--cinza-couro)] text-sm">
                 Seu pedido foi criado. O que deseja fazer?
               </p>
             </div>
 
             {/* Resumo do pedido */}
-            <div className="rounded-xl p-4 space-y-1" style={{ background: '#251208', border: '1px solid #3E2214' }}>
-              <p className="text-xs font-bold uppercase tracking-wider text-[#9A7B5C] mb-2">Pedido criado</p>
-              <p className="text-sm text-[#F4E8CC] font-semibold">#{recoveryData.pedidoId.slice(-8).toUpperCase()}</p>
-              <p className="text-sm text-[#9A7B5C]">{recoveryData.addressForm.nome}</p>
-              <p className="text-sm text-[#9A7B5C]">
+            <div className="rounded-xl p-4 space-y-1" style={{ background: 'var(--madeira-media)', border: '1px solid var(--madeira-clara)' }}>
+              <p className="text-xs font-bold uppercase tracking-wider text-[var(--cinza-couro)] mb-2">Pedido criado</p>
+              <p className="text-sm text-[var(--bege-claro)] font-semibold">#{recoveryData.pedidoId.slice(-8).toUpperCase()}</p>
+              <p className="text-sm text-[var(--cinza-couro)]">{recoveryData.addressForm.nome}</p>
+              <p className="text-sm text-[var(--cinza-couro)]">
                 {recoveryData.addressForm.rua}, {recoveryData.addressForm.numero} — {recoveryData.addressForm.bairro}
               </p>
             </div>
@@ -671,7 +671,7 @@ export default function CheckoutPage() {
                   limparRecovery();
                   router.push('/');
                 }}
-                className="w-full text-sm text-[#9A7B5C] hover:text-[#F4E8CC] transition-colors py-2"
+                className="w-full text-sm text-[var(--cinza-couro)] hover:text-[var(--bege-claro)] transition-colors py-2"
               >
                 Cancelar e voltar ao cardápio
               </button>
@@ -684,15 +684,15 @@ export default function CheckoutPage() {
 
   if (currentStep === 'return' && pixData) {
     return (
-      <div className="min-h-screen flex flex-col" style={{ background: '#1A0D06' }}>
+      <div className="min-h-screen flex flex-col" style={{ background: 'var(--madeira-fundo)' }}>
         <AppBar title="Pague com Pix" />
         <main className="flex-1 flex items-center justify-center p-6">
           <div className="w-full max-w-md space-y-4">
-            <div className="rounded-xl p-4" style={{ background: '#251208', border: '1px solid #3E2214' }}>
-              <p className="text-xs font-bold uppercase tracking-wider text-[#9A7B5C]">Pedido</p>
-              <p className="text-sm text-[#F4E8CC] font-semibold">#{pixData.pedidoId.slice(-8).toUpperCase()}</p>
+            <div className="rounded-xl p-4" style={{ background: 'var(--madeira-media)', border: '1px solid var(--madeira-clara)' }}>
+              <p className="text-xs font-bold uppercase tracking-wider text-[var(--cinza-couro)]">Pedido</p>
+              <p className="text-sm text-[var(--bege-claro)] font-semibold">#{pixData.pedidoId.slice(-8).toUpperCase()}</p>
               {pixData.expiraEm ? (
-                <p className="text-xs text-[#9A7B5C] mt-1">Expira em: {new Date(pixData.expiraEm).toLocaleString('pt-BR')}</p>
+                <p className="text-xs text-[var(--cinza-couro)] mt-1">Expira em: {new Date(pixData.expiraEm).toLocaleString('pt-BR')}</p>
               ) : null}
             </div>
 
@@ -702,15 +702,15 @@ export default function CheckoutPage() {
               </div>
             ) : null}
 
-            <div className="rounded-xl p-4 space-y-3" style={{ background: '#251208', border: '1px solid #3E2214' }}>
+            <div className="rounded-xl p-4 space-y-3" style={{ background: 'var(--madeira-media)', border: '1px solid var(--madeira-clara)' }}>
               {checkingPixStatus ? (
-                <p className="text-xs text-[#E8A040]">Verificando pagamento...</p>
+                <p className="text-xs text-[var(--mel-campo)]">Verificando pagamento...</p>
               ) : null}
-              <p className="text-xs text-[#9A7B5C]">Pix copia e cola</p>
+              <p className="text-xs text-[var(--cinza-couro)]">Pix copia e cola</p>
               <textarea
                 readOnly
                 value={pixData.qrCode}
-                className="w-full min-h-[96px] rounded-md bg-[#1A0D06] border border-[#3E2214] text-[#E8D4B0] text-xs p-2"
+                className="w-full min-h-[96px] rounded-md bg-[var(--madeira-fundo)] border border-[var(--madeira-clara)] text-[var(--bege-fumaca)] text-xs p-2"
               />
               <Button
                 className="w-full"
@@ -740,7 +740,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#1A0D06' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--madeira-fundo)' }}>
       <AppBar
         title="Finalizar Pedido"
         onBack={() => currentStep === 'address' ? router.back() : handlePreviousStep()}
@@ -752,14 +752,14 @@ export default function CheckoutPage() {
             <div className={`rounded-2xl p-4 mb-6 border ${
               lojaAberta
                 ? 'border-[#4A7840]/45 bg-[#1E2A1E]'
-                : 'border-[#E8A040]/35 bg-[#251208]'
+                : 'border-[#E8A040]/35 bg-[var(--madeira-media)]'
             }`}>
               <p className={`font-brand font-black uppercase tracking-wider ${
-                lojaAberta ? 'text-[#93C48B]' : 'text-[#E8A040]'
+                lojaAberta ? 'text-[#93C48B]' : 'text-[var(--mel-campo)]'
               }`}>
                 {lojaAberta ? 'Loja aberta' : lojaStatus.status === 'PAUSADO' ? 'Loja pausada' : 'Loja fechada'}
               </p>
-              <p className={`text-sm mt-1 ${lojaAberta ? 'text-[#CFE7C9]' : 'text-[#E8D4B0]'}`}>
+              <p className={`text-sm mt-1 ${lojaAberta ? 'text-[#CFE7C9]' : 'text-[var(--bege-fumaca)]'}`}>
                 {lojaAberta ? 'Checkout disponível para novos pedidos.' : lojaMensagem}
               </p>
             </div>
@@ -775,9 +775,9 @@ export default function CheckoutPage() {
                 <div key={step} className="flex items-center flex-1">
                   <div className="flex flex-col items-center">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-all ${
-                      isActive ? 'bg-[#D4601C] text-white' :
-                      isDone ? 'bg-[#4A7840] text-white' :
-                      'bg-[#3E2214] text-[#9A7B5C]'
+                      isActive ? 'bg-[var(--brasa-viva)] text-white' :
+                      isDone ? 'bg-[var(--verde-campo)] text-white' :
+                      'bg-[var(--madeira-clara)] text-[var(--cinza-couro)]'
                     }`}>
                       {isDone ? (
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
@@ -785,10 +785,10 @@ export default function CheckoutPage() {
                         </svg>
                       ) : i + 1}
                     </div>
-                    <span className="text-xs mt-2 font-semibold text-[#9A7B5C]">{labels[i]}</span>
+                    <span className="text-xs mt-2 font-semibold text-[var(--cinza-couro)]">{labels[i]}</span>
                   </div>
                   {i < 2 && (
-                    <div className={`flex-1 h-0.5 mx-2 mb-5 transition-all ${isDone || (isActive && i < 1) ? 'bg-[#D4601C]' : 'bg-[#3E2214]'}`} />
+                    <div className={`flex-1 h-0.5 mx-2 mb-5 transition-all ${isDone || (isActive && i < 1) ? 'bg-[var(--brasa-viva)]' : 'bg-[var(--madeira-clara)]'}`} />
                   )}
                 </div>
               );
@@ -798,34 +798,34 @@ export default function CheckoutPage() {
           {/* ── STEP 1: ENDEREÇO ── */}
           {currentStep === 'address' && (
             <div className="space-y-4">
-              <h2 className="font-brand text-xl font-black uppercase text-[#F4E8CC]">Seus dados</h2>
+              <h2 className="font-brand text-xl font-black uppercase text-[var(--bege-claro)]">Seus dados</h2>
 
               {/* Endereços salvos — exibe apenas para clientes com histórico */}
               {enderecosSalvos.length > 0 && tipoAtendimento === 'ENTREGA' && (
                 <div className="space-y-2">
-                  <p className="text-sm font-semibold text-[#E8D4B0]">Endereços salvos</p>
+                  <p className="text-sm font-semibold text-[var(--bege-fumaca)]">Endereços salvos</p>
                   <div className="flex flex-col gap-2">
                     {enderecosSalvos.map((end) => (
                       <button
                         key={end.id}
                         type="button"
                         onClick={() => void aplicarEnderecoSalvo(end)}
-                        className="flex items-center gap-3 rounded-lg border border-[#3E2214] bg-[#1A0D06] p-3 text-left hover:border-[#D4601C] transition-colors"
+                        className="flex items-center gap-3 rounded-lg border border-[var(--madeira-clara)] bg-[var(--madeira-fundo)] p-3 text-left hover:border-[var(--brasa-viva)] transition-colors"
                       >
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#D4601C]/15 text-[#D4601C] text-xs font-bold">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#D4601C]/15 text-[var(--brasa-viva)] text-xs font-bold">
                           {nomeExibicaoEndereco(end)[0]}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-semibold text-[#F4E8CC]">{nomeExibicaoEndereco(end)}</p>
-                          <p className="truncate text-xs text-[#9A7B5C]">{end.rua}{end.numero ? `, ${end.numero}` : ''} · {end.bairro}</p>
+                          <p className="text-sm font-semibold text-[var(--bege-claro)]">{nomeExibicaoEndereco(end)}</p>
+                          <p className="truncate text-xs text-[var(--cinza-couro)]">{end.rua}{end.numero ? `, ${end.numero}` : ''} · {end.bairro}</p>
                         </div>
                       </button>
                     ))}
                   </div>
                   <div className="flex items-center gap-2 pt-1">
-                    <div className="h-px flex-1 bg-[#3E2214]" />
-                    <span className="text-xs text-[#5C3418]">ou informe um novo endereço</span>
-                    <div className="h-px flex-1 bg-[#3E2214]" />
+                    <div className="h-px flex-1 bg-[var(--madeira-clara)]" />
+                    <span className="text-xs text-[var(--couro-escuro)]">ou informe um novo endereço</span>
+                    <div className="h-px flex-1 bg-[var(--madeira-clara)]" />
                   </div>
                 </div>
               )}
@@ -842,8 +842,8 @@ export default function CheckoutPage() {
                     onClick={() => setTipoAtendimento(opt.value)}
                     className={`flex-1 py-2 rounded-lg border text-sm font-semibold transition-all ${
                       tipoAtendimento === opt.value
-                        ? 'border-[#D4601C] bg-[#D4601C]/10 text-[#D4601C]'
-                        : 'border-[#3E2214] bg-[#251208] text-[#9A7B5C] hover:border-[#5C3418]'
+                        ? 'border-[var(--brasa-viva)] bg-[#D4601C]/10 text-[var(--brasa-viva)]'
+                        : 'border-[var(--madeira-clara)] bg-[var(--madeira-media)] text-[var(--cinza-couro)] hover:border-[var(--couro-escuro)]'
                     }`}
                   >
                     {opt.label}
@@ -864,8 +864,8 @@ export default function CheckoutPage() {
                   placeholder="seu@email.com" type="email" />
               </div>
 
-              {tipoAtendimento === 'ENTREGA' && <div className="border-t border-[#3E2214] pt-4">
-                <h2 className="font-brand text-xl font-black uppercase text-[#F4E8CC] mb-4">Endereço de entrega</h2>
+              {tipoAtendimento === 'ENTREGA' && <div className="border-t border-[var(--madeira-clara)] pt-4">
+                <h2 className="font-brand text-xl font-black uppercase text-[var(--bege-claro)] mb-4">Endereço de entrega</h2>
 
                 {/* CEP */}
                 <div className="flex gap-2 items-end mb-4">
@@ -888,18 +888,18 @@ export default function CheckoutPage() {
                   </div>
                   {loadingCep && (
                     <div className="mb-1 w-10 h-11 flex items-center justify-center">
-                      <div className="w-5 h-5 border-2 border-[#D4601C] border-t-transparent rounded-full animate-spin" />
+                      <div className="w-5 h-5 border-2 border-[var(--brasa-viva)] border-t-transparent rounded-full animate-spin" />
                     </div>
                   )}
                   {cepAtendido && !loadingCep && (
                     <div className="mb-1 flex flex-col items-center justify-center gap-0.5">
                       <div className="w-8 h-8 rounded-full bg-[#4A7840]/20 flex items-center justify-center">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4A7840" strokeWidth="2.5">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--verde-campo)" strokeWidth="2.5">
                           <polyline points="20 6 9 17 4 12" />
                         </svg>
                       </div>
                       {distanciaKm !== null && (
-                        <span className="text-[10px] text-[#9A7B5C] whitespace-nowrap">{distanciaKm}km</span>
+                        <span className="text-[10px] text-[var(--cinza-couro)] whitespace-nowrap">{distanciaKm}km</span>
                       )}
                     </div>
                   )}
@@ -908,19 +908,19 @@ export default function CheckoutPage() {
                 {/* Rua e Bairro — travados quando CEP validado */}
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div className="flex flex-col gap-1">
-                    <label className="text-sm font-semibold text-[#E8D4B0]">Rua</label>
+                    <label className="text-sm font-semibold text-[var(--bege-fumaca)]">Rua</label>
                     <div className={`h-11 px-4 flex items-center rounded-lg text-sm ${
-                      cepAtendido ? 'text-[#9A7B5C] bg-[#1A0D06] border border-[#3E2214]' : 'text-[#5C3418] bg-[#1A0D06] border border-[#3E2214]'
+                      cepAtendido ? 'text-[var(--cinza-couro)] bg-[var(--madeira-fundo)] border border-[var(--madeira-clara)]' : 'text-[var(--couro-escuro)] bg-[var(--madeira-fundo)] border border-[var(--madeira-clara)]'
                     }`}>
-                      {addressForm.rua || <span className="text-[#5C3418]">Preenchido pelo CEP</span>}
+                      {addressForm.rua || <span className="text-[var(--couro-escuro)]">Preenchido pelo CEP</span>}
                     </div>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <label className="text-sm font-semibold text-[#E8D4B0]">Bairro</label>
+                    <label className="text-sm font-semibold text-[var(--bege-fumaca)]">Bairro</label>
                     <div className={`h-11 px-4 flex items-center rounded-lg text-sm ${
-                      cepAtendido ? 'text-[#9A7B5C] bg-[#1A0D06] border border-[#3E2214]' : 'text-[#5C3418] bg-[#1A0D06] border border-[#3E2214]'
+                      cepAtendido ? 'text-[var(--cinza-couro)] bg-[var(--madeira-fundo)] border border-[var(--madeira-clara)]' : 'text-[var(--couro-escuro)] bg-[var(--madeira-fundo)] border border-[var(--madeira-clara)]'
                     }`}>
-                      {addressForm.bairro || <span className="text-[#5C3418]">Preenchido pelo CEP</span>}
+                      {addressForm.bairro || <span className="text-[var(--couro-escuro)]">Preenchido pelo CEP</span>}
                     </div>
                   </div>
                 </div>
@@ -949,7 +949,7 @@ export default function CheckoutPage() {
 
                 {/* Label do endereço */}
                 <div className="mt-4">
-                  <p className="mb-2 text-sm font-semibold text-[#E8D4B0]">Salvar endereço como</p>
+                  <p className="mb-2 text-sm font-semibold text-[var(--bege-fumaca)]">Salvar endereço como</p>
                   <div className="flex gap-2">
                     {(['Casa', 'Trabalho', 'Outro'] as LabelEndereco[]).map((l) => (
                       <button
@@ -958,8 +958,8 @@ export default function CheckoutPage() {
                         onClick={() => setLabelEndereco(l)}
                         className={`flex-1 py-2 rounded-lg border text-sm font-semibold transition-all ${
                           labelEndereco === l
-                            ? 'border-[#D4601C] bg-[#D4601C]/10 text-[#D4601C]'
-                            : 'border-[#3E2214] bg-[#251208] text-[#9A7B5C] hover:border-[#5C3418]'
+                            ? 'border-[var(--brasa-viva)] bg-[#D4601C]/10 text-[var(--brasa-viva)]'
+                            : 'border-[var(--madeira-clara)] bg-[var(--madeira-media)] text-[var(--cinza-couro)] hover:border-[var(--couro-escuro)]'
                         }`}
                       >
                         {l}
@@ -982,7 +982,7 @@ export default function CheckoutPage() {
           {/* ── STEP 2: PAGAMENTO ── */}
           {currentStep === 'payment' && (
             <div className="space-y-4">
-              <h2 className="font-brand text-xl font-black uppercase text-[#F4E8CC]">Forma de pagamento</h2>
+              <h2 className="font-brand text-xl font-black uppercase text-[var(--bege-claro)]">Forma de pagamento</h2>
 
               {[
                 { value: 'pix', label: 'Pix', icon: '⚡', desc: 'Pagamento instantâneo' },
@@ -994,17 +994,17 @@ export default function CheckoutPage() {
                   onClick={() => setPaymentForm(p => ({ ...p, formaPagamento: opt.value as any }))}
                   className={`w-full flex items-center gap-4 p-4 rounded-xl border-[1.5px] transition-all text-left ${
                     paymentForm.formaPagamento === opt.value
-                      ? 'border-[#D4601C] bg-[#D4601C]/10'
-                      : 'border-[#3E2214] bg-[#251208] hover:border-[#5C3418]'
+                      ? 'border-[var(--brasa-viva)] bg-[#D4601C]/10'
+                      : 'border-[var(--madeira-clara)] bg-[var(--madeira-media)] hover:border-[var(--couro-escuro)]'
                   }`}
                 >
                   <span className="text-2xl">{opt.icon}</span>
                   <div className="flex-1">
-                    <p className="font-semibold text-[#F4E8CC] text-sm">{opt.label}</p>
-                    <p className="text-xs text-[#9A7B5C]">{opt.desc}</p>
+                    <p className="font-semibold text-[var(--bege-claro)] text-sm">{opt.label}</p>
+                    <p className="text-xs text-[var(--cinza-couro)]">{opt.desc}</p>
                   </div>
                   {paymentForm.formaPagamento === opt.value && (
-                    <div className="w-5 h-5 rounded-full bg-[#D4601C] flex items-center justify-center flex-shrink-0">
+                    <div className="w-5 h-5 rounded-full bg-[var(--brasa-viva)] flex items-center justify-center flex-shrink-0">
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
@@ -1019,60 +1019,60 @@ export default function CheckoutPage() {
           {/* ── STEP 3: REVISÃO ── */}
           {currentStep === 'review' && (
             <div className="space-y-4">
-              <h2 className="font-brand text-xl font-black uppercase text-[#F4E8CC]">Revisar pedido</h2>
+              <h2 className="font-brand text-xl font-black uppercase text-[var(--bege-claro)]">Revisar pedido</h2>
 
               {/* Endereço */}
-              <div className="rounded-xl p-4 space-y-1" style={{ background: '#251208', border: '1.5px solid #3E2214' }}>
-                <p className="text-xs font-bold uppercase tracking-wider text-[#9A7B5C] mb-2">
+              <div className="rounded-xl p-4 space-y-1" style={{ background: 'var(--madeira-media)', border: '1.5px solid var(--madeira-clara)' }}>
+                <p className="text-xs font-bold uppercase tracking-wider text-[var(--cinza-couro)] mb-2">
                   {tipoAtendimento === 'RETIRADA' ? 'Retirada' : 'Entrega'}
                 </p>
-                <p className="font-semibold text-[#F4E8CC] text-sm">{addressForm.nome}</p>
-                <p className="text-sm text-[#9A7B5C]">{addressForm.telefone}</p>
+                <p className="font-semibold text-[var(--bege-claro)] text-sm">{addressForm.nome}</p>
+                <p className="text-sm text-[var(--cinza-couro)]">{addressForm.telefone}</p>
                 {tipoAtendimento === 'ENTREGA' && (
                   <>
-                    <p className="text-sm text-[#9A7B5C]">
+                    <p className="text-sm text-[var(--cinza-couro)]">
                       {addressForm.rua}, {addressForm.numero}
                       {addressForm.quadra && ` — Quadra ${addressForm.quadra}`}
                       {addressForm.lote && `, Lote ${addressForm.lote}`}
                       {addressForm.complemento && ` — ${addressForm.complemento}`}
                     </p>
-                    <p className="text-sm text-[#9A7B5C]">{addressForm.bairro} — CEP {addressForm.cep}</p>
+                    <p className="text-sm text-[var(--cinza-couro)]">{addressForm.bairro} — CEP {addressForm.cep}</p>
                     {addressForm.pontoReferencia && (
-                      <p className="text-xs text-[#5C3418]">Ref: {addressForm.pontoReferencia}</p>
+                      <p className="text-xs text-[var(--couro-escuro)]">Ref: {addressForm.pontoReferencia}</p>
                     )}
                   </>
                 )}
               </div>
 
               {/* Itens */}
-              <div className="rounded-xl p-4 space-y-2" style={{ background: '#251208', border: '1.5px solid #3E2214' }}>
-                <p className="text-xs font-bold uppercase tracking-wider text-[#9A7B5C] mb-2">Itens</p>
+              <div className="rounded-xl p-4 space-y-2" style={{ background: 'var(--madeira-media)', border: '1.5px solid var(--madeira-clara)' }}>
+                <p className="text-xs font-bold uppercase tracking-wider text-[var(--cinza-couro)] mb-2">Itens</p>
                 {items.map(item => (
                   <div key={item.id} className="flex justify-between text-sm">
-                    <span className="text-[#F4E8CC]">{item.quantity}x {item.name}</span>
-                    <span className="text-[#E87830] font-semibold">{formatCurrency(item.price * item.quantity)}</span>
+                    <span className="text-[var(--bege-claro)]">{item.quantity}x {item.name}</span>
+                    <span className="text-[var(--brasa-quente)] font-semibold">{formatCurrency(item.price * item.quantity)}</span>
                   </div>
                 ))}
-                <div className="border-t border-[#3E2214] pt-2 mt-2 space-y-1">
-                  <div className="flex justify-between text-sm text-[#9A7B5C]">
+                <div className="border-t border-[var(--madeira-clara)] pt-2 mt-2 space-y-1">
+                  <div className="flex justify-between text-sm text-[var(--cinza-couro)]">
                     <span>Subtotal</span><span>{formatCurrency(totalPrice)}</span>
                   </div>
                   {tipoAtendimento === 'ENTREGA' && (
-                    <div className="flex justify-between text-sm text-[#9A7B5C]">
+                    <div className="flex justify-between text-sm text-[var(--cinza-couro)]">
                       <span>Entrega</span><span>{formatCurrency(deliveryFee)}</span>
                     </div>
                   )}
                   <div className="flex justify-between font-brand font-black text-base pt-1">
-                    <span className="text-[#F4E8CC]">Total</span>
-                    <span className="text-[#E87830]">{formatCurrency(totalWithDelivery)}</span>
+                    <span className="text-[var(--bege-claro)]">Total</span>
+                    <span className="text-[var(--brasa-quente)]">{formatCurrency(totalWithDelivery)}</span>
                   </div>
                 </div>
               </div>
 
               {/* Pagamento */}
-              <div className="rounded-xl p-4" style={{ background: '#251208', border: '1.5px solid #3E2214' }}>
-                <p className="text-xs font-bold uppercase tracking-wider text-[#9A7B5C] mb-1">Pagamento</p>
-                <p className="text-sm text-[#F4E8CC] capitalize">{paymentForm.formaPagamento.replace('_', ' ')}</p>
+              <div className="rounded-xl p-4" style={{ background: 'var(--madeira-media)', border: '1.5px solid var(--madeira-clara)' }}>
+                <p className="text-xs font-bold uppercase tracking-wider text-[var(--cinza-couro)] mb-1">Pagamento</p>
+                <p className="text-sm text-[var(--bege-claro)] capitalize">{paymentForm.formaPagamento.replace('_', ' ')}</p>
               </div>
             </div>
           )}
@@ -1080,11 +1080,11 @@ export default function CheckoutPage() {
       </main>
 
       {/* Footer fixo */}
-      <div className="fixed bottom-0 left-0 right-0 p-4" style={{ background: '#1A0D06', borderTop: '1px solid #3E2214' }}>
+      <div className="fixed bottom-0 left-0 right-0 p-4" style={{ background: 'var(--madeira-fundo)', borderTop: '1px solid var(--madeira-clara)' }}>
         <div className="container max-w-2xl">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-sm text-[#9A7B5C]">Total</span>
-            <span className="font-brand font-black text-xl text-[#E87830]">{formatCurrency(totalWithDelivery)}</span>
+            <span className="text-sm text-[var(--cinza-couro)]">Total</span>
+            <span className="font-brand font-black text-xl text-[var(--brasa-quente)]">{formatCurrency(totalWithDelivery)}</span>
           </div>
           {currentStep === 'review' ? (
             <Button size="lg" className="w-full" onClick={handleFinishOrder} loading={loading} disabled={!lojaAberta}>
