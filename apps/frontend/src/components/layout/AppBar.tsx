@@ -45,16 +45,20 @@ const AppBar: React.FC<AppBarProps> = ({
       )}
 
       {/* Logo / Title */}
-      <h1 className="flex-1 font-display text-xl text-[var(--bege-claro)] tracking-wide">
-        {title === 'Cardápio' ? (
-          <span>
+      {title === 'Cardápio' ? (
+        <div className="flex-1 flex items-center gap-2 min-w-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-symbol-brasa.svg" alt="Rancho" className="h-7 w-auto flex-shrink-0" />
+          <h1 className="font-display text-xl tracking-wide truncate">
             <span className="text-[var(--brasa-viva)]">Rancho</span>{' '}
             <span className="text-[var(--mel-campo)]">Comida Caseira</span>
-          </span>
-        ) : (
-          title
-        )}
-      </h1>
+          </h1>
+        </div>
+      ) : (
+        <h1 className="flex-1 font-display text-xl text-[var(--bege-claro)] tracking-wide">
+          {title}
+        </h1>
+      )}
 
       {/* Search Button */}
       {onSearch && (
