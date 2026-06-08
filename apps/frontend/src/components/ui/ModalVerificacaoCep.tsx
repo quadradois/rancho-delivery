@@ -151,22 +151,22 @@ export default function ModalVerificacaoCep({ onAtendido }: ModalVerificacaoCepP
       />
 
       <div className="relative w-full max-w-sm rounded-2xl overflow-hidden shadow-2xl"
-        style={{ background: '#251208', border: '1.5px solid #3E2214' }}
+        style={{ background: 'var(--madeira-media)', border: '1.5px solid var(--madeira-clara)' }}
       >
         {/* Header */}
         <div className="px-6 pt-6 pb-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="font-brand text-2xl font-black uppercase text-[#F4E8CC]">
+              <h2 className="font-brand text-2xl font-black uppercase text-[var(--bege-claro)]">
                 Entregamos na sua região?
               </h2>
-              <p className="text-sm text-[#9A7B5C] mt-1">
+              <p className="text-sm text-[var(--cinza-couro)] mt-1">
                 Digite seu CEP para verificar antes de montar seu pedido
               </p>
             </div>
             <button
               onClick={handleFechar}
-              className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[#9A7B5C] hover:text-[#F4E8CC] hover:bg-white/10 transition-all"
+              className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-[var(--cinza-couro)] hover:text-[var(--bege-claro)] hover:bg-white/10 transition-all"
               aria-label="Fechar"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -182,7 +182,7 @@ export default function ModalVerificacaoCep({ onAtendido }: ModalVerificacaoCepP
           <div className="flex gap-2">
             <div className="relative flex-1">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#9A7B5C]">
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--cinza-couro)]">
                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
                 <circle cx="12" cy="10" r="3" />
               </svg>
@@ -193,8 +193,8 @@ export default function ModalVerificacaoCep({ onAtendido }: ModalVerificacaoCepP
                 value={cep}
                 onChange={(e) => setCep(formatarCep(e.target.value))}
                 onKeyDown={(e) => e.key === 'Enter' && handleVerificar()}
-                className="w-full h-11 pl-9 pr-4 rounded-xl text-[#F4E8CC] text-sm outline-none border border-[#3E2214] focus:border-[#D4601C] transition-colors"
-                style={{ background: '#1A0D06' }}
+                className="w-full h-11 pl-9 pr-4 rounded-xl text-[var(--bege-claro)] text-sm outline-none border border-[var(--madeira-clara)] focus:border-[var(--brasa-viva)] transition-colors"
+                style={{ background: 'var(--madeira-fundo)' }}
                 maxLength={9}
                 autoFocus
               />
@@ -204,7 +204,7 @@ export default function ModalVerificacaoCep({ onAtendido }: ModalVerificacaoCepP
               disabled={loading || cep.replace(/\D/g, '').length !== 8}
               className={cn(
                 'px-4 h-11 rounded-xl font-bold text-sm uppercase tracking-wider transition-all flex-shrink-0',
-                'bg-[#D4601C] text-white hover:bg-[#E87830]',
+                'bg-[var(--brasa-viva)] text-white hover:bg-[var(--brasa-quente)]',
                 'disabled:opacity-40 disabled:cursor-not-allowed'
               )}
             >
@@ -223,20 +223,20 @@ export default function ModalVerificacaoCep({ onAtendido }: ModalVerificacaoCepP
               <div className="rounded-xl p-4 flex items-start gap-3"
                 style={{ background: 'rgba(74,120,64,0.15)', border: '1.5px solid rgba(74,120,64,0.4)' }}>
                 <div className="w-8 h-8 rounded-full bg-[#4A7840]/30 flex items-center justify-center flex-shrink-0">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#4A7840" strokeWidth="2.5">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--verde-campo)" strokeWidth="2.5">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </div>
                 <div>
-                  <p className="font-bold text-[#4A7840] text-sm">Entregamos na sua região!</p>
-                  <p className="text-xs text-[#9A7B5C] mt-0.5">
+                  <p className="font-bold text-[var(--verde-campo)] text-sm">Entregamos na sua região!</p>
+                  <p className="text-xs text-[var(--cinza-couro)] mt-0.5">
                     {resultado.endereco?.bairro} — {resultado.endereco?.localidade}/{resultado.endereco?.uf}
                   </p>
                   <div className="flex gap-3 mt-2">
-                    <span className="text-xs font-bold text-[#E87830]">
+                    <span className="text-xs font-bold text-[var(--brasa-quente)]">
                       🛵 {resultado.tempoEntrega ?? 30} min
                     </span>
-                    <span className="text-xs font-bold text-[#E8A040]">
+                    <span className="text-xs font-bold text-[var(--mel-campo)]">
                       {resultado.taxa === 0 ? '✅ Frete grátis' : `💰 ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(resultado.taxa ?? 0)}`}
                     </span>
                   </div>
@@ -247,22 +247,22 @@ export default function ModalVerificacaoCep({ onAtendido }: ModalVerificacaoCepP
               <div className="rounded-xl p-4 flex items-start gap-3"
                 style={{ background: 'rgba(212,96,28,0.1)', border: '1.5px solid rgba(212,96,28,0.3)' }}>
                 <div className="w-8 h-8 rounded-full bg-[#D4601C]/20 flex items-center justify-center flex-shrink-0">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#D4601C" strokeWidth="2">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brasa-viva)" strokeWidth="2">
                     <circle cx="12" cy="12" r="10" />
                     <line x1="12" y1="8" x2="12" y2="12" />
                     <line x1="12" y1="16" x2="12.01" y2="16" />
                   </svg>
                 </div>
-                <p className="text-sm text-[#E87830]">{resultado.erro}</p>
+                <p className="text-sm text-[var(--brasa-quente)]">{resultado.erro}</p>
               </div>
             ) : (
               /* Não atendido — mostra marketplaces */
               <div className="space-y-3">
                 <div className="rounded-xl p-4"
                   style={{ background: 'rgba(212,96,28,0.1)', border: '1.5px solid rgba(212,96,28,0.3)' }}>
-                  <p className="font-bold text-[#E87830] text-sm">Ainda não entregamos nessa região</p>
+                  <p className="font-bold text-[var(--brasa-quente)] text-sm">Ainda não entregamos nessa região</p>
                   {resultado.endereco && (
-                    <p className="text-xs text-[#9A7B5C] mt-0.5">
+                    <p className="text-xs text-[var(--cinza-couro)] mt-0.5">
                       {resultado.endereco.bairro} — {resultado.endereco.localidade}/{resultado.endereco.uf}
                     </p>
                   )}
@@ -273,7 +273,7 @@ export default function ModalVerificacaoCep({ onAtendido }: ModalVerificacaoCepP
                   Object.values(resultado.marketplaces).some(Boolean)
                 ) && (
                   <div className="space-y-2">
-                    <p className="text-xs text-[#9A7B5C] font-semibold uppercase tracking-wider">
+                    <p className="text-xs text-[var(--cinza-couro)] font-semibold uppercase tracking-wider">
                       Mas você pode nos encontrar em:
                     </p>
                     <div className="flex flex-col gap-2">
@@ -307,7 +307,7 @@ export default function ModalVerificacaoCep({ onAtendido }: ModalVerificacaoCepP
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all hover:opacity-80"
-                          style={{ background: '#3E2214', color: '#F4E8CC', border: '1.5px solid #5C3418' }}
+                          style={{ background: 'var(--madeira-clara)', color: 'var(--bege-claro)', border: '1.5px solid var(--couro-escuro)' }}
                         >
                           <span className="text-lg">🍽️</span>
                           {resultado.marketplaces.nomeOutro}
@@ -319,7 +319,7 @@ export default function ModalVerificacaoCep({ onAtendido }: ModalVerificacaoCepP
 
                 <button
                   onClick={handleFechar}
-                  className="w-full py-2.5 rounded-xl text-sm font-semibold text-[#9A7B5C] hover:text-[#F4E8CC] transition-colors"
+                  className="w-full py-2.5 rounded-xl text-sm font-semibold text-[var(--cinza-couro)] hover:text-[var(--bege-claro)] transition-colors"
                 >
                   Continuar navegando mesmo assim
                 </button>
@@ -333,7 +333,7 @@ export default function ModalVerificacaoCep({ onAtendido }: ModalVerificacaoCepP
           <div className="px-6 pb-5 text-center">
             <button
               onClick={handleFechar}
-              className="text-xs text-[#5C3418] hover:text-[#9A7B5C] transition-colors"
+              className="text-xs text-[var(--couro-escuro)] hover:text-[var(--cinza-couro)] transition-colors"
             >
               Pular verificação
             </button>

@@ -171,12 +171,12 @@ export default function OrderPage({ params }: OrderPageProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col" style={{ background: '#1A0D06' }}>
+      <div className="min-h-screen flex flex-col" style={{ background: 'var(--madeira-fundo)' }}>
         <AppBar title="Carregando..." />
         <main className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <div className="w-16 h-16 border-4 border-[#D4601C] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-[#9A7B5C]">Carregando pedido...</p>
+            <div className="w-16 h-16 border-4 border-[var(--brasa-viva)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-[var(--cinza-couro)]">Carregando pedido...</p>
           </div>
         </main>
       </div>
@@ -185,19 +185,19 @@ export default function OrderPage({ params }: OrderPageProps) {
 
   if (!pedido) {
     return (
-      <div className="min-h-screen flex flex-col" style={{ background: '#1A0D06' }}>
+      <div className="min-h-screen flex flex-col" style={{ background: 'var(--madeira-fundo)' }}>
         <AppBar title="Pedido não encontrado" onBack={() => router.push('/')} />
         <main className="flex-1 flex items-center justify-center p-6">
           <div className="text-center max-w-sm">
-            <div className="w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-4" style={{ background: '#3E2214' }}>
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#D4601C" strokeWidth="2">
+            <div className="w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-4" style={{ background: 'var(--madeira-clara)' }}>
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--brasa-viva)" strokeWidth="2">
                 <circle cx="12" cy="12" r="10" />
                 <line x1="15" y1="9" x2="9" y2="15" />
                 <line x1="9" y1="9" x2="15" y2="15" />
               </svg>
             </div>
-            <h2 className="font-display text-2xl text-[#F4E8CC] mb-2">Pedido não encontrado</h2>
-            <p className="text-[#9A7B5C] mb-6">Não foi possível encontrar este pedido</p>
+            <h2 className="font-display text-2xl text-[var(--bege-claro)] mb-2">Pedido não encontrado</h2>
+            <p className="text-[var(--cinza-couro)] mb-6">Não foi possível encontrar este pedido</p>
             <Button onClick={() => router.push('/')}>Voltar ao Cardápio</Button>
           </div>
         </main>
@@ -206,24 +206,24 @@ export default function OrderPage({ params }: OrderPageProps) {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#1A0D06' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--madeira-fundo)' }}>
       <AppBar title={`Pedido #${pedido.numero}`} onBack={() => router.push('/')} />
 
       <main className="flex-1 overflow-y-auto pb-6">
         <div className="container py-6 max-w-2xl space-y-6">
           {/* Success Message */}
-          <div className="rounded-2xl p-6 text-center" style={{ background: '#251208', border: '2px solid #4A7840' }}>
-            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: '#4A7840' }}>
+          <div className="rounded-2xl p-6 text-center" style={{ background: 'var(--madeira-media)', border: '2px solid var(--verde-campo)' }}>
+            <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style={{ background: 'var(--verde-campo)' }}>
               <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
             </div>
-            <h2 className="font-display text-2xl text-[#F4E8CC] mb-2">
+            <h2 className="font-display text-2xl text-[var(--bege-claro)] mb-2">
               {['confirmado', 'preparando', 'pronto', 'saiu_entrega', 'entregue'].includes(statusNormalizado)
                 ? 'Pedido Confirmado!'
                 : 'Pedido Recebido!'}
             </h2>
-            <p className="text-[#9A7B5C] mb-4">
+            <p className="text-[var(--cinza-couro)] mb-4">
               {statusNormalizado === 'aguardando_pagamento'
                 ? 'Aguardando confirmação do pagamento para iniciar o preparo'
                 : 'Seu pedido foi recebido e está sendo preparado com carinho'}
@@ -232,8 +232,8 @@ export default function OrderPage({ params }: OrderPageProps) {
           </div>
 
           {/* Status Tracker */}
-          <div className="rounded-2xl p-6" style={{ background: '#251208', border: '1px solid #3E2214' }}>
-            <h3 className="font-body font-extrabold text-lg uppercase text-[#F4E8CC] mb-6">
+          <div className="rounded-2xl p-6" style={{ background: 'var(--madeira-media)', border: '1px solid var(--madeira-clara)' }}>
+            <h3 className="font-body font-extrabold text-lg uppercase text-[var(--bege-claro)] mb-6">
               Acompanhe seu Pedido
             </h3>
             <StatusTracker steps={getStatusSteps()} />
@@ -241,70 +241,70 @@ export default function OrderPage({ params }: OrderPageProps) {
             {/* Mapa de rastreio — aparece quando entregador está a caminho */}
             {statusNormalizado === 'saiu_entrega' && posicaoMotoboy && (
               <div className="mt-5">
-                <p className="text-sm font-semibold text-[#F4E8CC] mb-2">📍 Entregador a caminho</p>
-                <div className="overflow-hidden rounded-xl" style={{ height: 220, border: '1px solid #3E2214' }}>
+                <p className="text-sm font-semibold text-[var(--bege-claro)] mb-2">📍 Entregador a caminho</p>
+                <div className="overflow-hidden rounded-xl" style={{ height: 220, border: '1px solid var(--madeira-clara)' }}>
                   <MapaRastreioCliente
                     lat={posicaoMotoboy.lat}
                     lng={posicaoMotoboy.lng}
                     nome={posicaoMotoboy.nome}
                   />
                 </div>
-                <p className="mt-1.5 text-center text-xs text-[#9A7B5C]">Localização em tempo real</p>
+                <p className="mt-1.5 text-center text-xs text-[var(--cinza-couro)]">Localização em tempo real</p>
               </div>
             )}
 
             {statusNormalizado === 'saiu_entrega' && !posicaoMotoboy && (
-              <div className="mt-5 rounded-xl p-4 text-center text-sm text-[#9A7B5C]" style={{ background: '#1a0d04', border: '1px solid #3E2214' }}>
+              <div className="mt-5 rounded-xl p-4 text-center text-sm text-[var(--cinza-couro)]" style={{ background: 'var(--madeira-fundo)', border: '1px solid var(--madeira-clara)' }}>
                 🛵 Seu pedido saiu para entrega!
               </div>
             )}
 
-            <div className="mt-6 pt-6" style={{ borderTop: '1px solid #3E2214' }}>
+            <div className="mt-6 pt-6" style={{ borderTop: '1px solid var(--madeira-clara)' }}>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-[#9A7B5C]">Tempo estimado:</span>
-                <span className="font-bold text-[#F4E8CC]">{pedido.tempoEstimadoMin} minutos</span>
+                <span className="text-[var(--cinza-couro)]">Tempo estimado:</span>
+                <span className="font-bold text-[var(--bege-claro)]">{pedido.tempoEstimadoMin} minutos</span>
               </div>
               <div className="flex items-center justify-between text-sm mt-2">
-                <span className="text-[#9A7B5C]">Pedido realizado:</span>
-                <span className="font-bold text-[#F4E8CC]">{criadoEm ? formatTime(criadoEm) : '--:--'}</span>
+                <span className="text-[var(--cinza-couro)]">Pedido realizado:</span>
+                <span className="font-bold text-[var(--bege-claro)]">{criadoEm ? formatTime(criadoEm) : '--:--'}</span>
               </div>
             </div>
           </div>
 
           {/* Endereço de Entrega */}
-          <div className="rounded-2xl p-6" style={{ background: '#251208', border: '1px solid #3E2214' }}>
-            <h3 className="font-body font-extrabold text-lg uppercase text-[#F4E8CC] mb-4">
+          <div className="rounded-2xl p-6" style={{ background: 'var(--madeira-media)', border: '1px solid var(--madeira-clara)' }}>
+            <h3 className="font-body font-extrabold text-lg uppercase text-[var(--bege-claro)] mb-4">
               Endereço de Entrega
             </h3>
             <div className="space-y-1 text-sm">
-              <p className="font-semibold text-[#F4E8CC]">{pedido.clienteNome}</p>
-              <p className="text-[#9A7B5C]">{pedido.clienteTelefone}</p>
-              <p className="text-[#9A7B5C] mt-2">{enderecoTexto || 'Endereço não informado'}</p>
-              <p className="text-[#9A7B5C]">{bairroTexto || 'Bairro não informado'}</p>
+              <p className="font-semibold text-[var(--bege-claro)]">{pedido.clienteNome}</p>
+              <p className="text-[var(--cinza-couro)]">{pedido.clienteTelefone}</p>
+              <p className="text-[var(--cinza-couro)] mt-2">{enderecoTexto || 'Endereço não informado'}</p>
+              <p className="text-[var(--cinza-couro)]">{bairroTexto || 'Bairro não informado'}</p>
             </div>
           </div>
 
           {/* Itens do Pedido */}
-          <div className="rounded-2xl p-6" style={{ background: '#251208', border: '1px solid #3E2214' }}>
-            <h3 className="font-body font-extrabold text-lg uppercase text-[#F4E8CC] mb-4">
+          <div className="rounded-2xl p-6" style={{ background: 'var(--madeira-media)', border: '1px solid var(--madeira-clara)' }}>
+            <h3 className="font-body font-extrabold text-lg uppercase text-[var(--bege-claro)] mb-4">
               Itens do Pedido
             </h3>
             <div className="space-y-3">
               {pedido.itens.map((item) => (
-                <div key={item.id} className="flex items-start gap-3 pb-3 last:border-0" style={{ borderBottom: '1px solid #3E2214' }}>
-                  <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#3E2214' }}>
+                <div key={item.id} className="flex items-start gap-3 pb-3 last:border-0" style={{ borderBottom: '1px solid var(--madeira-clara)' }}>
+                  <div className="w-12 h-12 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'var(--madeira-clara)' }}>
                     <span className="text-xl">🍽️</span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-[#F4E8CC]">{item.produto?.nome || 'Produto'}</p>
-                    <p className="text-xs text-[#9A7B5C]">Quantidade: {item.quantidade}</p>
+                    <p className="font-semibold text-[var(--bege-claro)]">{item.produto?.nome || 'Produto'}</p>
+                    <p className="text-xs text-[var(--cinza-couro)]">Quantidade: {item.quantidade}</p>
                     {(item.observacoes || item.observacao) && (
-                      <p className="text-xs text-[#9A7B5C] mt-1">Obs: {item.observacoes || item.observacao}</p>
+                      <p className="text-xs text-[var(--cinza-couro)] mt-1">Obs: {item.observacoes || item.observacao}</p>
                     )}
                   </div>
                   <div className="text-right">
-                    <p className="font-bold text-[#F4E8CC]">{formatCurrency((item.precoUnitario || item.precoUnit) * item.quantidade)}</p>
-                    <p className="text-xs text-[#9A7B5C]">{formatCurrency(item.precoUnitario || item.precoUnit)} cada</p>
+                    <p className="font-bold text-[var(--bege-claro)]">{formatCurrency((item.precoUnitario || item.precoUnit) * item.quantidade)}</p>
+                    <p className="text-xs text-[var(--cinza-couro)]">{formatCurrency(item.precoUnitario || item.precoUnit)} cada</p>
                   </div>
                 </div>
               ))}
@@ -312,32 +312,32 @@ export default function OrderPage({ params }: OrderPageProps) {
           </div>
 
           {/* Resumo do Pagamento */}
-          <div className="rounded-2xl p-6" style={{ background: '#251208', border: '1px solid #3E2214' }}>
-            <h3 className="font-body font-extrabold text-lg uppercase text-[#F4E8CC] mb-4">
+          <div className="rounded-2xl p-6" style={{ background: 'var(--madeira-media)', border: '1px solid var(--madeira-clara)' }}>
+            <h3 className="font-body font-extrabold text-lg uppercase text-[var(--bege-claro)] mb-4">
               Resumo do Pagamento
             </h3>
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-[#9A7B5C]">Subtotal</span>
-                <span className="font-semibold text-[#F4E8CC]">{formatCurrency(pedido.subtotal)}</span>
+                <span className="text-[var(--cinza-couro)]">Subtotal</span>
+                <span className="font-semibold text-[var(--bege-claro)]">{formatCurrency(pedido.subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-[#9A7B5C]">Taxa de entrega</span>
-                <span className="font-semibold text-[#F4E8CC]">{formatCurrency(pedido.taxaEntrega)}</span>
+                <span className="text-[var(--cinza-couro)]">Taxa de entrega</span>
+                <span className="font-semibold text-[var(--bege-claro)]">{formatCurrency(pedido.taxaEntrega)}</span>
               </div>
-              <div className="flex justify-between pt-3" style={{ borderTop: '1px solid #3E2214' }}>
-                <span className="font-body font-extrabold text-md uppercase text-[#F4E8CC]">Total</span>
-                <span className="font-display text-xl text-[#E87830]">{formatCurrency(pedido.total)}</span>
+              <div className="flex justify-between pt-3" style={{ borderTop: '1px solid var(--madeira-clara)' }}>
+                <span className="font-body font-extrabold text-md uppercase text-[var(--bege-claro)]">Total</span>
+                <span className="font-display text-xl text-[var(--brasa-quente)]">{formatCurrency(pedido.total)}</span>
               </div>
-              <div className="pt-3" style={{ borderTop: '1px solid #3E2214' }}>
+              <div className="pt-3" style={{ borderTop: '1px solid var(--madeira-clara)' }}>
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#9A7B5C]">Forma de pagamento:</span>
-                  <span className="font-semibold text-[#F4E8CC] capitalize">{formaPagamentoTexto}</span>
+                  <span className="text-[var(--cinza-couro)]">Forma de pagamento:</span>
+                  <span className="font-semibold text-[var(--bege-claro)] capitalize">{formaPagamentoTexto}</span>
                 </div>
                 {pedido.trocoParaValor && (
                   <div className="flex justify-between text-sm mt-1">
-                    <span className="text-[#9A7B5C]">Troco para:</span>
-                    <span className="font-semibold text-[#F4E8CC]">{formatCurrency(pedido.trocoParaValor)}</span>
+                    <span className="text-[var(--cinza-couro)]">Troco para:</span>
+                    <span className="font-semibold text-[var(--bege-claro)]">{formatCurrency(pedido.trocoParaValor)}</span>
                   </div>
                 )}
               </div>
@@ -346,24 +346,24 @@ export default function OrderPage({ params }: OrderPageProps) {
 
           {/* Observações */}
           {(pedido.observacoes || pedido.observacao) && (
-            <div className="rounded-2xl p-4" style={{ background: '#3E2214', border: '1px solid #5C3418' }}>
-              <p className="text-sm font-semibold text-[#E8A040] mb-1">Observações:</p>
-              <p className="text-sm text-[#E8D4B0]">{pedido.observacoes || pedido.observacao}</p>
+            <div className="rounded-2xl p-4" style={{ background: 'var(--madeira-clara)', border: '1px solid var(--couro-escuro)' }}>
+              <p className="text-sm font-semibold text-[var(--mel-campo)] mb-1">Observações:</p>
+              <p className="text-sm text-[var(--bege-fumaca)]">{pedido.observacoes || pedido.observacao}</p>
             </div>
           )}
 
           {/* Actions */}
           <div className="space-y-3">
             {statusNormalizado === 'entregue' && !npsEnviado && (
-              <div id="avaliacao" className="rounded-2xl p-4" style={{ background: '#251208', border: '1px solid #3E2214' }}>
-                <p className="text-sm text-[#F4E8CC] mb-3">Como foi seu pedido?</p>
+              <div id="avaliacao" className="rounded-2xl p-4" style={{ background: 'var(--madeira-media)', border: '1px solid var(--madeira-clara)' }}>
+                <p className="text-sm text-[var(--bege-claro)] mb-3">Como foi seu pedido?</p>
                 <div className="flex gap-2">
                   {[1, 2, 3, 4, 5].map((nota) => (
                     <button
                       key={nota}
                       type="button"
                       className="px-3 py-2 rounded-lg text-sm font-bold"
-                      style={{ background: '#3E2214', color: '#F4E8CC' }}
+                      style={{ background: 'var(--madeira-clara)', color: 'var(--bege-claro)' }}
                       onClick={async () => {
                         try {
                           await api.pedidos.avaliarNps(params.id, nota);
