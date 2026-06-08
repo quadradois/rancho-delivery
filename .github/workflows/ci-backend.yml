@@ -102,6 +102,9 @@ jobs:
     needs: test
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
 
     steps:
       - name: Deploy via SSH
@@ -124,6 +127,9 @@ jobs:
     needs: test
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
 
     steps:
       - name: Deploy via SSH
@@ -139,4 +145,4 @@ jobs:
             pnpm install --frozen-lockfile
             pnpm --filter @rancho-delivery/backend db:migrate:deploy
             pnpm --filter @rancho-delivery/backend build
-            pm2 restart rancho-backend
+            pm2 restart rancho-backend || pm2 start apps/backend/dist/index.js --name rancho-backend
