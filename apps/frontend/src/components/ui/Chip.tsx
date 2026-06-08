@@ -19,9 +19,9 @@ const Chip = React.forwardRef<HTMLButtonElement, ChipProps>(
 
     const variants = {
       default: active
-        ? 'bg-[#D4601C] text-white border-[#D4601C] shadow-[0_4px_16px_rgba(212,96,28,0.4)]'
-        : 'bg-[#251208] border-[#3E2214] text-[#9A7B5C] hover:border-[#D4601C] hover:text-[#D4601C]',
-      gold: 'bg-[#3E2214] text-[#E8A040] border-[#5C3418]',
+        ? 'bg-[var(--brasa-viva)] text-white border-[var(--brasa-viva)] shadow-[0_4px_16px_rgba(212,96,28,0.4)]'
+        : 'bg-[var(--madeira-media)] border-[var(--madeira-clara)] text-[var(--cinza-couro)] hover:border-[var(--brasa-viva)] hover:text-[var(--brasa-viva)]',
+      gold: 'bg-[var(--madeira-clara)] text-[var(--mel-campo)] border-[var(--couro-escuro)]',
     };
 
     return (

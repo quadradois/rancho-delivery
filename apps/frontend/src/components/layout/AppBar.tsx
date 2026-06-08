@@ -27,8 +27,8 @@ const AppBar: React.FC<AppBarProps> = ({
       className={cn(
         'flex items-center gap-3 px-5 py-4',
         isPrimary
-          ? 'bg-[#251208] border-b border-[#3E2214] text-[#F4E8CC]'
-          : 'bg-[#1A0D06] border-b border-[#3E2214] text-[#F4E8CC]',
+          ? 'bg-[var(--madeira-media)] border-b border-[var(--madeira-clara)] text-[var(--bege-claro)]'
+          : 'bg-[var(--madeira-fundo)] border-b border-[var(--madeira-clara)] text-[var(--bege-claro)]',
         className
       )}
     >
@@ -45,11 +45,11 @@ const AppBar: React.FC<AppBarProps> = ({
       )}
 
       {/* Logo / Title */}
-      <h1 className="flex-1 font-display text-xl text-[#F4E8CC] tracking-wide">
+      <h1 className="flex-1 font-display text-xl text-[var(--bege-claro)] tracking-wide">
         {title === 'Cardápio' ? (
           <span>
-            <span className="text-[#D4601C]">Rancho</span>{' '}
-            <span className="text-[#E8A040]">Comida Caseira</span>
+            <span className="text-[var(--brasa-viva)]">Rancho</span>{' '}
+            <span className="text-[var(--mel-campo)]">Comida Caseira</span>
           </span>
         ) : (
           title
@@ -82,7 +82,7 @@ const AppBar: React.FC<AppBarProps> = ({
           </svg>
 
           {cartCount > 0 && (
-            <div className="absolute -top-1 -right-1 w-4 h-4 bg-[#E8A040] text-[#1A0D06] rounded-full flex items-center justify-center text-[9px] font-extrabold">
+            <div className="absolute -top-1 -right-1 w-4 h-4 bg-[var(--mel-campo)] text-[var(--madeira-fundo)] rounded-full flex items-center justify-center text-[9px] font-extrabold">
               {cartCount > 9 ? '9+' : cartCount}
             </div>
           )}

@@ -27,9 +27,9 @@ const PromoBanner: React.FC<PromoBannerProps> = ({
   className,
 }) => {
   const variants = {
-    primary: 'bg-[#3E2214] text-[#F4E8CC]',
-    gold:    'bg-[#251208] text-[#F4E8CC]',
-    dark:    'bg-[#1A0D06] text-[#F4E8CC]',
+    primary: 'bg-[var(--madeira-clara)] text-[var(--bege-claro)]',
+    gold:    'bg-[var(--madeira-media)] text-[var(--bege-claro)]',
+    dark:    'bg-[var(--madeira-fundo)] text-[var(--bege-claro)]',
   };
 
   const gradients = {
@@ -42,7 +42,7 @@ const PromoBanner: React.FC<PromoBannerProps> = ({
     <div
       className={cn(
         'rounded-3xl p-5 md:p-8 relative overflow-hidden',
-        'border border-[#5C3418]',
+        'border border-[var(--couro-escuro)]',
         variants[variant],
         className
       )}
@@ -60,7 +60,7 @@ const PromoBanner: React.FC<PromoBannerProps> = ({
             </div>
           )}
 
-          <h2 className="font-display text-2xl md:text-3xl text-[#F4E8CC] leading-tight mb-1">
+          <h2 className="font-display text-2xl md:text-3xl text-[var(--bege-claro)] leading-tight mb-1">
             {title.split('\n').map((line, i, arr) => (
               <React.Fragment key={i}>
                 {line}
@@ -70,7 +70,7 @@ const PromoBanner: React.FC<PromoBannerProps> = ({
           </h2>
 
           {tagline && (
-            <div className="font-body text-lg text-[#E8A040] mt-1">{tagline}</div>
+            <div className="font-body text-lg text-[var(--mel-campo)] mt-1">{tagline}</div>
           )}
 
           <div className="mt-4">
@@ -83,11 +83,11 @@ const PromoBanner: React.FC<PromoBannerProps> = ({
         {/* Price */}
         {price !== undefined && (
           <div className="md:text-right">
-            <div className="font-display text-4xl md:text-5xl text-[#E8A040] leading-none drop-shadow-[2px_2px_0_rgba(0,0,0,0.4)]">
+            <div className="font-display text-4xl md:text-5xl text-[var(--mel-campo)] leading-none drop-shadow-[2px_2px_0_rgba(0,0,0,0.4)]">
               {formatCurrency(price)}
             </div>
             {priceLabel && (
-              <div className="text-sm mt-1 text-[#9A7B5C]">{priceLabel}</div>
+              <div className="text-sm mt-1 text-[var(--cinza-couro)]">{priceLabel}</div>
             )}
           </div>
         )}
