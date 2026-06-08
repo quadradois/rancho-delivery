@@ -172,7 +172,7 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#1A0D06' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--madeira-fundo)' }}>
 
       {/* Modal de verificação de CEP — não bloqueante */}
       <ModalVerificacaoCep
@@ -215,14 +215,14 @@ export default function Home() {
             <div className={`rounded-2xl p-4 border ${
               lojaAberta
                 ? 'border-[#4A7840]/45 bg-[#1E2A1E]'
-                : 'border-[#E8A040]/35 bg-[#251208]'
+                : 'border-[#E8A040]/35 bg-[var(--madeira-media)]'
             }`}>
               <p className={`font-brand font-black uppercase tracking-wider ${
-                lojaAberta ? 'text-[#93C48B]' : 'text-[#E8A040]'
+                lojaAberta ? 'text-[#93C48B]' : 'text-[var(--mel-campo)]'
               }`}>
                 {lojaAberta ? 'Loja aberta' : lojaStatus.status === 'PAUSADO' ? 'Loja pausada' : 'Loja fechada'}
               </p>
-              <p className={`text-sm mt-1 ${lojaAberta ? 'text-[#CFE7C9]' : 'text-[#E8D4B0]'}`}>
+              <p className={`text-sm mt-1 ${lojaAberta ? 'text-[#CFE7C9]' : 'text-[var(--bege-fumaca)]'}`}>
                 {lojaAberta ? 'Estamos recebendo pedidos agora.' : lojaMensagem}
               </p>
             </div>
@@ -249,22 +249,22 @@ export default function Home() {
             </div>
           ) : error ? (
             <div className="text-center py-12">
-              <div className="w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-4" style={{ background: '#3E2214' }}>
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#D4601C" strokeWidth="2">
+              <div className="w-24 h-24 mx-auto rounded-full flex items-center justify-center mb-4" style={{ background: 'var(--madeira-clara)' }}>
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--brasa-viva)" strokeWidth="2">
                   <circle cx="12" cy="12" r="10" />
                   <line x1="12" y1="8" x2="12" y2="12" />
                   <line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
               </div>
-              <h3 className="font-display text-xl text-[#F4E8CC] mb-2">Erro ao carregar produtos</h3>
-              <p className="text-[#9A7B5C] mb-4">{error}</p>
-              <button onClick={() => window.location.reload()} className="text-[#D4601C] font-semibold hover:underline">
+              <h3 className="font-display text-xl text-[var(--bege-claro)] mb-2">Erro ao carregar produtos</h3>
+              <p className="text-[var(--cinza-couro)] mb-4">{error}</p>
+              <button onClick={() => window.location.reload()} className="text-[var(--brasa-viva)] font-semibold hover:underline">
                 Tentar novamente
               </button>
             </div>
           ) : products.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-[#9A7B5C]">Nenhum produto disponível nesta categoria</p>
+              <p className="text-[var(--cinza-couro)]">Nenhum produto disponível nesta categoria</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -304,14 +304,14 @@ export default function Home() {
       <BottomSheet isOpen={cartOpen} onClose={handleCartClose} title="Meu Carrinho" maxHeight="85vh">
         {items.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 gap-4">
-            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#9A7B5C" strokeWidth="1.5">
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="var(--cinza-couro)" strokeWidth="1.5">
               <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
               <line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" />
             </svg>
-            <p className="text-[#9A7B5C] font-semibold">Carrinho vazio</p>
-            <p className="text-[#5C3418] text-sm">Adicione produtos para começar</p>
+            <p className="text-[var(--cinza-couro)] font-semibold">Carrinho vazio</p>
+            <p className="text-[var(--couro-escuro)] text-sm">Adicione produtos para começar</p>
             <button onClick={handleCartClose}
-              className="mt-2 px-6 py-2 bg-[#D4601C] text-white rounded-full font-bold text-sm hover:bg-[#E87830] transition-colors">
+              className="mt-2 px-6 py-2 bg-[var(--brasa-viva)] text-white rounded-full font-bold text-sm hover:bg-[var(--brasa-quente)] transition-colors">
               Ver Cardápio
             </button>
           </div>
@@ -319,8 +319,8 @@ export default function Home() {
           <div className="flex flex-col gap-4 pb-4">
             <div className="flex flex-col gap-3">
               {items.map((item) => (
-                <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: '#251208' }}>
-                  <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-[#1A0D06] flex items-center justify-center">
+                <div key={item.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'var(--madeira-media)' }}>
+                  <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-[var(--madeira-fundo)] flex items-center justify-center">
                     {item.imageUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" />
@@ -329,42 +329,42 @@ export default function Home() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-[#F4E8CC] text-sm truncate">{item.name}</p>
-                    <p className="text-[#E87830] font-brand font-black text-sm">{formatCurrency(item.price)}</p>
+                    <p className="font-semibold text-[var(--bege-claro)] text-sm truncate">{item.name}</p>
+                    <p className="text-[var(--brasa-quente)] font-brand font-black text-sm">{formatCurrency(item.price)}</p>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                      className="w-7 h-7 rounded-full bg-[#3E2214] text-[#F4E8CC] flex items-center justify-center hover:bg-[#D4601C] transition-colors font-bold text-lg leading-none"
+                      className="w-7 h-7 rounded-full bg-[var(--madeira-clara)] text-[var(--bege-claro)] flex items-center justify-center hover:bg-[var(--brasa-viva)] transition-colors font-bold text-lg leading-none"
                       aria-label="Diminuir quantidade">−</button>
-                    <span className="text-[#F4E8CC] font-bold w-5 text-center">{item.quantity}</span>
+                    <span className="text-[var(--bege-claro)] font-bold w-5 text-center">{item.quantity}</span>
                     <button onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                      className="w-7 h-7 rounded-full bg-[#D4601C] text-white flex items-center justify-center hover:bg-[#E87830] transition-colors font-bold text-lg leading-none"
+                      className="w-7 h-7 rounded-full bg-[var(--brasa-viva)] text-white flex items-center justify-center hover:bg-[var(--brasa-quente)] transition-colors font-bold text-lg leading-none"
                       aria-label="Aumentar quantidade">+</button>
                   </div>
                 </div>
               ))}
             </div>
 
-            <div className="border-t border-[#3E2214] pt-4 space-y-2">
-              <div className="flex justify-between text-sm text-[#9A7B5C]">
+            <div className="border-t border-[var(--madeira-clara)] pt-4 space-y-2">
+              <div className="flex justify-between text-sm text-[var(--cinza-couro)]">
                 <span>Subtotal ({itemCount} {itemCount === 1 ? 'item' : 'itens'})</span>
                 <span>{formatCurrency(totalPrice)}</span>
               </div>
               {deliveryFee > 0 && (
-                <div className="flex justify-between text-sm text-[#9A7B5C]">
+                <div className="flex justify-between text-sm text-[var(--cinza-couro)]">
                   <span>Taxa de entrega</span><span>{formatCurrency(deliveryFee)}</span>
                 </div>
               )}
-              <div className="flex justify-between pt-2 border-t border-[#3E2214]">
-                <span className="font-brand font-black uppercase text-[#F4E8CC]">Total</span>
-                <span className="font-brand font-black text-xl text-[#E87830]">{formatCurrency(total)}</span>
+              <div className="flex justify-between pt-2 border-t border-[var(--madeira-clara)]">
+                <span className="font-brand font-black uppercase text-[var(--bege-claro)]">Total</span>
+                <span className="font-brand font-black text-xl text-[var(--brasa-quente)]">{formatCurrency(total)}</span>
               </div>
             </div>
 
             <button
               onClick={handleCheckoutFromCart}
               disabled={!lojaAberta}
-              className="w-full py-4 bg-[#D4601C] text-white rounded-full font-brand font-black uppercase tracking-wider text-lg hover:bg-[#E87830] transition-colors shadow-[0_4px_14px_rgba(212,96,28,0.45)] disabled:opacity-45 disabled:cursor-not-allowed disabled:shadow-none">
+              className="w-full py-4 bg-[var(--brasa-viva)] text-white rounded-full font-brand font-black uppercase tracking-wider text-lg hover:bg-[var(--brasa-quente)] transition-colors shadow-[0_4px_14px_rgba(212,96,28,0.45)] disabled:opacity-45 disabled:cursor-not-allowed disabled:shadow-none">
               Finalizar Pedido
             </button>
           </div>
@@ -376,16 +376,16 @@ export default function Home() {
         <div className="flex flex-col gap-4 pb-4">
           <div className="relative">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-[#9A7B5C]">
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--cinza-couro)]">
               <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
             </svg>
             <input type="text" autoFocus placeholder="Buscar por nome, descrição ou categoria..."
               value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-12 pl-11 pr-4 rounded-xl text-[#F4E8CC] text-sm outline-none border border-[#3E2214] focus:border-[#D4601C] transition-colors"
-              style={{ background: '#251208' }} />
+              className="w-full h-12 pl-11 pr-4 rounded-xl text-[var(--bege-claro)] text-sm outline-none border border-[var(--madeira-clara)] focus:border-[var(--brasa-viva)] transition-colors"
+              style={{ background: 'var(--madeira-media)' }} />
             {searchQuery && (
               <button onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9A7B5C] hover:text-[#F4E8CC] transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--cinza-couro)] hover:text-[var(--bege-claro)] transition-colors"
                 aria-label="Limpar busca">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                   <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -395,26 +395,26 @@ export default function Home() {
           </div>
 
           {searchQuery.trim() === '' ? (
-            <p className="text-center text-[#5C3418] text-sm py-8">Digite para buscar produtos</p>
+            <p className="text-center text-[var(--couro-escuro)] text-sm py-8">Digite para buscar produtos</p>
           ) : filteredProducts.length === 0 ? (
-            <p className="text-center text-[#9A7B5C] text-sm py-8">Nenhum produto encontrado para &ldquo;{searchQuery}&rdquo;</p>
+            <p className="text-center text-[var(--cinza-couro)] text-sm py-8">Nenhum produto encontrado para &ldquo;{searchQuery}&rdquo;</p>
           ) : (
             <div className="flex flex-col gap-3">
-              <p className="text-xs text-[#9A7B5C] font-semibold uppercase tracking-wider">
+              <p className="text-xs text-[var(--cinza-couro)] font-semibold uppercase tracking-wider">
                 {filteredProducts.length} resultado{filteredProducts.length !== 1 ? 's' : ''}
               </p>
               {filteredProducts.map((product) => (
-                <div key={product.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: '#251208' }}>
-                  <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-[#1A0D06] flex items-center justify-center">
+                <div key={product.id} className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'var(--madeira-media)' }}>
+                  <div className="w-14 h-14 rounded-xl overflow-hidden flex-shrink-0 bg-[var(--madeira-fundo)] flex items-center justify-center">
                     {product.midia || product.imagemUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={product.midia || product.imagemUrl} alt={product.nome} className="w-full h-full object-cover" />
                     ) : <span className="text-2xl">🍽️</span>}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-[#F4E8CC] text-sm truncate">{product.nome}</p>
-                    <p className="text-xs text-[#9A7B5C] truncate">{product.descricao}</p>
-                    <p className="text-[#E87830] font-brand font-black text-sm mt-0.5">{formatCurrency(product.preco)}</p>
+                    <p className="font-semibold text-[var(--bege-claro)] text-sm truncate">{product.nome}</p>
+                    <p className="text-xs text-[var(--cinza-couro)] truncate">{product.descricao}</p>
+                    <p className="text-[var(--brasa-quente)] font-brand font-black text-sm mt-0.5">{formatCurrency(product.preco)}</p>
                   </div>
                   <button onClick={() => {
                     if (!lojaAberta) {
@@ -425,7 +425,7 @@ export default function Home() {
                     handleSearchClose();
                   }}
                     disabled={!lojaAberta}
-                    className="w-9 h-9 bg-[#D4601C] rounded-full flex items-center justify-center flex-shrink-0 hover:bg-[#E87830] transition-colors disabled:opacity-45 disabled:cursor-not-allowed"
+                    className="w-9 h-9 bg-[var(--brasa-viva)] rounded-full flex items-center justify-center flex-shrink-0 hover:bg-[var(--brasa-quente)] transition-colors disabled:opacity-45 disabled:cursor-not-allowed"
                     aria-label={`Adicionar ${product.nome} ao carrinho`}>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5">
                       <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
@@ -442,13 +442,13 @@ export default function Home() {
       <BottomSheet isOpen={profileOpen} onClose={handleProfileClose} title="Meu Perfil" maxHeight="70vh">
         <div className="flex flex-col gap-6 pb-4">
           <div className="flex flex-col items-center gap-3 py-4">
-            <div className="w-20 h-20 rounded-full bg-[#3E2214] flex items-center justify-center">
-              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#9A7B5C" strokeWidth="1.5">
+            <div className="w-20 h-20 rounded-full bg-[var(--madeira-clara)] flex items-center justify-center">
+              <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="var(--cinza-couro)" strokeWidth="1.5">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" />
               </svg>
             </div>
-            <p className="text-[#F4E8CC] font-semibold">{customerProfile?.nome || 'Visitante'}</p>
-            <p className="text-[#9A7B5C] text-sm">
+            <p className="text-[var(--bege-claro)] font-semibold">{customerProfile?.nome || 'Visitante'}</p>
+            <p className="text-[var(--cinza-couro)] text-sm">
               {customerProfile?.telefone
                 ? `WhatsApp: ${customerProfile.telefone}`
                 : 'Faça seu pedido para se cadastrar'}
@@ -458,27 +458,27 @@ export default function Home() {
           <div className="flex flex-col gap-3">
             <button onClick={() => { handleProfileClose(); router.push('/checkout'); }}
               className="flex items-center gap-3 p-4 rounded-xl text-left hover:opacity-80 transition-opacity"
-              style={{ background: '#251208' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D4601C" strokeWidth="2">
+              style={{ background: 'var(--madeira-media)' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--brasa-viva)" strokeWidth="2">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                 <polyline points="14 2 14 8 20 8" />
               </svg>
               <div>
-                <p className="text-[#F4E8CC] font-semibold text-sm">Meus Pedidos</p>
-                <p className="text-[#9A7B5C] text-xs">Acompanhe seus pedidos</p>
+                <p className="text-[var(--bege-claro)] font-semibold text-sm">Meus Pedidos</p>
+                <p className="text-[var(--cinza-couro)] text-xs">Acompanhe seus pedidos</p>
               </div>
             </button>
 
             <button onClick={() => { handleProfileClose(); setCartOpen(true); }}
               className="flex items-center gap-3 p-4 rounded-xl text-left hover:opacity-80 transition-opacity"
-              style={{ background: '#251208' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#D4601C" strokeWidth="2">
+              style={{ background: 'var(--madeira-media)' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--brasa-viva)" strokeWidth="2">
                 <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z" />
                 <line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 0 1-8 0" />
               </svg>
               <div>
-                <p className="text-[#F4E8CC] font-semibold text-sm">Carrinho</p>
-                <p className="text-[#9A7B5C] text-xs">{itemCount} {itemCount === 1 ? 'item' : 'itens'} no carrinho</p>
+                <p className="text-[var(--bege-claro)] font-semibold text-sm">Carrinho</p>
+                <p className="text-[var(--cinza-couro)] text-xs">{itemCount} {itemCount === 1 ? 'item' : 'itens'} no carrinho</p>
               </div>
             </button>
           </div>
