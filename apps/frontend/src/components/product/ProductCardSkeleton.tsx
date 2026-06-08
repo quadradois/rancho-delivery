@@ -9,7 +9,7 @@ const ProductCardSkeleton: React.FC = () => {
   return (
     <div
       className="rounded-2xl overflow-hidden"
-      style={{ background: '#251208', border: '1px solid #3E2214' }}
+      style={{ background: 'var(--madeira-media)', border: '1px solid var(--madeira-clara)' }}
       aria-hidden="true"
     >
       {/* Imagem */}
