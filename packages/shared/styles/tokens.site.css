@@ -41,6 +41,9 @@
   --color-success-fg: #6aa05c;               /* verde para TEXTO de status sobre fundo escuro: 6.15:1 (AA). verde-campo como texto falhava (3.67:1) */
   --color-warning: var(--mel-campo);
   --color-error: var(--brasa-viva);
+  --color-aberto-bg: #1e2a1e;                /* banner "loja aberta": fundo */
+  --color-aberto-fg: #93c48b;                /* banner "loja aberta": título (verde claro) */
+  --color-aberto-text: #cfe7c9;              /* banner "loja aberta": descrição */
 
   --font-display: 'Alfa Slab One', serif;    /* títulos/preços legíveis */
   --font-brand: 'Rustic Printed', serif;     /* stamp: SÓ logo/marca */

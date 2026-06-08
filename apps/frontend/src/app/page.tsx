@@ -214,15 +214,15 @@ export default function Home() {
           {lojaStatus && (
             <div className={`rounded-2xl p-4 border ${
               lojaAberta
-                ? 'border-[#4A7840]/45 bg-[#1E2A1E]'
+                ? 'border-[#4A7840]/45 bg-[var(--color-aberto-bg)]'
                 : 'border-[#E8A040]/35 bg-[var(--madeira-media)]'
             }`}>
               <p className={`font-brand font-black uppercase tracking-wider ${
-                lojaAberta ? 'text-[#93C48B]' : 'text-[var(--mel-campo)]'
+                lojaAberta ? 'text-[var(--color-aberto-fg)]' : 'text-[var(--mel-campo)]'
               }`}>
                 {lojaAberta ? 'Loja aberta' : lojaStatus.status === 'PAUSADO' ? 'Loja pausada' : 'Loja fechada'}
               </p>
-              <p className={`text-sm mt-1 ${lojaAberta ? 'text-[#CFE7C9]' : 'text-[var(--bege-fumaca)]'}`}>
+              <p className={`text-sm mt-1 ${lojaAberta ? 'text-[var(--color-aberto-text)]' : 'text-[var(--bege-fumaca)]'}`}>
                 {lojaAberta ? 'Estamos recebendo pedidos agora.' : lojaMensagem}
               </p>
             </div>
