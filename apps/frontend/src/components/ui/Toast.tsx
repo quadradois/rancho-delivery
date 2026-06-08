@@ -29,8 +29,8 @@ const Toast: React.FC<ToastProps> = ({
 
   const variants = {
     success: {
-      container: 'bg-[#251208] border-l-4 border-[#4A7840]',
-      icon: 'bg-[#4A7840]/20 text-[#4A7840]',
+      container: 'bg-[var(--madeira-media)] border-l-4 border-[var(--verde-campo)]',
+      icon: 'bg-[#4A7840]/20 text-[var(--verde-campo)]',
       defaultIcon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <polyline points="20 6 9 17 4 12" />
@@ -38,8 +38,8 @@ const Toast: React.FC<ToastProps> = ({
       ),
     },
     error: {
-      container: 'bg-[#251208] border-l-4 border-[#D4601C]',
-      icon: 'bg-[#D4601C]/20 text-[#D4601C]',
+      container: 'bg-[var(--madeira-media)] border-l-4 border-[var(--brasa-viva)]',
+      icon: 'bg-[#D4601C]/20 text-[var(--brasa-viva)]',
       defaultIcon: (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
           <circle cx="12" cy="12" r="10" />
@@ -49,7 +49,7 @@ const Toast: React.FC<ToastProps> = ({
       ),
     },
     info: {
-      container: 'bg-[#D4601C] text-white',
+      container: 'bg-[var(--brasa-viva)] text-white',
       icon: 'bg-white/15',
       defaultIcon: (
         <svg width="18" height="18" viewBox="0 0 52 64" fill="none">
@@ -59,7 +59,7 @@ const Toast: React.FC<ToastProps> = ({
       ),
     },
     gold: {
-      container: 'bg-[#E8A040] text-[#1A0D06]',
+      container: 'bg-[var(--mel-campo)] text-[var(--madeira-fundo)]',
       icon: 'bg-black/10',
       defaultIcon: <span className="text-lg">★</span>,
     },
