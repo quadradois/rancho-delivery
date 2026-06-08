@@ -102,6 +102,9 @@ jobs:
     needs: test
     if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
 
     steps:
       - name: Deploy via SSH
@@ -123,6 +126,9 @@ jobs:
     needs: [test, lighthouse]
     if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
 
     steps:
       - name: Deploy via SSH
@@ -137,4 +143,4 @@ jobs:
             git pull origin master
             pnpm install --frozen-lockfile
             pnpm --filter @rancho-delivery/frontend build
-            pm2 restart rancho-frontend
+            pm2 restart rancho-frontend || pm2 start --name rancho-frontend -- pnpm --filter @rancho-delivery/frontend start
