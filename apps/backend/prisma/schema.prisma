@@ -10,9 +10,28 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============ FoodFlow: multi-tenant ============
+// Tenant = uma loja. Cada loja e independente (config, cardapio, pagamento, equipe, dominio).
+model Tenant {
+  id           String   @id @default(cuid())
+  slug         String   @unique @db.VarChar(60)
+  nome         String   @db.VarChar(150)
+  dominio      String?  @unique @db.VarChar(255)
+  tema         Json?
+  logoUrl      String?  @map("logo_url") @db.Text
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  @@map("tenants")
+  @@index([slug])
+  @@index([dominio])
+}
+
 // Entidade central: Cliente
 // Identificador único: telefone (WhatsApp)
 model Cliente {
+  tenantId String? @map("tenant_id")
   telefone   String   @id @db.VarChar(20)
   nome       String   @db.VarChar(255)
   endereco   String   @db.Text
@@ -38,6 +57,7 @@ model Cliente {
   leadsMarketing LeadMarketing[]
   
   @@map("clientes")
+  @@index([tenantId])
   @@index([bairro])
   @@index([origem])
 }
@@ -69,6 +89,7 @@ enum CampanhaStatus {
 
 // Produtos do cardápio
 model Produto {
+  tenantId String? @map("tenant_id")
   id           String   @id @default(cuid())
   nome         String   @db.VarChar(255)
   preco        Decimal  @db.Decimal(10, 2)
@@ -86,6 +107,7 @@ model Produto {
   fichaTecnica FichaTecnica?
   
   @@map("produtos")
+  @@index([tenantId])
   @@index([categoria])
   @@index([disponivel])
   @@index([ordem])
@@ -93,6 +115,7 @@ model Produto {
 
 // Bairros atendidos e taxas de entrega
 model Bairro {
+  tenantId String? @map("tenant_id")
   id              String   @id @default(cuid())
   nome            String   @unique @db.VarChar(100)
   cep             String?  @db.VarChar(9)
@@ -105,12 +128,14 @@ model Bairro {
   nomeOutro       String?  @map("nome_outro") @db.VarChar(100)
 
   @@map("bairros")
+  @@index([tenantId])
   @@index([ativo])
   @@index([cep])
 }
 
 // Pedidos
 model Pedido {
+  tenantId String? @map("tenant_id")
   id              String        @id @default(cuid())
   clienteTelefone String        @map("cliente_telefone") @db.VarChar(20)
   enderecoEntrega String?       @map("endereco_entrega") @db.Text
@@ -150,6 +175,7 @@ model Pedido {
   timeline PedidoTimeline[]
 
   @@map("pedidos")
+  @@index([tenantId])
   @@index([clienteTelefone])
   @@index([status])
   @@index([motoboyId])
@@ -201,6 +227,7 @@ enum OrigemMensagem {
 }
 
 model PedidoTimeline {
+  tenantId String? @map("tenant_id")
   id        String   @id @default(cuid())
   pedidoId  String   @map("pedido_id")
   ator      String   @db.VarChar(40)
@@ -210,12 +237,14 @@ model PedidoTimeline {
   pedido    Pedido   @relation(fields: [pedidoId], references: [id], onDelete: Cascade)
 
   @@map("pedido_timeline")
+  @@index([tenantId])
   @@index([pedidoId])
   @@index([criadoEm])
 }
 
 // Itens do pedido
 model ItemPedido {
+  tenantId String? @map("tenant_id")
   id         String  @id @default(cuid())
   pedidoId   String  @map("pedido_id")
   produtoId  String  @map("produto_id")
@@ -229,12 +258,14 @@ model ItemPedido {
   produto Produto @relation(fields: [produtoId], references: [id])
   
   @@map("itens_pedido")
+  @@index([tenantId])
   @@index([pedidoId])
   @@index([produtoId])
 }
 
 // Ficha técnica (Fase 3 - F04)
 model FichaTecnica {
+  tenantId String? @map("tenant_id")
   id              String               @id @default(cuid())
   produtoId       String               @unique @map("produto_id")
   custoProducao   Decimal              @map("custo_producao") @db.Decimal(10, 2)
@@ -247,10 +278,12 @@ model FichaTecnica {
   ingredientes IngredienteFicha[]
   
   @@map("fichas_tecnicas")
+  @@index([tenantId])
 }
 
 // Ingredientes da ficha técnica
 model IngredienteFicha {
+  tenantId String? @map("tenant_id")
   id              String       @id @default(cuid())
   fichaTecnicaId  String       @map("ficha_tecnica_id")
   ingrediente     String       @db.VarChar(255)
@@ -262,11 +295,13 @@ model IngredienteFicha {
   fichaTecnica FichaTecnica @relation(fields: [fichaTecnicaId], references: [id], onDelete: Cascade)
   
   @@map("ingredientes_ficha")
+  @@index([tenantId])
   @@index([fichaTecnicaId])
 }
 
 // Programa de indicação (Fase 4 - F06)
 model Indicacao {
+  tenantId String? @map("tenant_id")
   id              String   @id @default(cuid())
   indicadorTelefone String @map("indicador_telefone") @db.VarChar(20)
   indicadoTelefone  String @unique @map("indicado_telefone") @db.VarChar(20)
@@ -279,12 +314,14 @@ model Indicacao {
   indicado  Cliente @relation("Indicado", fields: [indicadoTelefone], references: [telefone])
   
   @@map("indicacoes")
+  @@index([tenantId])
   @@index([indicadorTelefone])
   @@index([codigoIndicacao])
 }
 
 // Roleta de promoções (Fase 4 - F05)
 model RoletaGiro {
+  tenantId String? @map("tenant_id")
   id              String   @id @default(cuid())
   clienteTelefone String   @map("cliente_telefone") @db.VarChar(20)
   premio          String   @db.VarChar(255)
@@ -293,12 +330,14 @@ model RoletaGiro {
   criadoEm        DateTime @default(now()) @map("criado_em")
   
   @@map("roleta_giros")
+  @@index([tenantId])
   @@index([clienteTelefone])
   @@index([utilizado])
 }
 
 // Contatos minerados (Fase 2 - F02)
 model ContatoMinerado {
+  tenantId String? @map("tenant_id")
   id          String   @id @default(cuid())
   telefone    String   @unique @db.VarChar(20)
   nome        String?  @db.VarChar(255)
@@ -310,11 +349,13 @@ model ContatoMinerado {
   criadoEm    DateTime @default(now()) @map("criado_em")
   
   @@map("contatos_minerados")
+  @@index([tenantId])
   @@index([abordado])
   @@index([convertido])
 }
 
 model MensagemCliente {
+  tenantId String? @map("tenant_id")
   id              String         @id @default(cuid())
   clienteTelefone String         @map("cliente_telefone") @db.VarChar(20)
   pedidoId        String?        @map("pedido_id")
@@ -327,6 +368,7 @@ model MensagemCliente {
   pedido          Pedido?        @relation(fields: [pedidoId], references: [id], onDelete: SetNull)
 
   @@map("mensagens_cliente")
+  @@index([tenantId])
   @@index([clienteTelefone])
   @@index([origem])
   @@index([lida])
@@ -334,6 +376,7 @@ model MensagemCliente {
 }
 
 model ListaNegraCliente {
+  tenantId String? @map("tenant_id")
   id              String   @id @default(cuid())
   clienteTelefone String   @unique @map("cliente_telefone") @db.VarChar(20)
   motivo          String   @db.Text
@@ -347,11 +390,13 @@ model ListaNegraCliente {
   ocorrencias     OcorrenciaListaNegra[]
 
   @@map("lista_negra_clientes")
+  @@index([tenantId])
   @@index([criadoEm])
   @@index([nivel])
 }
 
 model OcorrenciaListaNegra {
+  tenantId String? @map("tenant_id")
   id              String   @id @default(cuid())
   clienteTelefone String   @map("cliente_telefone") @db.VarChar(20)
   motivo          String   @db.Text
@@ -361,6 +406,7 @@ model OcorrenciaListaNegra {
   listaNegra      ListaNegraCliente @relation(fields: [clienteTelefone], references: [clienteTelefone], onDelete: Cascade)
 
   @@map("ocorrencias_lista_negra")
+  @@index([tenantId])
   @@index([clienteTelefone])
   @@index([criadoEm])
 }
@@ -379,6 +425,7 @@ enum EmpresaEntrega {
 }
 
 model Motoboy {
+  tenantId String? @map("tenant_id")
   id                  String         @id @default(cuid())
   nome                String         @db.VarChar(255)
   telefone            String         @unique @db.VarChar(20)
@@ -393,6 +440,7 @@ model Motoboy {
   pedidos     Pedido[]
 
   @@map("motoboys")
+  @@index([tenantId])
   @@index([status])
 }
 
@@ -403,6 +451,7 @@ enum StatusLoja {
 }
 
 model LojaConfiguracao {
+  tenantId String? @map("tenant_id")
   id               String     @id @default("loja_principal")
   status           StatusLoja @default(ABERTO)
   mensagemPausado  String?    @map("mensagem_pausado") @db.Text
@@ -427,9 +476,11 @@ model LojaConfiguracao {
   atualizadoEm     DateTime   @updatedAt @map("atualizado_em")
 
   @@map("loja_configuracao")
+  @@index([tenantId])
 }
 
 model ConfiguracaoAlerta {
+  tenantId String? @map("tenant_id")
   id         String   @id @default(cuid())
   tipo       String   @unique @db.VarChar(60)
   ativo      Boolean  @default(true)
@@ -439,9 +490,11 @@ model ConfiguracaoAlerta {
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
   @@map("configuracoes_alerta")
+  @@index([tenantId])
 }
 
 model RelatorioDia {
+  tenantId String? @map("tenant_id")
   id                   String   @id @default(cuid())
   data                 DateTime @unique @db.Date
   pedidosRecebidos     Int      @map("pedidos_recebidos")
@@ -464,10 +517,12 @@ model RelatorioDia {
   criadoEm             DateTime @default(now()) @map("criado_em")
 
   @@map("relatorios_dia")
+  @@index([tenantId])
   @@index([data])
 }
 
 model LeadMarketing {
+  tenantId String? @map("tenant_id")
   id                 String     @id @default(cuid())
   telefone           String     @unique @db.VarChar(20)
   cpfCnpj            String?    @unique @map("cpf_cnpj") @db.VarChar(14)
@@ -490,6 +545,7 @@ model LeadMarketing {
   mensagens          MensagemLead[]
 
   @@map("leads_marketing")
+  @@index([tenantId])
   @@index([status])
   @@index([origemMineracao])
   @@index([bairro])
@@ -622,6 +678,7 @@ model BairroRancho {
 
 /// Conexões de WhatsApp (instâncias no Evolution Go). Uma marcada como principal.
 model ConexaoWhatsApp {
+  tenantId String? @map("tenant_id")
   id           String   @id @default(cuid())
   nome         String   @unique @db.VarChar(100) // nome da instância no Evolution Go
   instanceId   String?  @map("instance_id") @db.VarChar(100)
@@ -632,6 +689,7 @@ model ConexaoWhatsApp {
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
   @@map("conexoes_whatsapp")
+  @@index([tenantId])
   @@index([principal])
 }
 
@@ -668,6 +726,7 @@ model ScraperErro {
 }
 
 model CampanhaMarketing {
+  tenantId String? @map("tenant_id")
   id                 String         @id @default(cuid())
   nome               String         @db.VarChar(255)
   mensagem           String         @db.Text
@@ -683,12 +742,14 @@ model CampanhaMarketing {
   destinatarios      CampanhaDestinatario[]
 
   @@map("campanhas_marketing")
+  @@index([tenantId])
   @@index([status])
   @@index([criadoEm])
   @@index([agendadaPara])
 }
 
 model CampanhaDestinatario {
+  tenantId String? @map("tenant_id")
   id                 String   @id @default(cuid())
   campanhaId         String   @map("campanha_id")
   leadId             String   @map("lead_id")
@@ -702,6 +763,7 @@ model CampanhaDestinatario {
   lead               LeadMarketing     @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   @@map("campanhas_destinatarios")
+  @@index([tenantId])
   @@unique([campanhaId, leadId])
   @@index([statusEnvio])
 }
