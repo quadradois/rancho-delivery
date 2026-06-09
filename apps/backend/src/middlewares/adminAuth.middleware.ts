@@ -1,6 +1,9 @@
 import crypto from 'crypto';
 import { NextFunction, Request, Response } from 'express';
 import { logger } from '../config/logger';
+import prisma from '../config/database';
+import { runWithTenant, TENANT_PADRAO } from '../config/tenantContext';
+import { verificarSenha } from '../utils/senha';
 
 const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 
@@ -38,7 +41,7 @@ declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
-      adminUser?: { username: string; role: AdminRole };
+      adminUser?: { username: string; role: AdminRole; tenantId?: string };
     }
   }
 }
@@ -63,18 +66,19 @@ function sign(payload: string) {
   return crypto.createHmac('sha256', getSecret()).update(payload).digest('base64url');
 }
 
-export function criarAdminToken(username: string, role: AdminRole = 'admin') {
+export function criarAdminToken(username: string, role: AdminRole = 'admin', tenantId?: string) {
   const header = base64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const payload = base64Url(JSON.stringify({
     sub: username,
     role,
+    tenantId,
     exp: Date.now() + TOKEN_TTL_MS,
   }));
   const body = `${header}.${payload}`;
   return `${body}.${sign(body)}`;
 }
 
-function decodificarToken(token?: string): { username: string; role: AdminRole } | null {
+function decodificarToken(token?: string): { username: string; role: AdminRole; tenantId?: string } | null {
   if (!token) return null;
 
   const [header, payload, signature] = token.split('.');
@@ -94,7 +98,11 @@ function decodificarToken(token?: string): { username: string; role: AdminRole }
 
     if (typeof decoded?.exp !== 'number' || decoded.exp <= Date.now()) return null;
 
-    return { username: decoded.sub ?? 'admin', role };
+    return {
+      username: decoded.sub ?? 'admin',
+      role,
+      tenantId: typeof decoded?.tenantId === 'string' ? decoded.tenantId : undefined,
+    };
   } catch {
     return null;
   }
@@ -107,7 +115,8 @@ export function autenticarAdmin(req: Request, res: Response, next: NextFunction)
   const user = decodificarToken(bearerToken);
   if (user) {
     req.adminUser = user;
-    return next();
+    // o tenant do usuário logado prevalece sobre o resolvido por host
+    return runWithTenant(user.tenantId ?? TENANT_PADRAO, () => next());
   }
 
   return res.status(401).json({
@@ -140,7 +149,10 @@ export function tryAutenticarAdmin(req: Request, _res: Response, next: NextFunct
   const authHeader = req.headers.authorization;
   const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : undefined;
   const user = decodificarToken(bearerToken);
-  if (user) req.adminUser = user;
+  if (user) {
+    req.adminUser = user;
+    return runWithTenant(user.tenantId ?? TENANT_PADRAO, () => next());
+  }
   return next();
 }
 
@@ -159,40 +171,55 @@ export function refreshAdmin(req: Request, res: Response) {
   return res.json({
     success: true,
     data: {
-      token: criarAdminToken(user.username, user.role),
+      token: criarAdminToken(user.username, user.role, user.tenantId),
       role: user.role,
       expiresIn: TOKEN_TTL_MS / 1000,
     },
   });
 }
 
-export function loginAdmin(req: Request, res: Response) {
-  const username = String(req.body?.username || '').trim();
+export async function loginAdmin(req: Request, res: Response) {
+  const identificador = String(req.body?.email || req.body?.username || '').trim().toLowerCase();
   const password = String(req.body?.password || '');
-  const expectedUser = process.env.ADMIN_USERNAME || 'admin';
-  const expectedPassword = process.env.ADMIN_PASSWORD || (process.env.NODE_ENV === 'production' ? '' : 'admin');
-  const role = (process.env.ADMIN_ROLE ?? 'admin') as AdminRole;
 
-  if (!expectedPassword) {
-    return res.status(500).json({
-      success: false,
-      error: { message: 'ADMIN_PASSWORD nao configurado', code: 'ADMIN_AUTH_NOT_CONFIGURED' },
-    });
-  }
+  try {
+    // 1. Usuário no banco — busca cross-tenant por email (raw escapa do tenant guard).
+    if (identificador) {
+      const rows = await prisma.$queryRaw<
+        Array<{ id: string; tenant_id: string | null; senha_hash: string; role: string }>
+      >`SELECT id, tenant_id, senha_hash, role FROM usuarios WHERE lower(email) = ${identificador} AND ativo = true LIMIT 1`;
+      const u = rows[0];
+      if (u && verificarSenha(password, u.senha_hash)) {
+        const rolesValidas: AdminRole[] = ['admin', 'operador', 'viewer'];
+        const role = rolesValidas.includes(u.role as AdminRole) ? (u.role as AdminRole) : 'viewer';
+        return res.json({
+          success: true,
+          data: {
+            token: criarAdminToken(identificador, role, u.tenant_id ?? undefined),
+            role,
+            expiresIn: TOKEN_TTL_MS / 1000,
+          },
+        });
+      }
+    }
 
-  if (username !== expectedUser || password !== expectedPassword) {
+    // 2. Fallback: credenciais do .env (tenant padrão — Rancho). Mantém o acesso atual.
+    const expectedUser = (process.env.ADMIN_USERNAME || 'admin').toLowerCase();
+    const expectedPassword = process.env.ADMIN_PASSWORD || (process.env.NODE_ENV === 'production' ? '' : 'admin');
+    const role = (process.env.ADMIN_ROLE ?? 'admin') as AdminRole;
+    if (expectedPassword && identificador === expectedUser && password === expectedPassword) {
+      return res.json({
+        success: true,
+        data: { token: criarAdminToken(expectedUser, role), role, expiresIn: TOKEN_TTL_MS / 1000 },
+      });
+    }
+
     return res.status(401).json({
       success: false,
       error: { message: 'Credenciais invalidas', code: 'INVALID_CREDENTIALS' },
     });
+  } catch (error) {
+    logger.error('Erro no login admin:', error);
+    return res.status(500).json({ success: false, error: { message: 'Erro ao autenticar', code: 'AUTH_ERROR' } });
   }
-
-  return res.json({
-    success: true,
-    data: {
-      token: criarAdminToken(username, role),
-      role,
-      expiresIn: TOKEN_TTL_MS / 1000,
-    },
-  });
 }
