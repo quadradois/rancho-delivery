@@ -1,5 +1,6 @@
 import prisma from '../config/database';
 import { logger } from '../config/logger';
+import { getLojaConfig, upsertLojaConfig } from './lojaConfig.service';
 
 export type TipoFaixa = 'GRATIS' | 'FIXO' | 'POR_KM';
 
@@ -100,10 +101,7 @@ function calcularTaxaPorFaixas(distanciaKm: number, faixas: FaixaEntrega[]): Res
 class TaxaEntregaService {
   async calcularPorCep(cep: string): Promise<ResultadoTaxaEntrega> {
     try {
-      const loja = await prisma.lojaConfiguracao.findUnique({
-        where: { id: 'loja_principal' },
-        select: { latLoja: true, lngLoja: true, faixasEntrega: true },
-      });
+      const loja = await getLojaConfig();
 
       if (!loja?.faixasEntrega || !loja.latLoja || !loja.lngLoja) {
         return { atendido: false, taxa: 0, erro: 'Configuração de entrega não definida' };
@@ -128,19 +126,15 @@ class TaxaEntregaService {
   }
 
   async obterFaixas(): Promise<FaixaEntrega[]> {
-    const loja = await prisma.lojaConfiguracao.findUnique({
-      where: { id: 'loja_principal' },
-      select: { faixasEntrega: true },
-    });
+    const loja = await getLojaConfig();
     return (loja?.faixasEntrega as unknown as FaixaEntrega[]) ?? [];
   }
 
   async salvarFaixas(faixas: FaixaEntrega[]): Promise<void> {
     const json = faixas as unknown as import('@prisma/client').Prisma.InputJsonValue;
-    await prisma.lojaConfiguracao.upsert({
-      where: { id: 'loja_principal' },
+    await upsertLojaConfig({
       update: { faixasEntrega: json },
-      create: { id: 'loja_principal', faixasEntrega: json },
+      create: { faixasEntrega: json },
     });
   }
 

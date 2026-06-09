@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { logger } from '../config/logger';
-import prisma from '../config/database';
+import { getLojaConfig } from './lojaConfig.service';
 
 interface ItemMercadoPago {
   quantity: number;
@@ -66,17 +66,7 @@ export class MercadoPagoService {
   }
 
   private async obterConfiguracao() {
-    const delegate = (prisma as any).lojaConfiguracao;
-    const loja = delegate?.findUnique
-      ? await delegate.findUnique({
-          where: { id: 'loja_principal' },
-          select: {
-            mercadopagoAtivo: true,
-            mercadopagoAccessToken: true,
-            mercadopagoWebhookSecret: true,
-          },
-        })
-      : null;
+    const loja = await getLojaConfig();
 
     return {
       ativo: loja?.mercadopagoAtivo ?? true,

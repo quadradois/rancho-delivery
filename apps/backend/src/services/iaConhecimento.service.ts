@@ -1,6 +1,5 @@
-import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
-import { getLojaConfig } from './lojaConfig.service';
+import { getLojaConfig, upsertLojaConfig } from './lojaConfig.service';
 import Anthropic from '@anthropic-ai/sdk';
 import iaContextoService from './iaContexto.service';
 import { logger } from '../config/logger';
@@ -37,10 +36,8 @@ function toJson(v: unknown): Prisma.InputJsonValue | typeof Prisma.JsonNull | un
 }
 
 export async function salvarConhecimento(dados: Partial<IAConhecimento>): Promise<IAConhecimento> {
-  await prisma.lojaConfiguracao.upsert({
-    where: { id: 'loja_principal' },
+  await upsertLojaConfig({
     create: {
-      id: 'loja_principal',
       iaDescricaoNegocio: dados.descricaoNegocio,
       iaVozMarca: toJson(dados.vozMarca),
       iaDiferenciais: toJson(dados.diferenciais),
