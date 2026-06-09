@@ -346,7 +346,7 @@ model RoletaGiro {
 model ContatoMinerado {
   tenantId String? @map("tenant_id")
   id          String   @id @default(cuid())
-  telefone    String   @unique @db.VarChar(20)
+  telefone    String   @db.VarChar(20)
   nome        String?  @db.VarChar(255)
   endereco    String?  @db.Text
   bairro      String?  @db.VarChar(100)
@@ -356,6 +356,7 @@ model ContatoMinerado {
   criadoEm    DateTime @default(now()) @map("criado_em")
   
   @@map("contatos_minerados")
+  @@unique([tenantId, telefone])
   @@index([tenantId])
   @@index([abordado])
   @@index([convertido])
@@ -441,7 +442,7 @@ model Motoboy {
   tenantId String? @map("tenant_id")
   id                  String         @id @default(cuid())
   nome                String         @db.VarChar(255)
-  telefone            String         @unique @db.VarChar(20)
+  telefone            String         @db.VarChar(20)
   empresa             EmpresaEntrega @default(PROPRIO)
   status              StatusMotoboy  @default(DISPONIVEL)
   tipoRemuneracao     String         @default("FIXO_POR_ENTREGA") @map("tipo_remuneracao")
@@ -453,6 +454,7 @@ model Motoboy {
   pedidos     Pedido[]
 
   @@map("motoboys")
+  @@unique([tenantId, telefone])
   @@index([tenantId])
   @@index([status])
 }
@@ -537,8 +539,8 @@ model RelatorioDia {
 model LeadMarketing {
   tenantId String? @map("tenant_id")
   id                 String     @id @default(cuid())
-  telefone           String     @unique @db.VarChar(20)
-  cpfCnpj            String?    @unique @map("cpf_cnpj") @db.VarChar(14)
+  telefone           String     @db.VarChar(20)
+  cpfCnpj            String?    @map("cpf_cnpj") @db.VarChar(14)
   telefones          Json?
   nome               String?    @db.VarChar(255)
   endereco           String?    @db.Text
@@ -559,6 +561,8 @@ model LeadMarketing {
   mensagens          MensagemLead[]
 
   @@map("leads_marketing")
+  @@unique([tenantId, telefone])
+  @@unique([tenantId, cpfCnpj])
   @@index([tenantId])
   @@index([clienteId])
   @@index([status])

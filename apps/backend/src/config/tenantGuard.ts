@@ -32,12 +32,13 @@ const WHERE_OPS = new Set([
  * - WHERE_OPS: adiciona `where.tenantId`.
  * - create / createMany: força `tenantId` no(s) data (o contexto sempre vence,
  *   por segurança).
+ * - upsert: força `tenantId` no ramo `create` (o registro novo nasce no tenant).
  *
- * Fora de escopo da F1a (serão cobertos pela RLS na F1b):
- * - operações por chave única (findUnique/update/delete/upsert) — o `where`
- *   unique não aceita tenantId;
+ * Fora de escopo (serão cobertos pela RLS na F1b):
+ * - o `where` de upsert/findUnique/update/delete — chave única não aceita
+ *   tenantId, então não isola por tenant aqui;
  * - nested writes (ex.: pedido.create com `itens: { create }`) — o $extends
- *   não desce na árvore;
+ *   não desce na árvore (tratado no service que faz o nested);
  * - `$queryRaw`/`$executeRaw` — não passam por $allModels.
  */
 export function injectTenant(
@@ -57,6 +58,10 @@ export function injectTenant(
     const data = next.data;
     const rows = Array.isArray(data) ? data : [data];
     next.data = rows.map((d) => ({ ...(d as Record<string, unknown>), tenantId }));
+  } else if (operation === 'upsert') {
+    // só o ramo de criação ganha tenant; o where (unique) e o update operam
+    // sobre o registro existente. Isolar o where fica para a RLS (F1b).
+    next.create = { ...(next.create as Record<string, unknown>), tenantId };
   }
   return next;
 }

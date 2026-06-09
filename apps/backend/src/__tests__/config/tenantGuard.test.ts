@@ -43,6 +43,18 @@ describe('tenantGuard.injectTenant', () => {
     expect(injectTenant('AssertivaConsultaCache', 'create', { data: {} }, 't1')).toEqual({ data: {} });
   });
 
+  it('injeta tenantId apenas no ramo create de upsert (where/update intactos)', () => {
+    const out = injectTenant(
+      'LeadMarketing',
+      'upsert',
+      { where: { id: 'x' }, create: { telefone: '9' }, update: { nome: 'y' } },
+      't1',
+    );
+    expect((out.create as Record<string, unknown>).tenantId).toBe('t1');
+    expect(out.where).toEqual({ id: 'x' });
+    expect(out.update).toEqual({ nome: 'y' });
+  });
+
   it('NÃO toca operações por chave única (findUnique/update/delete) — cobertas pela RLS na F1b', () => {
     const a1 = { where: { id: 'x' } };
     expect(injectTenant('Pedido', 'findUnique', a1, 't1')).toEqual(a1);

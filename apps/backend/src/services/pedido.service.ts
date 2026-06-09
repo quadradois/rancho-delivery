@@ -8,6 +8,7 @@ import mercadoPagoService from './mercadopago.service';
 import evolutionService from './evolution.service';
 import realtimeService from './realtime.service';
 import { getLojaConfig, upsertLojaConfig } from './lojaConfig.service';
+import { getTenantId } from '../config/tenantContext';
 import { EmpresaEntrega, FormaPagamentoPedido, Origem, StatusLoja, StatusPagamento, StatusPedido, TipoAtendimentoPedido } from '@prisma/client';
 import { getSaoPauloDayRange } from '../utils/timezone';
 
@@ -692,7 +693,8 @@ export class PedidoService {
           observacao,
           tokenAcesso,
           itens: {
-            create: itensValidados,
+            // nested create não passa pelo $extends — propaga o tenant do pedido
+            create: itensValidados.map((item) => ({ ...item, tenantId: getTenantId() })),
           },
         },
         include: {
