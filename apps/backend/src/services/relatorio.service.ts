@@ -2,6 +2,7 @@ import prisma from '../config/database';
 import { logger } from '../config/logger';
 import { StatusPedido, TipoAtendimentoPedido } from '@prisma/client';
 import { getSaoPauloDayRange } from '../utils/timezone';
+import { getTenantId } from '../config/tenantContext';
 
 export class RelatorioService {
   async gerarRelatorioDia(data?: Date): Promise<any> {
@@ -208,7 +209,7 @@ export class RelatorioService {
     // Salvar snapshot
     try {
       await prisma.relatorioDia.upsert({
-        where: { data: inicioDia },
+        where: { tenantId_data: { tenantId: getTenantId(), data: inicioDia } },
         update: {
           pedidosRecebidos,
           pedidosEntregues,

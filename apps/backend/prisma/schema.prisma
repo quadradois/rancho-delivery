@@ -514,7 +514,7 @@ model LojaConfiguracao {
 model ConfiguracaoAlerta {
   tenantId String? @map("tenant_id")
   id         String   @id @default(cuid())
-  tipo       String   @unique @db.VarChar(60)
+  tipo       String   @db.VarChar(60)
   ativo      Boolean  @default(true)
   threshold  Int      @default(0) // segundos ou minutos dependendo do tipo
   acao       String   @db.VarChar(100) @default("som+badge")
@@ -522,13 +522,14 @@ model ConfiguracaoAlerta {
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
   @@map("configuracoes_alerta")
+  @@unique([tenantId, tipo])
   @@index([tenantId])
 }
 
 model RelatorioDia {
   tenantId String? @map("tenant_id")
   id                   String   @id @default(cuid())
-  data                 DateTime @unique @db.Date
+  data                 DateTime @db.Date
   pedidosRecebidos     Int      @map("pedidos_recebidos")
   pedidosEntregues     Int      @map("pedidos_entregues")
   pedidosCancelados    Int      @map("pedidos_cancelados")
@@ -549,6 +550,7 @@ model RelatorioDia {
   criadoEm             DateTime @default(now()) @map("criado_em")
 
   @@map("relatorios_dia")
+  @@unique([tenantId, data])
   @@index([tenantId])
   @@index([data])
 }

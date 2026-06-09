@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { getTenantId } from '../config/tenantContext';
 
 export const ALERTAS_PADRAO = [
   { tipo: 'PAGAMENTO_SEM_CONFIRMACAO', threshold: 180,  acao: 'som+badge',  ativo: true },
@@ -36,7 +37,7 @@ export class AlertaService {
     if (!padrao) throw new Error('ALERTA_INVALIDO');
 
     return prisma.configuracaoAlerta.upsert({
-      where: { tipo },
+      where: { tenantId_tipo: { tenantId: getTenantId(), tipo } },
       update: {
         ...(dados.ativo !== undefined ? { ativo: dados.ativo } : {}),
         ...(dados.threshold !== undefined ? { threshold: dados.threshold } : {}),
@@ -52,7 +53,7 @@ export class AlertaService {
   }
 
   async obterPorTipo(tipo: string) {
-    const registro = await prisma.configuracaoAlerta.findUnique({ where: { tipo } });
+    const registro = await prisma.configuracaoAlerta.findFirst({ where: { tipo } });
     if (registro) return registro;
     const padrao = ALERTAS_PADRAO.find((p) => p.tipo === tipo);
     return padrao || null;

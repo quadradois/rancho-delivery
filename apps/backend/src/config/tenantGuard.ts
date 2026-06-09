@@ -78,14 +78,18 @@ function recordNotFound(): never {
  *
  * - coleção/criação (WHERE_OPS, create/createMany, ramo create do upsert):
  *   injeta o tenant via `injectTenant`;
- * - findUnique/findUniqueOrThrow: como o `where` unique não filtra por tenant,
- *   valida o tenant do RESULTADO (esconde registro de outro tenant);
- * - update/delete: confirma a POSSE antes de tocar o registro — uma busca
- *   filtrada por tenant (no client base) precisa achar a linha; senão, P2025.
- *   Fecha o IDOR de escrita-por-id que o filtro de coleção não cobre.
+ * - findUnique/findUniqueOrThrow: refaz como findFirst com `where + tenantId`
+ *   (qualquer chave única), preservando select/include — esconde registro de
+ *   outro tenant sem depender de o select trazer tenantId;
+ * - update/delete: confirma a POSSE (findFirst filtrado) antes de tocar o
+ *   registro; senão, P2025. Fecha o IDOR de escrita por qualquer chave única.
  *
- * Não cobertos (aceito): `$queryRaw`/`$executeRaw` (o único raw tenant-sensível
- * é o login, cross-tenant de propósito) e nested writes (tratados nos services).
+ * O `where` composto ([tenantId, X]) já carrega o tenant e passa direto.
+ *
+ * Não cobertos: upsert por chave única GLOBAL (o lookup acharia cross-tenant —
+ * resolvido tornando esses uniques compostos [tenantId, X]); `$queryRaw` (o único
+ * raw tenant-sensível é o login, cross-tenant de propósito); nested writes
+ * (tratados nos services).
  */
 export const tenantGuard = Prisma.defineExtension((base) =>
   base.$extends({
@@ -109,30 +113,23 @@ export const tenantGuard = Prisma.defineExtension((base) =>
             accessor(model)
           ];
           const where = (args as { where?: Record<string, unknown> })?.where ?? {};
+          // where composto que já carrega o tenant ([tenantId, X] vira a chave tenantId_X) já isola.
+          const whereJaIsola = Object.keys(where).some((k) => k === 'tenantId' || k.startsWith('tenantId_'));
 
           if (operation === 'findUnique' || operation === 'findUniqueOrThrow') {
-            // Por id (vetor do IDOR): refaz como findFirst {id, tenantId}, preservando
-            // select/include — robusto mesmo quando o select omite tenantId.
-            if (typeof where.id === 'string') {
-              const found = await baseModel.findFirst({ ...(args as object), where: { id: where.id, tenantId } });
-              if (!found && operation === 'findUniqueOrThrow') recordNotFound();
-              return found;
-            }
-            // Outros uniques: valida pelo tenant do resultado, se presente.
-            const res = await query(args);
-            const t = (res as { tenantId?: unknown } | null)?.tenantId;
-            if (res && t != null && t !== tenantId) {
-              if (operation === 'findUniqueOrThrow') recordNotFound();
-              return null;
-            }
-            return res;
+            if (whereJaIsola) return query(args);
+            // Refaz como findFirst com o where unique + tenantId, preservando select/include:
+            // fecha o IDOR por QUALQUER chave única (id, nome, ...), sem depender do select.
+            const found = await baseModel.findFirst({ ...(args as object), where: { ...where, tenantId } });
+            if (!found && operation === 'findUniqueOrThrow') recordNotFound();
+            return found;
           }
 
           if (operation === 'update' || operation === 'delete') {
-            // Por id: confirma a posse no tenant antes de tocar (fecha o IDOR de escrita).
-            // Wheres compostos ([tenantId, X]) já carregam o tenant; demais seguem.
-            if (typeof where.id === 'string') {
-              const dono = await baseModel.findFirst({ where: { id: where.id, tenantId }, select: { id: true } });
+            // Confirma a posse no tenant antes de tocar — fecha o IDOR de escrita por qualquer
+            // chave única (id, nome, ...). where composto ([tenantId, X]) já carrega o tenant.
+            if (!whereJaIsola) {
+              const dono = await baseModel.findFirst({ where: { ...where, tenantId }, select: { id: true } });
               if (!dono) recordNotFound();
             }
             return query(args);
