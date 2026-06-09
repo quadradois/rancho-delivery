@@ -64,7 +64,7 @@ function rawJid(telefone: string) {
 }
 
 function mockLojaStatus(status: 'ABERTO' | 'FECHADO' | 'PAUSADO', mensagemPausado?: string) {
-  vi.mocked(prisma.lojaConfiguracao.findUnique).mockResolvedValue({
+  vi.mocked(prisma.lojaConfiguracao.findFirst).mockResolvedValue({
     id: 'loja_principal',
     status,
     mensagemPausado: mensagemPausado ?? null,
@@ -142,7 +142,7 @@ describe('conversacao.service — eLojaAberta (regressão)', () => {
     const resultado = await responderLead(tel, 'Olá!', '120363123456789@g.us');
 
     expect(resultado).toBeNull();
-    expect(prisma.lojaConfiguracao.findUnique).not.toHaveBeenCalled();
+    expect(prisma.lojaConfiguracao.findFirst).not.toHaveBeenCalled();
   });
 
   it('retorna null quando não há lead nem cliente cadastrado', async () => {

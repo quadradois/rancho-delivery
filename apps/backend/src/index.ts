@@ -6,6 +6,7 @@ import { logger } from './config/logger';
 import apiRoutes from './routes';
 import webhookRoutes from './routes/webhook.routes';
 import { errorHandler, notFoundHandler, requestLogger } from './middlewares/error.middleware';
+import { tenantMiddleware } from './middlewares/tenant.middleware';
 import pedidoService from './services/pedido.service';
 import { iniciarDeteccaoNovosImoveis } from './jobs/deteccaoNovosImoveis.job';
 import { executarEnriquecimentoIncremental } from './jobs/cargaImoveis.job';
@@ -116,8 +117,8 @@ app.get('/', (_req: Request, res: Response) => {
   });
 });
 
-// Rotas da API
-app.use('/api', apiRoutes);
+// Rotas da API (tenantMiddleware resolve o tenant pelo Host e fixa no contexto)
+app.use('/api', tenantMiddleware, apiRoutes);
 
 // Rotas de webhook (sem autenticação)
 app.use('/webhook', webhookRoutes);
