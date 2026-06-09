@@ -52,6 +52,9 @@ vi.mock('../config/database', () => ({
     },
     lojaConfiguracao: {
       findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      create: vi.fn(),
+      update: vi.fn(),
       upsert: vi.fn().mockResolvedValue({ id: 'loja_principal', status: 'ABERTO', mensagemPausado: null }),
     },
     imovelPrefeitura: {

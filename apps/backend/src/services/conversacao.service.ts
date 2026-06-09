@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { OrigemMensagem } from '@prisma/client';
 import prisma from '../config/database';
+import { getLojaConfig } from './lojaConfig.service';
 import evolutionService from './evolution.service';
 import realtimeService from './realtime.service';
 import { logger } from '../config/logger';
@@ -53,10 +54,7 @@ export interface RespostaIA {
 }
 
 async function eLojaAberta(): Promise<{ aberto: boolean; mensagemFechado?: string }> {
-  const loja = await prisma.lojaConfiguracao.findUnique({
-    where: { id: 'loja_principal' },
-    select: { status: true, mensagemPausado: true },
-  });
+  const loja = await getLojaConfig();
   if (!loja || loja.status === 'ABERTO') return { aberto: true };
   const msg = loja.mensagemPausado || 'Estamos fechados no momento. Voltamos em breve! 😊';
   return { aberto: false, mensagemFechado: msg };

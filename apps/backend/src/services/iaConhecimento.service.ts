@@ -1,5 +1,6 @@
 import prisma from '../config/database';
 import { Prisma } from '@prisma/client';
+import { getLojaConfig } from './lojaConfig.service';
 import Anthropic from '@anthropic-ai/sdk';
 import iaContextoService from './iaContexto.service';
 import { logger } from '../config/logger';
@@ -17,7 +18,7 @@ export interface IAConhecimento {
 }
 
 export async function obterConhecimento(): Promise<IAConhecimento> {
-  const config = await prisma.lojaConfiguracao.findUnique({ where: { id: 'loja_principal' } });
+  const config = await getLojaConfig();
   return {
     descricaoNegocio: config?.iaDescricaoNegocio ?? null,
     vozMarca: (config?.iaVozMarca as Record<string, unknown> | null) ?? null,
