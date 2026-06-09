@@ -1,9 +1,10 @@
 import { PrismaClient } from '@prisma/client';
+import { tenantGuard } from './tenantGuard';
 
 const prismaClientSingleton = () => {
   return new PrismaClient({
     log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  });
+  }).$extends(tenantGuard);
 };
 
 declare global {
