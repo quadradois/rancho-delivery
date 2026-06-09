@@ -101,7 +101,7 @@ vi.mock('../config/database', () => ({
       update: vi.fn().mockResolvedValue({}),
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
     },
-    $queryRaw: vi.fn(),
+    $queryRaw: vi.fn().mockResolvedValue([]),
     $transaction: vi.fn((callback) => callback({
       pedido: {
         create: vi.fn(),
