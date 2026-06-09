@@ -139,17 +139,17 @@ export class ClienteService {
         ...(geo ? { lat: geo.lat, lng: geo.lng, nrinscr: geo.nrinscr } : {}),
       };
 
-      const clienteExistente = await prisma.cliente.findUnique({ where: { telefone } });
+      const clienteExistente = await prisma.cliente.findFirst({ where: { telefone } });
 
       if (clienteExistente) {
         const clienteAtualizado = await prisma.cliente.update({
-          where: { telefone },
+          where: { id: clienteExistente.id },
           data: camposEndereco,
         });
         logger.info(`Cliente atualizado: ${telefone}`);
         await prisma.leadMarketing.updateMany({
           where: { telefone, status: LeadStatus.ATIVO },
-          data: { status: LeadStatus.CONVERTIDO, convertidoEm: new Date(), clienteTelefone: telefone },
+          data: { status: LeadStatus.CONVERTIDO, convertidoEm: new Date(), clienteId: clienteExistente.id, clienteTelefone: telefone },
         });
         return clienteAtualizado;
       }
@@ -160,7 +160,7 @@ export class ClienteService {
       logger.info(`Novo cliente criado: ${telefone} - Origem: ${origem}`);
       await prisma.leadMarketing.updateMany({
         where: { telefone, status: LeadStatus.ATIVO },
-        data: { status: LeadStatus.CONVERTIDO, convertidoEm: new Date(), clienteTelefone: telefone },
+        data: { status: LeadStatus.CONVERTIDO, convertidoEm: new Date(), clienteId: novoCliente.id, clienteTelefone: telefone },
       });
       return novoCliente;
     } catch (error) {
@@ -174,7 +174,7 @@ export class ClienteService {
    */
   async buscarPorTelefone(telefone: string) {
     try {
-      const cliente = await prisma.cliente.findUnique({
+      const cliente = await prisma.cliente.findFirst({
         where: { telefone },
       });
 
@@ -357,7 +357,7 @@ export class ClienteService {
   }
 
   async buscarClienteParaPedidoManual(telefone: string) {
-    const cliente = await prisma.cliente.findUnique({
+    const cliente = await prisma.cliente.findFirst({
       where: { telefone },
       select: { telefone: true, nome: true, endereco: true, bairro: true },
     });
@@ -493,8 +493,12 @@ export class ClienteService {
   }
 
   async registrarMensagemSistema(telefone: string, texto: string, pedidoId?: string | null) {
+    const cliente = await prisma.cliente.findFirst({ where: { telefone } });
+    if (!cliente) return null;
+
     return prisma.mensagemCliente.create({
       data: {
+        clienteId: cliente.id,
         clienteTelefone: telefone,
         pedidoId: pedidoId || null,
         origem: OrigemMensagem.SISTEMA,
@@ -505,11 +509,12 @@ export class ClienteService {
   }
 
   async registrarMensagemRecebida(telefone: string, texto: string, pedidoId?: string | null) {
-    const cliente = await prisma.cliente.findUnique({ where: { telefone } });
+    const cliente = await prisma.cliente.findFirst({ where: { telefone } });
     if (!cliente) return null;
 
     return prisma.mensagemCliente.create({
       data: {
+        clienteId: cliente.id,
         clienteTelefone: telefone,
         pedidoId: pedidoId || null,
         origem: OrigemMensagem.HUMANO,
@@ -520,7 +525,7 @@ export class ClienteService {
   }
 
   async enviarMensagemHumana(telefone: string, texto: string, pedidoId?: string | null) {
-    const cliente = await prisma.cliente.findUnique({ where: { telefone } });
+    const cliente = await prisma.cliente.findFirst({ where: { telefone } });
     if (!cliente) throw new Error('CLIENTE_NAO_ENCONTRADO');
 
     const enviado = await evolutionService.enviarMensagem({
@@ -532,6 +537,7 @@ export class ClienteService {
 
     return prisma.mensagemCliente.create({
       data: {
+        clienteId: cliente.id,
         clienteTelefone: telefone,
         pedidoId: pedidoId || null,
         origem: OrigemMensagem.HUMANO,
@@ -566,7 +572,7 @@ export class ClienteService {
   }
 
   async obterResumoCliente(telefone: string) {
-    const cliente = await prisma.cliente.findUnique({
+    const cliente = await prisma.cliente.findFirst({
       where: { telefone },
       include: {
         pedidos: {
@@ -678,7 +684,7 @@ export class ClienteService {
       throw new Error('VALIDACAO_ERRO');
     }
 
-    const existente = await prisma.cliente.findUnique({ where: { telefone } });
+    const existente = await prisma.cliente.findFirst({ where: { telefone } });
     if (existente) throw new Error('CLIENTE_JA_EXISTE');
 
     return prisma.cliente.create({
@@ -687,16 +693,16 @@ export class ClienteService {
   }
 
   async atualizarAtivo(telefone: string, ativo: boolean) {
-    const existente = await prisma.cliente.findUnique({ where: { telefone } });
+    const existente = await prisma.cliente.findFirst({ where: { telefone } });
     if (!existente) throw new Error('CLIENTE_NAO_ENCONTRADO');
     return prisma.cliente.update({
-      where: { telefone },
+      where: { id: existente.id },
       data: { ativo },
     });
   }
 
   async excluir(telefone: string) {
-    const cliente = await prisma.cliente.findUnique({
+    const cliente = await prisma.cliente.findFirst({
       where: { telefone },
       include: { _count: { select: { pedidos: true } } },
     });
@@ -704,14 +710,14 @@ export class ClienteService {
     if (cliente._count.pedidos > 0) {
       throw new Error('CLIENTE_COM_PEDIDOS');
     }
-    return prisma.cliente.delete({ where: { telefone } });
+    return prisma.cliente.delete({ where: { id: cliente.id } });
   }
 
   async adicionarListaNegra(telefone: string, motivo: string, registradoPor?: string) {
-    const cliente = await prisma.cliente.findUnique({ where: { telefone } });
+    const cliente = await prisma.cliente.findFirst({ where: { telefone } });
     if (!cliente) throw new Error('CLIENTE_NAO_ENCONTRADO');
 
-    const existente = await prisma.listaNegraCliente.findUnique({
+    const existente = await prisma.listaNegraCliente.findFirst({
       where: { clienteTelefone: telefone },
     });
 
@@ -722,7 +728,7 @@ export class ClienteService {
 
       const [atualizado] = await Promise.all([
         prisma.listaNegraCliente.update({
-          where: { clienteTelefone: telefone },
+          where: { id: existente.id },
           data: {
             motivo,
             nivel: novoNivel,
@@ -731,29 +737,27 @@ export class ClienteService {
           },
         }),
         prisma.ocorrenciaListaNegra.create({
-          data: { clienteTelefone: telefone, motivo, registradoPor },
+          data: { listaNegraId: existente.id, clienteTelefone: telefone, motivo, registradoPor },
         }),
       ]);
       return atualizado;
     }
 
-    const [criado] = await Promise.all([
-      prisma.listaNegraCliente.create({
-        data: { clienteTelefone: telefone, motivo, nivel: 1, totalOcorrencias: 1, registradoPor },
-      }),
-      prisma.ocorrenciaListaNegra.create({
-        data: { clienteTelefone: telefone, motivo, registradoPor },
-      }),
-    ]);
+    const criado = await prisma.listaNegraCliente.create({
+      data: { clienteId: cliente.id, clienteTelefone: telefone, motivo, nivel: 1, totalOcorrencias: 1, registradoPor },
+    });
+    await prisma.ocorrenciaListaNegra.create({
+      data: { listaNegraId: criado.id, clienteTelefone: telefone, motivo, registradoPor },
+    });
     return criado;
   }
 
   async atualizarNivelListaNegra(telefone: string, nivel: number) {
-    const existente = await prisma.listaNegraCliente.findUnique({ where: { clienteTelefone: telefone } });
+    const existente = await prisma.listaNegraCliente.findFirst({ where: { clienteTelefone: telefone } });
     if (!existente) throw new Error('CLIENTE_NAO_ENCONTRADO_LISTA_NEGRA');
     if (nivel < 1 || nivel > 3) throw new Error('NIVEL_INVALIDO');
     return prisma.listaNegraCliente.update({
-      where: { clienteTelefone: telefone },
+      where: { id: existente.id },
       data: { nivel },
     });
   }
@@ -766,11 +770,11 @@ export class ClienteService {
   }
 
   async removerListaNegra(telefone: string) {
-    const existente = await prisma.listaNegraCliente.findUnique({
+    const existente = await prisma.listaNegraCliente.findFirst({
       where: { clienteTelefone: telefone },
     });
     if (!existente) return null;
-    return prisma.listaNegraCliente.delete({ where: { clienteTelefone: telefone } });
+    return prisma.listaNegraCliente.delete({ where: { id: existente.id } });
   }
 
   async listarTodasConversas(limite = 50) {

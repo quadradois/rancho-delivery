@@ -72,7 +72,7 @@ function mockLojaStatus(status: 'ABERTO' | 'FECHADO' | 'PAUSADO', mensagemPausad
 }
 
 function mockLeadExistente(telefone: string) {
-  vi.mocked(prisma.cliente.findUnique).mockResolvedValue(null);
+  vi.mocked(prisma.cliente.findFirst).mockResolvedValue(null);
   vi.mocked(prisma.leadMarketing.findFirst).mockResolvedValue({
     id: 'lead-1',
     nome: 'Ivonet',
@@ -148,7 +148,7 @@ describe('conversacao.service — eLojaAberta (regressão)', () => {
   it('retorna null quando não há lead nem cliente cadastrado', async () => {
     const tel = novoTelefone();
     mockLojaStatus('ABERTO');
-    vi.mocked(prisma.cliente.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.cliente.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.leadMarketing.findFirst).mockResolvedValue(null);
 
     const resultado = await responderLead(tel, 'Olá!', rawJid(tel));
@@ -159,7 +159,7 @@ describe('conversacao.service — eLojaAberta (regressão)', () => {
   it('não responde a lead com status CONVERTIDO', async () => {
     const tel = novoTelefone();
     mockLojaStatus('ABERTO');
-    vi.mocked(prisma.cliente.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.cliente.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.leadMarketing.findFirst).mockResolvedValue({
       id: 'lead-1',
       nome: 'Ivonet',
@@ -208,7 +208,7 @@ describe('processarRespostaWhatsApp — sempre envia a resposta da IA (regressã
   it('não envia quando não há lead ou cliente (responderLead retorna null)', async () => {
     const tel = novoTelefone();
     mockLojaStatus('ABERTO');
-    vi.mocked(prisma.cliente.findUnique).mockResolvedValue(null);
+    vi.mocked(prisma.cliente.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.leadMarketing.findFirst).mockResolvedValue(null);
 
     await processarRespostaWhatsApp(tel, 'Olá!', rawJid(tel));
