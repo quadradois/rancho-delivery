@@ -16,7 +16,7 @@ describe('ClienteService', () => {
         bairro: 'Setor Bueno',
       };
 
-      vi.mocked(prisma.cliente.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.cliente.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.cliente.create).mockResolvedValue({
         ...dadosCliente,
         origem: 'SITE',
@@ -27,7 +27,7 @@ describe('ClienteService', () => {
 
       expect(resultado.telefone).toBe(dadosCliente.telefone);
       expect(resultado.nome).toBe(dadosCliente.nome);
-      expect(prisma.cliente.findUnique).toHaveBeenCalledWith({
+      expect(prisma.cliente.findFirst).toHaveBeenCalledWith({
         where: { telefone: dadosCliente.telefone },
       });
       expect(prisma.cliente.create).toHaveBeenCalled();
@@ -42,6 +42,7 @@ describe('ClienteService', () => {
       };
 
       const clienteExistente = {
+        id: 'cliente-existente-1',
         telefone: '5562999887766',
         nome: 'João Silva',
         endereco: 'Rua Antiga, 123',
@@ -50,7 +51,7 @@ describe('ClienteService', () => {
         criadoEm: new Date(),
       };
 
-      vi.mocked(prisma.cliente.findUnique).mockResolvedValue(clienteExistente as any);
+      vi.mocked(prisma.cliente.findFirst).mockResolvedValue(clienteExistente as any);
       vi.mocked(prisma.cliente.update).mockResolvedValue({
         ...clienteExistente,
         ...dadosCliente,
@@ -61,7 +62,7 @@ describe('ClienteService', () => {
       expect(resultado.nome).toBe(dadosCliente.nome);
       expect(resultado.endereco).toBe(dadosCliente.endereco);
       expect(prisma.cliente.update).toHaveBeenCalledWith({
-        where: { telefone: dadosCliente.telefone },
+        where: { id: 'cliente-existente-1' },
         data: {
           nome: dadosCliente.nome,
           endereco: dadosCliente.endereco,
@@ -78,7 +79,7 @@ describe('ClienteService', () => {
         bairro: 'Setor Bueno',
       };
 
-      vi.mocked(prisma.cliente.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.cliente.findFirst).mockResolvedValue(null);
       vi.mocked(prisma.cliente.create).mockResolvedValue({
         ...dadosCliente,
         origem: 'SITE',
@@ -106,7 +107,7 @@ describe('ClienteService', () => {
         criadoEm: new Date(),
       };
 
-      vi.mocked(prisma.cliente.findUnique).mockResolvedValue(mockCliente as any);
+      vi.mocked(prisma.cliente.findFirst).mockResolvedValue(mockCliente as any);
 
       const resultado = await clienteService.buscarPorTelefone('5562999887766');
 
@@ -114,7 +115,7 @@ describe('ClienteService', () => {
     });
 
     it('deve retornar null quando cliente não encontrado', async () => {
-      vi.mocked(prisma.cliente.findUnique).mockResolvedValue(null);
+      vi.mocked(prisma.cliente.findFirst).mockResolvedValue(null);
 
       const resultado = await clienteService.buscarPorTelefone('5562999999999');
 

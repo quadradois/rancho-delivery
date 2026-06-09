@@ -675,6 +675,7 @@ export class PedidoService {
       const tokenAcesso = crypto.randomBytes(32).toString('hex');
       const pedido = await prisma.pedido.create({
         data: {
+          clienteId: cliente.id,
           clienteTelefone: cliente.telefone,
           enderecoEntrega: dadosCliente.endereco,
           bairroEntrega: dadosCliente.bairro,

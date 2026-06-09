@@ -741,9 +741,9 @@ export class MineracaoService {
 
     for (const destinatario of destinatarios) {
       const lead = destinatario.lead;
-      const existeCliente = await prisma.cliente.findUnique({ where: { telefone: lead.telefone }, select: { telefone: true } });
+      const existeCliente = await prisma.cliente.findFirst({ where: { telefone: lead.telefone }, select: { id: true, telefone: true } });
       if (existeCliente) {
-        await prisma.leadMarketing.update({ where: { id: lead.id }, data: { status: LeadStatus.CONVERTIDO, convertidoEm: new Date(), clienteTelefone: existeCliente.telefone } });
+        await prisma.leadMarketing.update({ where: { id: lead.id }, data: { status: LeadStatus.CONVERTIDO, convertidoEm: new Date(), clienteId: existeCliente.id, clienteTelefone: existeCliente.telefone } });
         await prisma.campanhaDestinatario.update({
           where: { id: destinatario.id },
           data: {

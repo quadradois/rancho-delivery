@@ -120,7 +120,7 @@ export async function responderLead(
     }
 
     const [cliente, lead] = await Promise.all([
-      prisma.cliente.findUnique({ where: { telefone }, select: { nome: true } }),
+      prisma.cliente.findFirst({ where: { telefone }, select: { id: true, nome: true } }),
       prisma.leadMarketing.findFirst({
         where: { telefone },
         select: { id: true, nome: true, bairro: true, status: true },
@@ -292,7 +292,7 @@ ${cliente ? `\nContexto: este cliente já comprou conosco antes.` : ''}`;
     // Salva resposta no banco
     if (cliente) {
       await prisma.mensagemCliente.create({
-        data: { clienteTelefone: telefone, origem: OrigemMensagem.IA, texto, lida: true },
+        data: { clienteId: cliente.id, clienteTelefone: telefone, origem: OrigemMensagem.IA, texto, lida: true },
       }).catch(() => {});
     }
     if (lead) {
