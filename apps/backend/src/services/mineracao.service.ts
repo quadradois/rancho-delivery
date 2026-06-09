@@ -7,6 +7,7 @@ import evolutionService from './evolution.service';
 import { logger } from '../config/logger';
 import realtimeService from './realtime.service';
 import { atualizarProgresso } from './mineracao.queue';
+import { getTenantId } from '../config/tenantContext';
 
 // Remove prefixos legais do nome do proprietário para uso em mensagens
 function sanitizarNomeLead(nome: string | null | undefined): string | null {
@@ -365,7 +366,7 @@ export class MineracaoService {
     };
 
     if (cpfCnpj) {
-      const existentePorDoc = await prisma.leadMarketing.findUnique({ where: { cpfCnpj } });
+      const existentePorDoc = await prisma.leadMarketing.findFirst({ where: { cpfCnpj } });
       if (existentePorDoc) {
         const telefonesMesclados = this.normalizarTelefones([
           ...this.telefonesDoLead(existentePorDoc.telefones),
@@ -411,7 +412,7 @@ export class MineracaoService {
     }
 
     await prisma.leadMarketing.upsert({
-      where: { telefone: telefonePrincipal },
+      where: { tenantId_telefone: { tenantId: getTenantId(), telefone: telefonePrincipal } },
       update: {
         ...dataBase,
         telefones: telefones as Prisma.InputJsonValue,
@@ -850,7 +851,7 @@ export class MineracaoService {
 
     // Upsert do lead
     const lead = await prisma.leadMarketing.upsert({
-      where: { telefone: telefoneLimpo },
+      where: { tenantId_telefone: { tenantId: getTenantId(), telefone: telefoneLimpo } },
       update: {
         nome: input.nome || undefined,
         bairro: input.bairro || undefined,
@@ -997,7 +998,7 @@ export class MineracaoService {
     if (!lead) throw new Error('LEAD_NAO_ENCONTRADO');
 
     if (input.telefone && input.telefone !== lead.telefone) {
-      const existe = await prisma.leadMarketing.findUnique({ where: { telefone: input.telefone } });
+      const existe = await prisma.leadMarketing.findFirst({ where: { telefone: input.telefone } });
       if (existe) throw new Error('TELEFONE_EM_USO');
     }
 
@@ -1551,7 +1552,7 @@ export class MineracaoService {
   }
 
   private async telefoneDisponivelParaLead(telefone: string, leadId: string) {
-    const existente = await prisma.leadMarketing.findUnique({ where: { telefone }, select: { id: true } });
+    const existente = await prisma.leadMarketing.findFirst({ where: { telefone }, select: { id: true } });
     return !existente || existente.id === leadId;
   }
 
@@ -1569,7 +1570,7 @@ export class MineracaoService {
 
   private async invalidarLeadsLegadosDuplicadosPorCpf(cpfCnpj: string | null, telefones: string[]) {
     if (!cpfCnpj) return;
-    const principal = await prisma.leadMarketing.findUnique({ where: { cpfCnpj }, select: { id: true } });
+    const principal = await prisma.leadMarketing.findFirst({ where: { cpfCnpj }, select: { id: true } });
     if (!principal) return;
     await this.invalidarLeadsLegadosDuplicados(principal.id, telefones);
   }
