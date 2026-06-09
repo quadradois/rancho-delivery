@@ -3,7 +3,7 @@ import { NextFunction, Request, Response } from 'express';
 import { logger } from '../config/logger';
 import prisma from '../config/database';
 import { runWithTenant, TENANT_PADRAO } from '../config/tenantContext';
-import { verificarSenha } from '../utils/senha';
+import { hashSenha, verificarSenha } from '../utils/senha';
 
 const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 
@@ -178,36 +178,57 @@ export function refreshAdmin(req: Request, res: Response) {
   });
 }
 
+// Hash descartável p/ equalizar o tempo quando o e-mail não existe — mitiga
+// enumeração de usuário por timing. Calculado sob demanda, uma única vez.
+let dummyHashCache: string | null = null;
+async function getDummyHash(): Promise<string> {
+  if (!dummyHashCache) dummyHashCache = await hashSenha('timing-equalizer-nao-e-senha-real');
+  return dummyHashCache;
+}
+
 export async function loginAdmin(req: Request, res: Response) {
-  const identificador = String(req.body?.email || req.body?.username || '').trim().toLowerCase();
-  const password = String(req.body?.password || '');
+  const { email, username, password } = (req.body ?? {}) as Record<string, unknown>;
+  // rejeita tipos não-string (evita coerção silenciosa de array/objeto)
+  for (const v of [email, username, password]) {
+    if (v != null && typeof v !== 'string') {
+      return res.status(400).json({ success: false, error: { message: 'Credenciais invalidas', code: 'INVALID_CREDENTIALS' } });
+    }
+  }
+  const emailNorm = String(email || username || '').trim().toLowerCase();
+  const usernameBruto = String(username || email || '').trim();
+  const senha = String(password || '');
 
   try {
-    // 1. Usuário no banco — busca cross-tenant por email (raw escapa do tenant guard).
-    if (identificador) {
+    // 1. Usuário no banco — busca cross-tenant por email (raw escapa do guard).
+    //    INNER JOIN com tenants exige tenant existente e ATIVO (e barra tenant_id NULL).
+    //    Pressupõe email armazenado em lowercase (normalizado na criação).
+    if (emailNorm) {
       const rows = await prisma.$queryRaw<
-        Array<{ id: string; tenant_id: string | null; senha_hash: string; role: string }>
-      >`SELECT id, tenant_id, senha_hash, role FROM usuarios WHERE lower(email) = ${identificador} AND ativo = true LIMIT 1`;
+        Array<{ tenant_id: string; senha_hash: string; role: string }>
+      >`SELECT u.tenant_id, u.senha_hash, u.role
+        FROM usuarios u JOIN tenants t ON t.id = u.tenant_id
+        WHERE u.email = ${emailNorm} AND u.ativo = true AND t.ativo = true
+        LIMIT 1`;
       const u = rows[0];
-      if (u && verificarSenha(password, u.senha_hash)) {
-        const rolesValidas: AdminRole[] = ['admin', 'operador', 'viewer'];
-        const role = rolesValidas.includes(u.role as AdminRole) ? (u.role as AdminRole) : 'viewer';
-        return res.json({
-          success: true,
-          data: {
-            token: criarAdminToken(identificador, role, u.tenant_id ?? undefined),
-            role,
-            expiresIn: TOKEN_TTL_MS / 1000,
-          },
-        });
+      if (u) {
+        if (await verificarSenha(senha, u.senha_hash)) {
+          const rolesValidas: AdminRole[] = ['admin', 'operador', 'viewer'];
+          const role = rolesValidas.includes(u.role as AdminRole) ? (u.role as AdminRole) : 'viewer';
+          return res.json({
+            success: true,
+            data: { token: criarAdminToken(emailNorm, role, u.tenant_id), role, expiresIn: TOKEN_TTL_MS / 1000 },
+          });
+        }
+      } else {
+        await verificarSenha(senha, await getDummyHash());
       }
     }
 
-    // 2. Fallback: credenciais do .env (tenant padrão — Rancho). Mantém o acesso atual.
-    const expectedUser = (process.env.ADMIN_USERNAME || 'admin').toLowerCase();
+    // 2. Fallback: credenciais do .env (tenant padrão — Rancho). username comparado SEM lowercase.
+    const expectedUser = process.env.ADMIN_USERNAME || 'admin';
     const expectedPassword = process.env.ADMIN_PASSWORD || (process.env.NODE_ENV === 'production' ? '' : 'admin');
     const role = (process.env.ADMIN_ROLE ?? 'admin') as AdminRole;
-    if (expectedPassword && identificador === expectedUser && password === expectedPassword) {
+    if (expectedPassword && usernameBruto === expectedUser && senha === expectedPassword) {
       return res.json({
         success: true,
         data: { token: criarAdminToken(expectedUser, role), role, expiresIn: TOKEN_TTL_MS / 1000 },
