@@ -553,6 +553,7 @@ model LeadMarketing {
 }
 
 model MensagemLead {
+  tenantId String? @map("tenant_id")
   id          String         @id @default(cuid())
   leadId      String         @map("lead_id")
   origem      OrigemMensagem
@@ -563,6 +564,7 @@ model MensagemLead {
   lead        LeadMarketing  @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   @@map("mensagens_lead")
+  @@index([tenantId])
   @@index([leadId, criadoEm])
 }
 
@@ -769,14 +771,17 @@ model CampanhaDestinatario {
 }
 
 model BlacklistWhatsApp {
+  tenantId String? @map("tenant_id")
   telefone  String   @id @db.VarChar(20)
   motivo    String?  @db.Text
   criadoEm DateTime @default(now()) @map("criado_em")
 
   @@map("blacklist_whatsapp")
+  @@index([tenantId])
 }
 
 model SessaoPedidoWhatsApp {
+  tenantId String? @map("tenant_id")
   id                String    @id @default(cuid())
   clienteTelefone   String    @db.VarChar(20)
   status            String    @default("ATIVA") // ATIVA | FINALIZADA | EXPIRADA
@@ -796,4 +801,5 @@ model SessaoPedidoWhatsApp {
   @@index([clienteTelefone, status])
   @@index([ultimaInteracaoEm])
   @@map("sessao_pedido_whatsapp")
+  @@index([tenantId])
 }
