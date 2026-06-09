@@ -26,20 +26,16 @@ const WHERE_OPS = new Set([
 ]);
 
 /**
- * Aplica o tenant do contexto aos args de uma operação Prisma. Função pura
- * (sem I/O) para ser testável sem banco.
+ * Aplica o tenant do contexto aos args de uma operação de coleção/criação.
+ * Função pura (sem I/O) para ser testável sem banco.
  *
  * - WHERE_OPS: adiciona `where.tenantId`.
- * - create / createMany: força `tenantId` no(s) data (o contexto sempre vence,
- *   por segurança).
+ * - create / createMany: força `tenantId` no(s) data (o contexto sempre vence).
  * - upsert: força `tenantId` no ramo `create` (o registro novo nasce no tenant).
  *
- * Fora de escopo (serão cobertos pela RLS na F1b):
- * - o `where` de upsert/findUnique/update/delete — chave única não aceita
- *   tenantId, então não isola por tenant aqui;
- * - nested writes (ex.: pedido.create com `itens: { create }`) — o $extends
- *   não desce na árvore (tratado no service que faz o nested);
- * - `$queryRaw`/`$executeRaw` — não passam por $allModels.
+ * Operações por chave única (findUnique/update/delete) NÃO são tratadas aqui —
+ * são fechadas no hook (validação de resultado / checagem de posse), pois o
+ * `where` unique não aceita tenantId.
  */
 export function injectTenant(
   model: string | undefined,
@@ -59,24 +55,89 @@ export function injectTenant(
     const rows = Array.isArray(data) ? data : [data];
     next.data = rows.map((d) => ({ ...(d as Record<string, unknown>), tenantId }));
   } else if (operation === 'upsert') {
-    // só o ramo de criação ganha tenant; o where (unique) e o update operam
-    // sobre o registro existente. Isolar o where fica para a RLS (F1b).
     next.create = { ...(next.create as Record<string, unknown>), tenantId };
   }
   return next;
 }
 
+/** Nome do model em camelCase, como exposto no client (Produto -> produto). */
+function accessor(model: string): string {
+  return model[0].toLowerCase() + model.slice(1);
+}
+
+function recordNotFound(): never {
+  throw new Prisma.PrismaClientKnownRequestError('Registro nao encontrado para o tenant atual', {
+    code: 'P2025',
+    clientVersion: Prisma.prismaVersion.client,
+  });
+}
+
 /**
- * Extensão do Prisma Client que aplica o tenant guard a todos os models.
- * Lê o tenant do contexto (AsyncLocalStorage) a cada operação.
+ * Tenant guard via Prisma Client Extension. Lê o tenant do contexto
+ * (AsyncLocalStorage) a cada operação e:
+ *
+ * - coleção/criação (WHERE_OPS, create/createMany, ramo create do upsert):
+ *   injeta o tenant via `injectTenant`;
+ * - findUnique/findUniqueOrThrow: refaz como findFirst com `where + tenantId`
+ *   (qualquer chave única), preservando select/include — esconde registro de
+ *   outro tenant sem depender de o select trazer tenantId;
+ * - update/delete: confirma a POSSE (findFirst filtrado) antes de tocar o
+ *   registro; senão, P2025. Fecha o IDOR de escrita por qualquer chave única.
+ *
+ * O `where` composto ([tenantId, X]) já carrega o tenant e passa direto.
+ *
+ * Não cobertos: upsert por chave única GLOBAL (o lookup acharia cross-tenant —
+ * resolvido tornando esses uniques compostos [tenantId, X]); `$queryRaw` (o único
+ * raw tenant-sensível é o login, cross-tenant de propósito); nested writes
+ * (tratados nos services).
  */
-export const tenantGuard = Prisma.defineExtension({
-  name: 'tenantGuard',
-  query: {
-    $allModels: {
-      $allOperations({ model, operation, args, query }) {
-        return query(injectTenant(model, operation, args, getTenantId()));
+export const tenantGuard = Prisma.defineExtension((base) =>
+  base.$extends({
+    name: 'tenantGuard',
+    query: {
+      $allModels: {
+        async $allOperations({ model, operation, args, query }) {
+          const tenantId = getTenantId();
+          if (!model || !TENANT_MODELS.has(model)) return query(args);
+
+          if (
+            WHERE_OPS.has(operation) ||
+            operation === 'create' ||
+            operation === 'createMany' ||
+            operation === 'upsert'
+          ) {
+            return query(injectTenant(model, operation, args, tenantId));
+          }
+
+          const baseModel = (base as unknown as Record<string, { findFirst: (a: unknown) => Promise<unknown> }>)[
+            accessor(model)
+          ];
+          const where = (args as { where?: Record<string, unknown> })?.where ?? {};
+          // where composto que já carrega o tenant ([tenantId, X] vira a chave tenantId_X) já isola.
+          const whereJaIsola = Object.keys(where).some((k) => k === 'tenantId' || k.startsWith('tenantId_'));
+
+          if (operation === 'findUnique' || operation === 'findUniqueOrThrow') {
+            if (whereJaIsola) return query(args);
+            // Refaz como findFirst com o where unique + tenantId, preservando select/include:
+            // fecha o IDOR por QUALQUER chave única (id, nome, ...), sem depender do select.
+            const found = await baseModel.findFirst({ ...(args as object), where: { ...where, tenantId } });
+            if (!found && operation === 'findUniqueOrThrow') recordNotFound();
+            return found;
+          }
+
+          if (operation === 'update' || operation === 'delete') {
+            // Confirma a posse no tenant antes de tocar — fecha o IDOR de escrita por qualquer
+            // chave única (id, nome, ...). where composto ([tenantId, X]) já carrega o tenant.
+            if (!whereJaIsola) {
+              const dono = await baseModel.findFirst({ where: { ...where, tenantId }, select: { id: true } });
+              if (!dono) recordNotFound();
+            }
+            return query(args);
+          }
+
+          return query(args);
+        },
       },
     },
-  },
-});
+  }),
+);
