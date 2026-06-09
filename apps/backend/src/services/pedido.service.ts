@@ -7,6 +7,7 @@ import taxaEntregaService from './taxaEntrega.service';
 import mercadoPagoService from './mercadopago.service';
 import evolutionService from './evolution.service';
 import realtimeService from './realtime.service';
+import { getLojaConfig, upsertLojaConfig } from './lojaConfig.service';
 import { EmpresaEntrega, FormaPagamentoPedido, Origem, StatusLoja, StatusPagamento, StatusPedido, TipoAtendimentoPedido } from '@prisma/client';
 import { getSaoPauloDayRange } from '../utils/timezone';
 
@@ -140,14 +141,7 @@ export class PedidoService {
   }
 
   private async obterWebhookUrlMercadoPago(baseUrl: string) {
-    const delegate = (prisma as any).lojaConfiguracao;
-    if (!delegate?.findUnique) {
-      return process.env.MERCADOPAGO_WEBHOOK_URL || `${baseUrl}/webhook/mercadopago`;
-    }
-    const loja = await delegate.findUnique({
-      where: { id: 'loja_principal' },
-      select: { mercadopagoWebhookUrl: true },
-    });
+    const loja = await getLojaConfig();
     return loja?.mercadopagoWebhookUrl?.trim() || process.env.MERCADOPAGO_WEBHOOK_URL || `${baseUrl}/webhook/mercadopago`;
   }
 
@@ -575,10 +569,9 @@ export class PedidoService {
       });
 
       if (origem === Origem.SITE) {
-        const loja = await prisma.lojaConfiguracao.upsert({
-          where: { id: 'loja_principal' },
+        const loja = await upsertLojaConfig({
           update: {},
-          create: { id: 'loja_principal', status: StatusLoja.ABERTO },
+          create: { status: StatusLoja.ABERTO },
         });
         if (loja.status === StatusLoja.FECHADO) throw new Error('LOJA_FECHADA');
         if (loja.status === StatusLoja.PAUSADO) {
@@ -1237,10 +1230,9 @@ export class PedidoService {
   }
 
   async obterStatusLoja() {
-    const loja = await prisma.lojaConfiguracao.upsert({
-      where: { id: 'loja_principal' },
+    const loja = await upsertLojaConfig({
       update: {},
-      create: { id: 'loja_principal', status: StatusLoja.ABERTO },
+      create: { status: StatusLoja.ABERTO },
     });
 
     return {
@@ -1259,15 +1251,13 @@ export class PedidoService {
       ? Math.max(0, Math.trunc(entregadoresDisponiveisDia))
       : undefined;
 
-    const loja = await prisma.lojaConfiguracao.upsert({
-      where: { id: 'loja_principal' },
+    const loja = await upsertLojaConfig({
       update: {
         status,
         mensagemPausado: status === StatusLoja.PAUSADO ? mensagem!.trim() : null,
         ...(entregadores !== undefined ? { entregadoresDisponiveisDia: entregadores } : {}),
       },
       create: {
-        id: 'loja_principal',
         status,
         mensagemPausado: status === StatusLoja.PAUSADO ? mensagem!.trim() : null,
         entregadoresDisponiveisDia: entregadores ?? 0,
@@ -1283,10 +1273,9 @@ export class PedidoService {
   }
 
   async obterLocalizacaoLoja() {
-    const loja = await prisma.lojaConfiguracao.upsert({
-      where: { id: 'loja_principal' },
+    const loja = await upsertLojaConfig({
       update: {},
-      create: { id: 'loja_principal', status: StatusLoja.ABERTO },
+      create: { status: StatusLoja.ABERTO },
     });
     return {
       endereco: loja.enderecoLoja ?? null,
@@ -1296,10 +1285,9 @@ export class PedidoService {
   }
 
   async atualizarLocalizacaoLoja(endereco: string, lat: number, lng: number) {
-    const loja = await prisma.lojaConfiguracao.upsert({
-      where: { id: 'loja_principal' },
+    const loja = await upsertLojaConfig({
       update: { enderecoLoja: endereco.trim(), latLoja: lat, lngLoja: lng },
-      create: { id: 'loja_principal', status: StatusLoja.ABERTO, enderecoLoja: endereco.trim(), latLoja: lat, lngLoja: lng },
+      create: { status: StatusLoja.ABERTO, enderecoLoja: endereco.trim(), latLoja: lat, lngLoja: lng },
     });
     return {
       endereco: loja.enderecoLoja ?? null,
@@ -1309,10 +1297,9 @@ export class PedidoService {
   }
 
   async obterConfiguracaoMercadoPago() {
-    const loja = await prisma.lojaConfiguracao.upsert({
-      where: { id: 'loja_principal' },
+    const loja = await upsertLojaConfig({
       update: {},
-      create: { id: 'loja_principal', status: StatusLoja.ABERTO },
+      create: { status: StatusLoja.ABERTO },
     });
 
     return {
@@ -1332,8 +1319,7 @@ export class PedidoService {
       return limpo.length > 0 ? limpo : null;
     };
 
-    const loja = await prisma.lojaConfiguracao.upsert({
-      where: { id: 'loja_principal' },
+    const loja = await upsertLojaConfig({
       update: {
         mercadopagoAtivo: payload.ativo,
         mercadopagoPublicKey: normalizar(payload.publicKey),
@@ -1342,7 +1328,6 @@ export class PedidoService {
         mercadopagoWebhookUrl: normalizar(payload.webhookUrl),
       },
       create: {
-        id: 'loja_principal',
         status: StatusLoja.ABERTO,
         mercadopagoAtivo: payload.ativo,
         mercadopagoPublicKey: normalizar(payload.publicKey),

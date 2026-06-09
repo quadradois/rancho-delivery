@@ -1,4 +1,5 @@
 import prisma from '../config/database';
+import { getLojaConfig } from './lojaConfig.service';
 
 export interface IAContexto {
   systemPromptBase: string;
@@ -28,7 +29,7 @@ interface IAHorarios {
 
 export async function construirContextoIA(): Promise<IAContexto> {
   const [config, produtos] = await Promise.all([
-    prisma.lojaConfiguracao.findUnique({ where: { id: 'loja_principal' } }),
+    getLojaConfig(),
     prisma.produto.findMany({
       where: { disponivel: true },
       select: { nome: true, descricao: true, preco: true, categoria: true },
