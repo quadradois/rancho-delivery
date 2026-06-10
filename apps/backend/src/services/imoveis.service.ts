@@ -111,7 +111,7 @@ export async function buscarPorPrefixo(
   const resp = await axios.get(`${BASE_CADASTRO}/search/${slug}/imobiliario`, {
     params: { inscricao_cartografica: prefixo },
     headers: { Authorization: `Bearer ${token}` },
-    timeout: 45000,
+    timeout: 90000, // respostas grandes (ex.: setores de Balneário Camboriú com dezenas de milhares)
   });
 
   const lista: ImovelRaw[] = Array.isArray(resp.data) ? resp.data : [];
@@ -154,11 +154,13 @@ export async function buscarDetalhe(
       nomePessoa: d.nome___pessoa ?? null,
       tipoPessoa: typeof d.tipo___pessoa === 'number' ? d.tipo___pessoa : null,
       endereco: d.endereco_completo ?? null,
-      bairro: d['nome___bairro'] ?? null,
+      // Variações por município: Goiânia usa nome___bairro; Balneário Camboriú usa bairro_nome
+      bairro: d['nome___bairro'] ?? d.bairro_nome ?? null,
       cep: formatarCep(d.cep_inicial), // a API expõe o CEP em cep_inicial (não em "cep")
       complemento: limparTexto(d.complemento),
       logradouro: limparTexto(d.nome___logradouro),
-      areaConstruida: paraNumero(d.area_construida_privativa___imobiliario),
+      // Goiânia: area_construida_privativa___imobiliario; Balneário Camboriú: area_construida
+      areaConstruida: paraNumero(d.area_construida_privativa___imobiliario ?? d.area_construida),
       areaTerreno: paraNumero(d.area_terreno_privativa),
       tipoEdificacao: Number.isInteger(d.tipo_edificacao) ? d.tipo_edificacao : null,
       nrLote: limparTexto(d.nr_lote),
@@ -205,10 +207,24 @@ const SETORES_VERIFICADOS: Record<string, string[]> = {
   ],
 };
 
+// Cidades cuja busca de inscrição casa por SUBSTRING (contém), não por prefixo literal.
+// Nesses casos UMA query que aparece em toda inscrição cobre a base inteira.
+// Balneário Camboriú: toda inscrição contém o dígito '0' (verificado: 0 inscrições sem '0'),
+// então a query '0' retorna os ~183 mil imóveis de uma vez. Sem /setor/ e sem árvore de prefixos.
+const SEED_PREFIXOS: Record<string, string[]> = {
+  balneariocamboriu: ['0'],
+};
+
 // Busca os setores cadastrais da cidade via API e retorna os códigos como prefixos de SEED.
 // IMPORTANTE: o endpoint exige BARRA FINAL ('/setor/') — sem ela responde 301 e parece "vazio".
-// Esse era o motivo da lista manual no passado. Ordem: endpoint vivo → lista verificada → 00..99.
+// Esse era o motivo da lista manual no passado. Ordem: seed fixo → endpoint vivo → lista verificada → 00..99.
 export async function buscarPrefixosDaCidade(cidade: string): Promise<string[]> {
+  // Seed fixo p/ cidades de busca "por contém" (uma query cobre toda a base)
+  if (SEED_PREFIXOS[cidade]) {
+    logger.info(`Imóveis setores [${cidade}]: seed fixo ${JSON.stringify(SEED_PREFIXOS[cidade])} (busca por contém — cobre a base completa)`);
+    return SEED_PREFIXOS[cidade];
+  }
+
   try {
     const token = await obterToken(cidade);
     const slug = CIDADES[cidade]?.slug ?? cidade;
