@@ -207,10 +207,24 @@ const SETORES_VERIFICADOS: Record<string, string[]> = {
   ],
 };
 
+// Cidades cuja busca de inscrição casa por SUBSTRING (contém), não por prefixo literal.
+// Nesses casos UMA query que aparece em toda inscrição cobre a base inteira.
+// Balneário Camboriú: toda inscrição contém o dígito '0' (verificado: 0 inscrições sem '0'),
+// então a query '0' retorna os ~183 mil imóveis de uma vez. Sem /setor/ e sem árvore de prefixos.
+const SEED_PREFIXOS: Record<string, string[]> = {
+  balneariocamboriu: ['0'],
+};
+
 // Busca os setores cadastrais da cidade via API e retorna os códigos como prefixos de SEED.
 // IMPORTANTE: o endpoint exige BARRA FINAL ('/setor/') — sem ela responde 301 e parece "vazio".
-// Esse era o motivo da lista manual no passado. Ordem: endpoint vivo → lista verificada → 00..99.
+// Esse era o motivo da lista manual no passado. Ordem: seed fixo → endpoint vivo → lista verificada → 00..99.
 export async function buscarPrefixosDaCidade(cidade: string): Promise<string[]> {
+  // Seed fixo p/ cidades de busca "por contém" (uma query cobre toda a base)
+  if (SEED_PREFIXOS[cidade]) {
+    logger.info(`Imóveis setores [${cidade}]: seed fixo ${JSON.stringify(SEED_PREFIXOS[cidade])} (busca por contém — cobre a base completa)`);
+    return SEED_PREFIXOS[cidade];
+  }
+
   try {
     const token = await obterToken(cidade);
     const slug = CIDADES[cidade]?.slug ?? cidade;
