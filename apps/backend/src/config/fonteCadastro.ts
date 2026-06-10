@@ -17,4 +17,8 @@ export const FONTE_CIDADES: Record<string, { slug: string; email: string }> = {
     slug: 'aparecidadegoiania',
     email: 'leitor_aparecidadegoiania@vm2info.com',
   },
+  balneariocamboriu: {
+    slug: 'balneariocamboriu',
+    email: 'leitor_balneariocamboriu@vm2info.com',
+  },
 };

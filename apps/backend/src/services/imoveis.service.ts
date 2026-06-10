@@ -111,7 +111,7 @@ export async function buscarPorPrefixo(
   const resp = await axios.get(`${BASE_CADASTRO}/search/${slug}/imobiliario`, {
     params: { inscricao_cartografica: prefixo },
     headers: { Authorization: `Bearer ${token}` },
-    timeout: 45000,
+    timeout: 90000, // respostas grandes (ex.: setores de Balneário Camboriú com dezenas de milhares)
   });
 
   const lista: ImovelRaw[] = Array.isArray(resp.data) ? resp.data : [];
@@ -154,11 +154,13 @@ export async function buscarDetalhe(
       nomePessoa: d.nome___pessoa ?? null,
       tipoPessoa: typeof d.tipo___pessoa === 'number' ? d.tipo___pessoa : null,
       endereco: d.endereco_completo ?? null,
-      bairro: d['nome___bairro'] ?? null,
+      // Variações por município: Goiânia usa nome___bairro; Balneário Camboriú usa bairro_nome
+      bairro: d['nome___bairro'] ?? d.bairro_nome ?? null,
       cep: formatarCep(d.cep_inicial), // a API expõe o CEP em cep_inicial (não em "cep")
       complemento: limparTexto(d.complemento),
       logradouro: limparTexto(d.nome___logradouro),
-      areaConstruida: paraNumero(d.area_construida_privativa___imobiliario),
+      // Goiânia: area_construida_privativa___imobiliario; Balneário Camboriú: area_construida
+      areaConstruida: paraNumero(d.area_construida_privativa___imobiliario ?? d.area_construida),
       areaTerreno: paraNumero(d.area_terreno_privativa),
       tipoEdificacao: Number.isInteger(d.tipo_edificacao) ? d.tipo_edificacao : null,
       nrLote: limparTexto(d.nr_lote),
