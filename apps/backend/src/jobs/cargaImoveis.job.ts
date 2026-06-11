@@ -25,10 +25,9 @@ async function salvarFase1(
       fatia.map((item) =>
         (prisma as any).imovelRancho.upsert({
           where: {
-            cidade_inscricaoCartografica: {
-              cidade,
-              inscricaoCartografica: item.inscricaoCartografica,
-            },
+            // Chave natural = id_imobiliario (id_lote). Em BC várias unidades compartilham
+            // a mesma inscrição, então a inscrição não é única — cada id_imobiliario é 1 linha.
+            cidade_idLote: { cidade, idLote: item.idLote },
           },
           update: {
             idLote: item.idLote,
@@ -60,18 +59,18 @@ async function enriquecerLote(
     lote.map(({ idLote, inscricao }) => buscarDetalhe(cidade, idLote, inscricao)),
   );
 
-  const updates: Array<{ inscricao: string; data: Record<string, unknown> }> = [];
+  const updates: Array<{ idLote: number; data: Record<string, unknown> }> = [];
   let comDados = 0;
 
   settled.forEach((res, i) => {
-    const inscricao = lote[i].inscricao;
+    const idLote = lote[i].idLote;
     if (res.status === 'rejected') return; // erro de rede → não marca, revisita depois
 
     const d = res.value;
     if (d) {
       comDados++;
       updates.push({
-        inscricao,
+        idLote,
         data: {
           numeroCadastro: d.numeroCadastro,
           cpfCnpj: d.cpfCnpj,
@@ -98,7 +97,7 @@ async function enriquecerLote(
     } else {
       // 200 vazio / 4xx definitivo: sem ficha — marca como processado p/ não revisitar sempre
       updates.push({
-        inscricao,
+        idLote,
         data: { detalheEm: new Date(), versaoEnriquecimento: VERSAO_ENRIQUECIMENTO_ATUAL },
       });
     }
@@ -113,7 +112,7 @@ async function enriquecerLote(
       fatia.map((u) =>
         (prisma as any).imovelRancho.update({
           where: {
-            cidade_inscricaoCartografica: { cidade, inscricaoCartografica: u.inscricao },
+            cidade_idLote: { cidade, idLote: u.idLote },
           },
           data: u.data,
         }),
