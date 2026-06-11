@@ -120,7 +120,7 @@ export class AdminMineracaoController {
             where: { cidade, versaoEnriquecimento: { gte: VERSAO_ENRIQUECIMENTO_ATUAL } },
           });
           const pendentesReprocesso = await (prisma as any).imovelRancho.count({
-            where: { cidade, versaoEnriquecimento: { lt: VERSAO_ENRIQUECIMENTO_ATUAL }, idLote: { not: null } },
+            where: { cidade, versaoEnriquecimento: { lt: VERSAO_ENRIQUECIMENTO_ATUAL } },
           });
           const ultima = await (prisma as any).imovelRancho.findFirst({
             where: { cidade },
