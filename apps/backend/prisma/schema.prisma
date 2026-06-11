@@ -660,7 +660,7 @@ model ImovelRancho {
   id                    String   @id @default(cuid())
   cidade                String   @db.VarChar(50)
   inscricaoCartografica String   @db.VarChar(20)  @map("inscricao_cartografica")
-  idLote                Int?     @map("id_lote")
+  idLote                Int      @map("id_lote")
   numeroCadastro        Int?     @map("numero_cadastro")
   cpfCnpj               String?  @db.VarChar(20)  @map("cpf_cnpj")
   nomePessoa            String?  @db.VarChar(255) @map("nome_pessoa")
@@ -687,13 +687,16 @@ model ImovelRancho {
   sincronizadoEm        DateTime @default(now()) @map("sincronizado_em")
   atualizadoEm          DateTime @updatedAt       @map("atualizado_em")
 
-  @@unique([cidade, inscricaoCartografica])
+  // Chave natural = id_imobiliario (id_lote). Em BC várias unidades (box/vaga) compartilham
+  // a mesma inscrição cartográfica, então a inscrição NÃO é única; cada id_imobiliario é 1 linha.
+  @@unique([cidade, idLote])
   @@map("imoveis_rancho")
   @@index([cidade])
   @@index([cpfCnpj])
   @@index([bairro])
   @@index([cep])
   @@index([cidade, versaoEnriquecimento])
+  @@index([cidade, inscricaoCartografica])
 }
 
 /// Dicionário de bairros (endpoint público /{cidade}/bairro/) — referência + geometria

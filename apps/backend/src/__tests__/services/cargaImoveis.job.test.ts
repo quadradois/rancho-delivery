@@ -94,7 +94,7 @@ describe('cargaImoveis — enriquecimento incremental (Bug B corrigido)', () => 
     expect((prisma as any).imovelRancho.update).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
-        where: { cidade_inscricaoCartografica: { cidade: 'goiania', inscricaoCartografica: 'A' } },
+        where: { cidade_idLote: { cidade: 'goiania', idLote: 1 } },
         data: expect.objectContaining({
           cpfCnpj: '123',
           bairro: 'Centro',
@@ -106,7 +106,7 @@ describe('cargaImoveis — enriquecimento incremental (Bug B corrigido)', () => 
     expect((prisma as any).imovelRancho.update).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
-        where: { cidade_inscricaoCartografica: { cidade: 'goiania', inscricaoCartografica: 'B' } },
+        where: { cidade_idLote: { cidade: 'goiania', idLote: 2 } },
         data: expect.objectContaining({ versaoEnriquecimento: VERSAO_ENRIQUECIMENTO_ATUAL }),
       }),
     );
@@ -171,7 +171,7 @@ describe('cargaImoveis — bairros e carga completa', () => {
     });
 
     expect((prisma as any).imovelRancho.upsert).toHaveBeenCalledWith({
-      where: { cidade_inscricaoCartografica: { cidade: 'goiania', inscricaoCartografica: '1010001' } },
+      where: { cidade_idLote: { cidade: 'goiania', idLote: 99 } },
       update: { idLote: 99, latitude: -16.7, longitude: -49.2 },
       create: {
         cidade: 'goiania',
