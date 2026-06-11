@@ -10,6 +10,7 @@ import { tenantMiddleware } from './middlewares/tenant.middleware';
 import pedidoService from './services/pedido.service';
 import { iniciarDeteccaoNovosImoveis } from './jobs/deteccaoNovosImoveis.job';
 import { executarEnriquecimentoIncremental } from './jobs/cargaImoveis.job';
+import { cidadesDisponiveis } from './services/imoveis.service';
 import { iniciarWorkerCampanhasAgendadas } from './jobs/campanhasAgendadas.job';
 import { enfileirar } from './services/mineracao.queue';
 import cron from 'node-cron';
@@ -154,7 +155,9 @@ function iniciarRotinaAbandonoCheckout() {
 // Enriquecimento Imóveis agendado para 21h (Brasília). Imóveis é a fonte viva (a Prefeitura atualiza por ele).
 // Processa em chunk por noite (limite) para não sobrecarregar a API; converge em poucas noites.
 function iniciarEnriquecimentoImoveis() {
-  const cidades = ['goiania', 'aparecidadegoiania']; // Goiânia primeiro (fonte principal)
+  // Todas as cidades configuradas (Goiânia/Aparecida/Balneário Camboriú...). Fonte única:
+  // qualquer cidade nova adicionada em FONTE_CIDADES entra no enriquecimento noturno sozinha.
+  const cidades = cidadesDisponiveis();
   const limitePorNoite = Number(process.env.IMOVEIS_ENRIQUECIMENTO_LIMITE ?? 150000);
 
   const executar = () => {
