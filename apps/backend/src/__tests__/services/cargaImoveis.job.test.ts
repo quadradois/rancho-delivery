@@ -44,7 +44,6 @@ describe('cargaImoveis — enriquecimento incremental (Bug B corrigido)', () => 
       expect.objectContaining({
         where: expect.objectContaining({
           cidade: 'goiania',
-          idLote: { not: null },
           versaoEnriquecimento: { lt: VERSAO_ENRIQUECIMENTO_ATUAL },
         }),
       }),

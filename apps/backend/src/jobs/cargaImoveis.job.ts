@@ -251,7 +251,6 @@ export async function executarEnriquecimentoIncremental(
     await (prisma as any).imovelRancho.findMany({
       where: {
         cidade,
-        idLote: { not: null },
         versaoEnriquecimento: { lt: VERSAO_ENRIQUECIMENTO_ATUAL },
       },
       select: { inscricaoCartografica: true, idLote: true },
