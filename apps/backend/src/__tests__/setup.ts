@@ -7,6 +7,12 @@ vi.mock('../config/database', () => ({
       findUnique: vi.fn(),
       findFirst: vi.fn(),
     },
+    modulo: {
+      findMany: vi.fn().mockResolvedValue([]),
+    },
+    assinatura: {
+      findUnique: vi.fn().mockResolvedValue(null),
+    },
     produto: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
