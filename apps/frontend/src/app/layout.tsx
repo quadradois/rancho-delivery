@@ -5,6 +5,7 @@ import { CartProvider } from '@/contexts/CartContext'
 import { ToastProvider } from '@/contexts/ToastContext'
 import ClientErrorBoundary from '@/components/ClientErrorBoundary'
 import { getBranding } from '@/lib/branding'
+import { BrandProvider } from '@/contexts/BrandContext'
 
 // Título/descrição vêm da marca do restaurante atual (white-label), não cravados.
 export async function generateMetadata(): Promise<Metadata> {
@@ -22,20 +23,23 @@ export const viewport: Viewport = {
   themeColor: '#e8231a',
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const brand = await getBranding()
   return (
     <html lang="pt-BR">
       <body className="site-mode">
         <ClientErrorBoundary>
-          <CartProvider>
-            <ToastProvider>
-              {children}
-            </ToastProvider>
-          </CartProvider>
+          <BrandProvider brand={brand}>
+            <CartProvider>
+              <ToastProvider>
+                {children}
+              </ToastProvider>
+            </CartProvider>
+          </BrandProvider>
         </ClientErrorBoundary>
       </body>
     </html>
