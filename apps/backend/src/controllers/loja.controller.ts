@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import pedidoService from '../services/pedido.service';
 import realtimeService from '../services/realtime.service';
+import { obterMarcaPublica } from '../services/tenant.service';
 import { logger } from '../config/logger';
 
 export class LojaController {
@@ -17,6 +18,22 @@ export class LojaController {
         success: false,
         error: { message: 'Erro ao obter status da loja' },
       });
+    }
+  }
+
+  /**
+   * GET /api/loja/branding — marca (white-label) do tenant atual, resolvido por host.
+   */
+  async branding(_req: Request, res: Response) {
+    try {
+      const data = await obterMarcaPublica();
+      if (!data) {
+        return res.status(404).json({ success: false, error: { message: 'Loja não encontrada' } });
+      }
+      return res.json({ success: true, data });
+    } catch (error) {
+      logger.error('Erro ao obter marca da loja:', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao obter marca da loja' } });
     }
   }
 
