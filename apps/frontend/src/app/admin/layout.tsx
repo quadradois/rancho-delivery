@@ -4,10 +4,21 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { FormEvent, ReactNode, useEffect, useState } from 'react';
+import { motion, useReducedMotion, type Variants } from 'framer-motion';
 import '@/styles/admin-theme.css';
 import api from '@/lib/api';
 import type { LojaStatusAdmin, MotoboyStatusAdmin } from '@/lib/api';
 import { useToast } from '@/contexts/ToastContext';
+
+// Motion: entrada do card de login + stagger dos campos (respeita reduced-motion)
+const loginCardVariants: Variants = {
+  hidden: { scale: 0.98 },
+  show: { scale: 1, transition: { duration: 0.3, ease: 'easeOut', staggerChildren: 0.07, delayChildren: 0.05 } },
+};
+const loginItemVariants: Variants = {
+  hidden: { opacity: 0, y: 8 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+};
 
 const NAV_ITEMS = [
   {
@@ -140,6 +151,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginLoading, setLoginLoading] = useState(false);
+  const [loginShake, setLoginShake] = useState(0);
+  const reduceMotion = useReducedMotion();
   const [whatsConnected, setWhatsConnected] = useState(false);
   const [whatsInstanceName, setWhatsInstanceName] = useState<string>('');
   const [showWhatsModal, setShowWhatsModal] = useState(false);
@@ -391,6 +404,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       setAuthToken(data.token);
       setLoginForm({ username: '', password: '' });
     } catch (err) {
+      setLoginShake((n) => n + 1);
       showError('Falha no login', err instanceof Error ? err.message : 'Confira usuário e senha.');
     } finally {
       setLoginLoading(false);
@@ -407,39 +421,50 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     return (
       <div className={cn('crm-mode min-h-screen bg-[var(--color-bg)] text-[var(--color-text-primary)]', mode)}>
         <div className="flex min-h-screen items-center justify-center p-6">
-          <form
-            onSubmit={handleLogin}
-            className="w-full max-w-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm"
+          <motion.div
+            className="w-full max-w-sm"
+            animate={!reduceMotion && loginShake ? { x: [0, -8, 8, -6, 6, 0] } : { x: 0 }}
+            transition={{ duration: 0.4 }}
           >
-            <div className="mb-5">
-              <h1 className="font-sora text-xl font-bold text-[var(--color-text-primary)]">Admin Rancho</h1>
-              <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Entre para acessar o painel operacional.</p>
-            </div>
-            <div className="space-y-3">
-              <input
-                value={loginForm.username}
-                onChange={(event) => setLoginForm((state) => ({ ...state, username: event.target.value }))}
-                placeholder="Usuário"
-                autoComplete="username"
-                className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm outline-none focus:border-[var(--color-accent)]"
-              />
-              <input
-                value={loginForm.password}
-                onChange={(event) => setLoginForm((state) => ({ ...state, password: event.target.value }))}
-                placeholder="Senha"
-                type="password"
-                autoComplete="current-password"
-                className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm outline-none focus:border-[var(--color-accent)]"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loginLoading}
-              className="mt-4 h-10 w-full rounded-md bg-[var(--color-accent)] px-3 text-sm font-semibold text-[var(--color-text-on-accent)] disabled:opacity-60"
+            <motion.form
+              onSubmit={handleLogin}
+              variants={reduceMotion ? undefined : loginCardVariants}
+              initial={reduceMotion ? false : 'hidden'}
+              animate={reduceMotion ? false : 'show'}
+              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-sm"
             >
-              {loginLoading ? 'Entrando...' : 'Entrar'}
-            </button>
-          </form>
+              <motion.div variants={reduceMotion ? undefined : loginItemVariants} className="mb-5">
+                <h1 className="font-sora text-xl font-bold text-[var(--color-text-primary)]">Admin Rancho</h1>
+                <p className="mt-1 text-sm text-[var(--color-text-secondary)]">Entre para acessar o painel operacional.</p>
+              </motion.div>
+              <motion.div variants={reduceMotion ? undefined : loginItemVariants} className="space-y-3">
+                <input
+                  value={loginForm.username}
+                  onChange={(event) => setLoginForm((state) => ({ ...state, username: event.target.value }))}
+                  placeholder="Usuário"
+                  autoComplete="username"
+                  className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm outline-none focus:border-[var(--color-accent)]"
+                />
+                <input
+                  value={loginForm.password}
+                  onChange={(event) => setLoginForm((state) => ({ ...state, password: event.target.value }))}
+                  placeholder="Senha"
+                  type="password"
+                  autoComplete="current-password"
+                  className="h-10 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface-input)] px-3 text-sm outline-none focus:border-[var(--color-accent)]"
+                />
+              </motion.div>
+              <motion.button
+                type="submit"
+                disabled={loginLoading}
+                variants={reduceMotion ? undefined : loginItemVariants}
+                whileTap={reduceMotion ? undefined : { scale: 0.98 }}
+                className="mt-4 h-10 w-full rounded-md bg-[var(--color-accent)] px-3 text-sm font-semibold text-[var(--color-text-on-accent)] disabled:opacity-60"
+              >
+                {loginLoading ? 'Entrando...' : 'Entrar'}
+              </motion.button>
+            </motion.form>
+          </motion.div>
         </div>
       </div>
     );
