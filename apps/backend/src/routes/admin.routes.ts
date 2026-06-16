@@ -10,6 +10,7 @@ import adminEntregaRoutes from './admin.entrega.routes';
 import adminPedidoController from '../controllers/admin.pedido.controller';
 import { autenticarAdmin, autorizarAdmin, loginAdmin, refreshAdmin } from '../middlewares/adminAuth.middleware';
 import { loginLimiter, adminLimiter } from '../middlewares/rateLimit.middleware';
+import { exigirModulo } from '../middlewares/modulo.middleware';
 
 const router: ExpressRouter = Router();
 
@@ -23,7 +24,9 @@ router.use('/', adminClienteRoutes);
 router.use('/alertas', adminAlertaRoutes);
 router.use('/relatorios', adminRelatorioRoutes);
 router.use('/ia', adminIaRoutes);
-router.use('/mineracao', adminMineracaoRoutes);
+// Gating: a área de mineração/prospecção (AURA) exige o módulo aura-prospeccao.
+// (granularidade fina por serviço — campanhas etc. — é refino futuro)
+router.use('/mineracao', exigirModulo('aura-prospeccao'), adminMineracaoRoutes);
 router.use('/entregas', adminEntregaRoutes);
 router.get('/clientes/geo', autorizarAdmin('clientes:gerenciar'), adminPedidoController.clientesGeolocalizados.bind(adminPedidoController));
 router.get('/fila-urgente', autorizarAdmin('pedidos:ler'), adminPedidoController.filaUrgente.bind(adminPedidoController));
