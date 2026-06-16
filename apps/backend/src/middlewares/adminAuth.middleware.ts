@@ -2,12 +2,14 @@ import crypto from 'crypto';
 import { NextFunction, Request, Response } from 'express';
 import { logger } from '../config/logger';
 import prisma from '../config/database';
-import { runWithTenant, TENANT_PADRAO } from '../config/tenantContext';
+import { runWithTenant, runSemEscopo, TENANT_PADRAO } from '../config/tenantContext';
 import { hashSenha, verificarSenha } from '../utils/senha';
 
 const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 
 export type AdminRole = 'admin' | 'operador' | 'viewer';
+/** Papel carregado no token. `superadmin` = dono do FoodFlow (control plane, cross-tenant). */
+export type PapelToken = AdminRole | 'superadmin';
 
 export type Permissao =
   | 'pedidos:ler'
@@ -41,7 +43,7 @@ declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace Express {
     interface Request {
-      adminUser?: { username: string; role: AdminRole; tenantId?: string };
+      adminUser?: { username: string; role: PapelToken; tenantId?: string };
     }
   }
 }
@@ -66,7 +68,7 @@ function sign(payload: string) {
   return crypto.createHmac('sha256', getSecret()).update(payload).digest('base64url');
 }
 
-export function criarAdminToken(username: string, role: AdminRole = 'admin', tenantId?: string) {
+export function criarAdminToken(username: string, role: PapelToken = 'admin', tenantId?: string) {
   const header = base64Url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const payload = base64Url(JSON.stringify({
     sub: username,
@@ -78,7 +80,7 @@ export function criarAdminToken(username: string, role: AdminRole = 'admin', ten
   return `${body}.${sign(body)}`;
 }
 
-function decodificarToken(token?: string): { username: string; role: AdminRole; tenantId?: string } | null {
+function decodificarToken(token?: string): { username: string; role: PapelToken; tenantId?: string } | null {
   if (!token) return null;
 
   const [header, payload, signature] = token.split('.');
@@ -93,8 +95,8 @@ function decodificarToken(token?: string): { username: string; role: AdminRole; 
 
   try {
     const decoded = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-    const rolesValidas: AdminRole[] = ['admin', 'operador', 'viewer'];
-    const role: AdminRole = rolesValidas.includes(decoded?.role) ? decoded.role : 'admin';
+    const rolesValidas: PapelToken[] = ['admin', 'operador', 'viewer', 'superadmin'];
+    const role: PapelToken = rolesValidas.includes(decoded?.role) ? decoded.role : 'admin';
 
     if (typeof decoded?.exp !== 'number' || decoded.exp <= Date.now()) return null;
 
@@ -125,10 +127,32 @@ export function autenticarAdmin(req: Request, res: Response, next: NextFunction)
   });
 }
 
+/**
+ * Autentica o **super-admin do FoodFlow** (control plane). Exige role `superadmin`
+ * e roda o restante da requisição SEM escopo de tenant (`runSemEscopo`), para
+ * enxergar/gerir todos os restaurantes. Use SÓ nas rotas `/superadmin/*`.
+ */
+export function autenticarSuperAdmin(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : undefined;
+
+  const user = decodificarToken(bearerToken);
+  if (user && user.role === 'superadmin') {
+    req.adminUser = user;
+    return runSemEscopo(() => next());
+  }
+
+  return res.status(403).json({
+    success: false,
+    error: { message: 'Acesso restrito ao super-admin do FoodFlow', code: 'FORBIDDEN_SUPERADMIN' },
+  });
+}
+
 export function autorizarAdmin(permissao: Permissao) {
   return (req: Request, res: Response, next: NextFunction) => {
     const role = req.adminUser?.role ?? 'viewer';
-    if (PERMISSOES_POR_ROLE[role].includes(permissao)) {
+    if (role === 'superadmin') return next(); // super-admin do FoodFlow tem acesso total
+    if (PERMISSOES_POR_ROLE[role]?.includes(permissao)) {
       return next();
     }
     return res.status(403).json({
@@ -222,6 +246,16 @@ export async function loginAdmin(req: Request, res: Response) {
       } else {
         await verificarSenha(senha, await getDummyHash());
       }
+    }
+
+    // 1b. Super-admin do FoodFlow (control plane) — credenciais próprias no .env, sem tenant.
+    const superUser = process.env.SUPERADMIN_USERNAME;
+    const superPass = process.env.SUPERADMIN_PASSWORD;
+    if (superUser && superPass && usernameBruto === superUser && senha === superPass) {
+      return res.json({
+        success: true,
+        data: { token: criarAdminToken(superUser, 'superadmin'), role: 'superadmin', expiresIn: TOKEN_TTL_MS / 1000 },
+      });
     }
 
     // 2. Fallback: credenciais do .env (tenant padrão — Rancho). username comparado SEM lowercase.

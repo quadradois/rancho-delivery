@@ -1,5 +1,5 @@
 import { Prisma } from '@prisma/client';
-import { getTenantId } from './tenantContext';
+import { getTenantId, semEscopoAtivo } from './tenantContext';
 
 /**
  * Models isolados por tenant — derivado do próprio schema (todo model que tem
@@ -97,6 +97,8 @@ export const tenantGuard = Prisma.defineExtension((base) =>
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
+          // Super-admin (control plane): sem escopo de tenant — vê todos os tenants.
+          if (semEscopoAtivo()) return query(args);
           const tenantId = getTenantId();
           if (!model || !TENANT_MODELS.has(model)) return query(args);
 
