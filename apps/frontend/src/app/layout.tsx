@@ -4,10 +4,15 @@ import '@/styles/site-theme.css'
 import { CartProvider } from '@/contexts/CartContext'
 import { ToastProvider } from '@/contexts/ToastContext'
 import ClientErrorBoundary from '@/components/ClientErrorBoundary'
+import { getBranding } from '@/lib/branding'
 
-export const metadata: Metadata = {
-  title: 'Rancho Comida Caseira - Tão gostoso quanto parece',
-  description: 'Delivery de comida caseira. Peça agora!',
+// Título/descrição vêm da marca do restaurante atual (white-label), não cravados.
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = await getBranding()
+  return {
+    title: brand.nome,
+    description: 'Delivery de comida caseira. Peça agora!',
+  }
 }
 
 export const viewport: Viewport = {
