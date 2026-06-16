@@ -23,6 +23,8 @@ model Tenant {
   criadoEm     DateTime @default(now()) @map("criado_em")
   atualizadoEm DateTime @updatedAt @map("atualizado_em")
 
+  assinatura   Assinatura?
+
   @@map("tenants")
   @@index([slug])
   @@index([dominio])
@@ -843,4 +845,95 @@ model SessaoPedidoWhatsApp {
   @@index([ultimaInteracaoEm])
   @@map("sessao_pedido_whatsapp")
   @@index([tenantId])
+}
+
+// ============ FoodFlow: Control Plane (módulos, planos, assinaturas) ============
+// Tabelas de PLATAFORMA (não tenant-scoped, exceto Assinatura que tem tenant_id).
+// Entitlements = módulos do plano da assinatura ∪ módulos avulsos (AssinaturaModulo).
+
+/// Catálogo de módulos (interruptores). `chave` mapeia uma feature do sistema.
+/// `precoAvulso` permite venda à la carte no marketplace; `core` = base (todo plano).
+model Modulo {
+  id           String   @id @default(cuid())
+  chave        String   @unique @db.VarChar(50)
+  nome         String   @db.VarChar(100)
+  descricao    String?  @db.Text
+  precoAvulso  Decimal? @map("preco_avulso") @db.Decimal(10, 2)
+  core         Boolean  @default(false)
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  planos       PlanoModulo[]
+  assinaturas  AssinaturaModulo[]
+
+  @@map("modulos")
+}
+
+/// Plano = combo de módulos + mensalidade. Criado dinamicamente no painel.
+model Plano {
+  id           String   @id @default(cuid())
+  nome         String   @db.VarChar(100)
+  descricao    String?  @db.Text
+  preco        Decimal  @default(0) @db.Decimal(10, 2)
+  publico      Boolean  @default(true)
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now()) @map("criado_em")
+  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+
+  modulos      PlanoModulo[]
+  assinaturas  Assinatura[]
+
+  @@map("planos")
+}
+
+model PlanoModulo {
+  planoId  String @map("plano_id")
+  moduloId String @map("modulo_id")
+  plano    Plano  @relation(fields: [planoId], references: [id], onDelete: Cascade)
+  modulo   Modulo @relation(fields: [moduloId], references: [id], onDelete: Cascade)
+
+  @@id([planoId, moduloId])
+  @@index([moduloId])
+  @@map("plano_modulos")
+}
+
+enum EstadoConta {
+  TESTE
+  ATIVA
+  INADIMPLENTE
+  CANCELADA
+}
+
+/// Assinatura do restaurante (1 por tenant): plano atual + estado + refs de cobrança.
+model Assinatura {
+  id              String      @id @default(cuid())
+  tenantId        String      @unique @map("tenant_id")
+  planoId         String?     @map("plano_id")
+  estado          EstadoConta @default(ATIVA)
+  provedorRef     String?     @map("provedor_ref") @db.VarChar(255)
+  trialAte        DateTime?   @map("trial_ate")
+  proximaCobranca DateTime?   @map("proxima_cobranca")
+  criadoEm        DateTime    @default(now()) @map("criado_em")
+  atualizadoEm    DateTime    @updatedAt @map("atualizado_em")
+
+  tenant          Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plano           Plano?      @relation(fields: [planoId], references: [id])
+  addons          AssinaturaModulo[]
+
+  @@map("assinaturas")
+  @@index([estado])
+  @@index([planoId])
+}
+
+/// Módulos avulsos (à la carte) ligados além do plano da assinatura.
+model AssinaturaModulo {
+  assinaturaId String     @map("assinatura_id")
+  moduloId     String     @map("modulo_id")
+  assinatura   Assinatura @relation(fields: [assinaturaId], references: [id], onDelete: Cascade)
+  modulo       Modulo     @relation(fields: [moduloId], references: [id], onDelete: Cascade)
+
+  @@id([assinaturaId, moduloId])
+  @@index([moduloId])
+  @@map("assinatura_modulos")
 }
