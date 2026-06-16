@@ -3,6 +3,10 @@ import { vi } from 'vitest';
 // Mock do Prisma Client
 vi.mock('../config/database', () => ({
   default: {
+    tenant: {
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+    },
     produto: {
       findMany: vi.fn(),
       findUnique: vi.fn(),
