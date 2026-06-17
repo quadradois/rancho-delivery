@@ -2,7 +2,7 @@
 
 import { ReactNode, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
-import HeroSpline from './components/HeroSpline';
+import HeroVisual from './components/HeroVisual';
 import LeadForm from './components/LeadForm';
 
 const ease = [0.16, 1, 0.3, 1] as const;
@@ -88,35 +88,18 @@ export default function MarketingPage() {
         </div>
       </header>
 
-      {/* HERO — robô 3D em tela cheia (desktop) com o texto sobreposto */}
+      {/* HERO — texto à esquerda, visual autoral da AURA à direita */}
       <section className="relative overflow-hidden">
-        {/* Robô full-bleed (desktop) / aura (mobile) */}
-        <div className="absolute inset-0">
-          <HeroSpline />
-        </div>
-        {/* Scrim: escurece a esquerda pra leitura, deixa o robô à direita */}
-        <div
-          className="pointer-events-none absolute inset-0 hidden lg:block"
-          style={{ background: 'linear-gradient(90deg, var(--color-bg) 0%, color-mix(in srgb, var(--color-bg) 78%, transparent) 36%, transparent 66%)' }}
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-32"
-          style={{ background: 'linear-gradient(0deg, var(--color-bg), transparent)' }}
-          aria-hidden
-        />
-
-        {/* Conteúdo: o wrapper deixa o cursor passar pro robô; só o texto é interativo */}
-        <div className="pointer-events-none relative z-10 mx-auto flex min-h-[78vh] max-w-6xl flex-col justify-center px-5 py-16 lg:min-h-[88vh]">
+        <div className="ff-glow absolute -right-20 -top-24 h-[420px] w-[420px] opacity-70" aria-hidden />
+        <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-8 px-5 pb-12 pt-12 lg:min-h-[84vh] lg:grid-cols-2 lg:gap-10 lg:pt-16">
           <motion.div
-            className="pointer-events-auto lg:max-w-xl"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease }}
           >
             <span
-              className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold backdrop-blur"
-              style={{ borderColor: 'var(--color-border-strong)', color: 'var(--color-accent)', background: 'color-mix(in srgb, var(--color-bg) 50%, transparent)' }}
+              className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold"
+              style={{ borderColor: 'var(--color-border-strong)', color: 'var(--color-accent)' }}
             >
               <span className="h-1.5 w-1.5 rounded-full" style={{ background: 'var(--color-accent)' }} />
               Delivery turbinado por IA
@@ -131,11 +114,16 @@ export default function MarketingPage() {
               <a href="#comecar" className="rounded-full px-6 py-3 text-sm font-bold transition hover:opacity-90" style={{ background: 'var(--color-accent)', color: 'var(--color-text-on-accent)' }}>
                 Quero testar grátis
               </a>
-              <a href="#aura" className="rounded-full border px-6 py-3 text-sm font-bold backdrop-blur transition" style={{ borderColor: 'var(--color-border-strong)', color: 'var(--color-text-primary)', background: 'color-mix(in srgb, var(--color-bg) 40%, transparent)' }}>
+              <a href="#aura" className="rounded-full border px-6 py-3 text-sm font-bold transition" style={{ borderColor: 'var(--color-border-strong)', color: 'var(--color-text-primary)' }}>
                 Conhecer a AURA
               </a>
             </div>
           </motion.div>
+
+          {/* Visual autoral (núcleo AURA + cartões flutuantes) */}
+          <div className="relative h-[360px] sm:h-[460px]">
+            <HeroVisual />
+          </div>
         </div>
       </section>
 
