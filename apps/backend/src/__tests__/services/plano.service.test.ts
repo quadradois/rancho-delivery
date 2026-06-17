@@ -39,6 +39,15 @@ describe('plano.service — construtor de planos', () => {
     expect(r).toMatchObject({ nome: 'Premium', preco: 99.9, modulos: [{ chave: 'aura-prospeccao' }] });
   });
 
+  it('listarPlanosPublicos filtra público+ativo e ordena por preço', async () => {
+    plano.findMany.mockResolvedValue([planoRow()]);
+    await service.listarPlanosPublicos();
+    expect(plano.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { publico: true, ativo: true },
+      orderBy: { preco: 'asc' },
+    }));
+  });
+
   it('criarPlano lança MODULO_INVALIDO quando uma chave não existe', async () => {
     modulo.findMany.mockResolvedValue([{ id: 'm1', chave: 'aura-prospeccao' }]); // só 1 de 2
     await expect(service.criarPlano({ nome: 'X', preco: 0, modulos: ['aura-prospeccao', 'inexistente'] }))

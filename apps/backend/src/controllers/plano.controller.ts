@@ -64,6 +64,15 @@ export class PlanoController {
     }
   }
 
+  /** Público (site institucional): só planos visíveis (público + ativo). */
+  async listarPublicos(_req: Request, res: Response) {
+    try {
+      return res.json({ success: true, data: await planoService.listarPlanosPublicos() });
+    } catch (error) {
+      return tratarErro(error, res, 'Erro ao listar planos públicos:');
+    }
+  }
+
   async obterPlano(req: Request, res: Response) {
     try {
       return res.json({ success: true, data: await planoService.obterPlano(req.params.id) });

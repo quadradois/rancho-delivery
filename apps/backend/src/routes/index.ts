@@ -7,6 +7,7 @@ import lojaRoutes from './loja.routes';
 import entregadorRoutes from './entregador.routes';
 import superadminRoutes from './superadmin.routes';
 import leadRoutes from './lead.routes';
+import planoRoutes from './plano.routes';
 
 const router: ExpressRouter = Router();
 
@@ -19,5 +20,6 @@ router.use('/admin', adminRoutes);
 router.use('/entregador', entregadorRoutes);
 router.use('/superadmin', superadminRoutes);
 router.use('/leads', leadRoutes);
+router.use('/planos', planoRoutes);
 
 export default router;

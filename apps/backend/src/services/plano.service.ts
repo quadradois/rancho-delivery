@@ -65,6 +65,16 @@ export async function listarPlanos() {
   return planos.map(serializar);
 }
 
+/** Planos visíveis no site institucional: apenas público + ativo, do mais barato ao mais caro. */
+export async function listarPlanosPublicos() {
+  const planos = await prisma.plano.findMany({
+    where: { publico: true, ativo: true },
+    orderBy: { preco: 'asc' },
+    include: includeModulos,
+  });
+  return planos.map(serializar);
+}
+
 export async function obterPlano(id: string) {
   const plano = await prisma.plano.findUnique({ where: { id }, include: includeModulos });
   if (!plano) throw new PlanoError('NAO_ENCONTRADO', 'Plano não encontrado');

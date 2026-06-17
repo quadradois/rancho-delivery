@@ -4,6 +4,7 @@ import { ReactNode, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import ProspeccaoDemo from './components/ProspeccaoDemo';
 import Contador from './components/Contador';
+import PlanosPublicos from './components/PlanosPublicos';
 import LeadForm from './components/LeadForm';
 
 const ease = [0.16, 1, 0.3, 1] as const;
@@ -296,40 +297,9 @@ export default function MarketingPage() {
           <Reveal>
             <h2 className="ff-display text-center text-3xl font-bold sm:text-4xl">Comece grátis. Ligue a máquina de vendas quando quiser.</h2>
           </Reveal>
-          <div className="mx-auto mt-10 grid max-w-3xl items-start gap-5 sm:grid-cols-2">
-            <Reveal>
-              <div className="flex h-full flex-col rounded-2xl border p-7" style={{ background: 'var(--color-surface-raised)', borderColor: 'var(--color-border)' }}>
-                <h3 className="text-lg font-bold">Básico</h3>
-                <p className="mt-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>Coloque seu delivery no ar hoje.</p>
-                <p className="ff-display mt-4 text-4xl font-bold">Grátis</p>
-                <ul className="mt-5 space-y-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                  {['Cardápio digital', 'Pedidos e cozinha', 'Entregas', 'Pagamento PIX e cartão'].map((x) => (
-                    <li key={x} className="flex items-center gap-2"><span style={{ color: 'var(--color-success-text)' }}><Icon d="M20 6 9 17l-5-5" size={16} /></span>{x}</li>
-                  ))}
-                </ul>
-                <a href="#comecar" className="mt-7 rounded-full border px-5 py-3 text-center text-sm font-bold" style={{ borderColor: 'var(--color-border-strong)', color: 'var(--color-text-primary)' }}>
-                  Começar grátis
-                </a>
-              </div>
-            </Reveal>
-            <Reveal delay={0.08}>
-              <div className="relative flex h-full flex-col rounded-2xl border-2 p-7" style={{ background: 'var(--color-surface-raised)', borderColor: 'var(--color-accent)' }}>
-                <span className="absolute -top-3 left-7 rounded-full px-3 py-1 text-xs font-bold" style={{ background: 'var(--color-accent)', color: 'var(--color-text-on-accent)' }}>Mais popular</span>
-                <h3 className="text-lg font-bold">Premium</h3>
-                <p className="mt-1 text-sm" style={{ color: 'var(--color-text-secondary)' }}>A IA que traz cliente novo todo dia.</p>
-                <p className="ff-display mt-4 text-3xl font-bold">AURA<span className="text-base font-medium" style={{ color: 'var(--color-text-tertiary)' }}> incluída</span></p>
-                <span className="mt-1 inline-block w-fit rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: 'var(--color-accent-muted)', color: 'var(--color-accent)' }}>Preço de fundador travado pra sempre</span>
-                <ul className="mt-5 space-y-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-                  {['Tudo do Básico', 'AURA: prospecta, atende e faz campanha', 'Domínio próprio', 'Sua marca (white-label)'].map((x) => (
-                    <li key={x} className="flex items-center gap-2"><span style={{ color: 'var(--color-accent)' }}><Icon d="M20 6 9 17l-5-5" size={16} /></span>{x}</li>
-                  ))}
-                </ul>
-                <a href="#comecar" className="mt-7 rounded-full px-5 py-3 text-center text-sm font-bold" style={{ background: 'var(--color-accent)', color: 'var(--color-text-on-accent)' }}>
-                  Quero o Premium
-                </a>
-              </div>
-            </Reveal>
-          </div>
+          <Reveal className="mt-10">
+            <PlanosPublicos />
+          </Reveal>
         </div>
       </section>
 
