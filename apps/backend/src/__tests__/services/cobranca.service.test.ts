@@ -30,6 +30,7 @@ describe('cobranca.service — assinatura Mercado Pago', () => {
     expect(mpPost).toHaveBeenCalledWith('/preapproval', expect.objectContaining({
       external_reference: 'rancho',
       payer_email: 'dono@rancho.com',
+      notification_url: 'https://admin.foodflow.ia.br/webhook/assinatura',
       auto_recurring: expect.objectContaining({ transaction_amount: 99.9, frequency: 1, frequency_type: 'months', currency_id: 'BRL' }),
     }));
     expect(assinatura.update).toHaveBeenCalledWith({ where: { tenantId: 'rancho' }, data: { provedorRef: 'PRE-1' } });
