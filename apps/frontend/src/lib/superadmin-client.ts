@@ -164,4 +164,10 @@ export const superadminApi = {
       body: JSON.stringify(dados),
     });
   },
+  gerarCobranca(restauranteId: string, dados: { email?: string } = {}): Promise<{ url: string; preapprovalId: string }> {
+    return request<{ url: string; preapprovalId: string }>(
+      `/superadmin/restaurantes/${restauranteId}/assinatura/cobranca`,
+      { method: 'POST', body: JSON.stringify(dados) },
+    );
+  },
 };
