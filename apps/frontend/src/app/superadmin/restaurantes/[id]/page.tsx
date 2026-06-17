@@ -32,6 +32,11 @@ export default function RestauranteDetalhePage({ params }: { params: { id: strin
   const [planoId, setPlanoId] = useState<string>('');
   const [salvandoAssin, setSalvandoAssin] = useState(false);
 
+  // Cobrança (link Mercado Pago)
+  const [emailCobranca, setEmailCobranca] = useState('');
+  const [gerandoCobranca, setGerandoCobranca] = useState(false);
+  const [linkCobranca, setLinkCobranca] = useState<string | null>(null);
+
   const carregar = useCallback(async () => {
     setLoading(true);
     try {
@@ -98,6 +103,30 @@ export default function RestauranteDetalhePage({ params }: { params: { id: strin
       showError('Falha ao salvar assinatura', err instanceof Error ? err.message : undefined);
     } finally {
       setSalvandoAssin(false);
+    }
+  };
+
+  const gerarCobranca = async () => {
+    setGerandoCobranca(true);
+    setLinkCobranca(null);
+    try {
+      const { url } = await superadminApi.gerarCobranca(id, { email: emailCobranca.trim() || undefined });
+      setLinkCobranca(url);
+      showSuccess('Link de cobrança gerado');
+    } catch (err) {
+      showError('Falha ao gerar cobrança', err instanceof Error ? err.message : undefined);
+    } finally {
+      setGerandoCobranca(false);
+    }
+  };
+
+  const copiarLink = async () => {
+    if (!linkCobranca) return;
+    try {
+      await navigator.clipboard.writeText(linkCobranca);
+      showSuccess('Link copiado');
+    } catch {
+      showError('Não foi possível copiar');
     }
   };
 
@@ -184,6 +213,50 @@ export default function RestauranteDetalhePage({ params }: { params: { id: strin
               {salvandoAssin ? 'Salvando…' : 'Salvar assinatura'}
             </Button>
           </div>
+        </Card>
+
+        <Card>
+          <h2 className="mb-1 text-sm font-bold uppercase tracking-wide" style={{ color: 'var(--color-text-secondary)' }}>
+            Cobrança
+          </h2>
+          <p className="mb-4 text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
+            Gera o link de assinatura no Mercado Pago (usa o preço do plano acima). Envie pro dono autorizar — o
+            pagamento atualiza o estado da conta sozinho.
+          </p>
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Field label="E-mail do dono (opcional)">
+                <TextInput
+                  type="email"
+                  value={emailCobranca}
+                  onChange={(e) => setEmailCobranca(e.target.value)}
+                  placeholder="dono@restaurante.com"
+                />
+              </Field>
+            </div>
+            <Button onClick={gerarCobranca} disabled={gerandoCobranca}>
+              {gerandoCobranca ? 'Gerando…' : 'Gerar link'}
+            </Button>
+          </div>
+          {linkCobranca && (
+            <div
+              className="mt-4 flex items-center gap-2 rounded-lg border p-3"
+              style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-input)' }}
+            >
+              <a
+                href={linkCobranca}
+                target="_blank"
+                rel="noreferrer"
+                className="flex-1 truncate text-xs"
+                style={{ color: 'var(--color-accent)' }}
+              >
+                {linkCobranca}
+              </a>
+              <Button variant="ghost" onClick={copiarLink}>
+                Copiar
+              </Button>
+            </div>
+          )}
         </Card>
 
         <Card>
