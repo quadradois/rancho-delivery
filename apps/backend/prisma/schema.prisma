@@ -937,3 +937,19 @@ model AssinaturaModulo {
   @@index([moduloId])
   @@map("assinatura_modulos")
 }
+
+/// Lead capturado no site institucional do FoodFlow (foodflow.ia.br).
+/// Nível plataforma — sem tenantId (o tenantGuard passa direto).
+model Lead {
+  id          String   @id @default(cuid())
+  nome        String   @db.VarChar(150)
+  restaurante String   @db.VarChar(150)
+  contato     String   @db.VarChar(150)
+  email       String?  @db.VarChar(150)
+  mensagem    String?  @db.Text
+  origem      String   @default("site") @db.VarChar(40)
+  criadoEm    DateTime @default(now()) @map("criado_em")
+
+  @@map("leads")
+  @@index([criadoEm])
+}

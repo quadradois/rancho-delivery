@@ -2,6 +2,7 @@ import { Router, type Router as ExpressRouter } from 'express';
 import superAdminController from '../controllers/superadmin.controller';
 import planoController from '../controllers/plano.controller';
 import assinaturaController from '../controllers/assinatura.controller';
+import leadController from '../controllers/lead.controller';
 import { autenticarSuperAdmin } from '../middlewares/adminAuth.middleware';
 import { adminLimiter } from '../middlewares/rateLimit.middleware';
 
@@ -27,5 +28,8 @@ router.get('/planos', planoController.listarPlanos.bind(planoController));
 router.post('/planos', planoController.criarPlano.bind(planoController));
 router.get('/planos/:id', planoController.obterPlano.bind(planoController));
 router.patch('/planos/:id', planoController.atualizarPlano.bind(planoController));
+
+// Leads capturados no site institucional.
+router.get('/leads', leadController.listar.bind(leadController));
 
 export default router;
