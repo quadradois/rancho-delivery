@@ -1,6 +1,7 @@
 import { Router, type Router as ExpressRouter } from 'express';
 import superAdminController from '../controllers/superadmin.controller';
 import planoController from '../controllers/plano.controller';
+import assinaturaController from '../controllers/assinatura.controller';
 import { autenticarSuperAdmin } from '../middlewares/adminAuth.middleware';
 import { adminLimiter } from '../middlewares/rateLimit.middleware';
 
@@ -14,6 +15,10 @@ router.get('/restaurantes', superAdminController.listarRestaurantes.bind(superAd
 router.post('/restaurantes', superAdminController.criarRestaurante.bind(superAdminController));
 router.get('/restaurantes/:id', superAdminController.obterRestaurante.bind(superAdminController));
 router.patch('/restaurantes/:id', superAdminController.atualizarRestaurante.bind(superAdminController));
+
+// Estado da conta do restaurante (atribuir plano + EstadoConta).
+router.get('/restaurantes/:id/assinatura', assinaturaController.obter.bind(assinaturaController));
+router.put('/restaurantes/:id/assinatura', assinaturaController.definir.bind(assinaturaController));
 
 // Catálogo de módulos + construtor de planos (combos de módulos).
 router.get('/modulos', planoController.listarModulos.bind(planoController));
