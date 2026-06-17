@@ -6,7 +6,7 @@ import {
   superadminApi,
   type RestauranteResumo,
   type AssinaturaInfo,
-  type PlanoResumo,
+  type Plano,
   type EstadoConta,
 } from '@/lib/superadmin-client';
 import { useToast } from '@/contexts/ToastContext';
@@ -18,7 +18,7 @@ export default function RestauranteDetalhePage({ params }: { params: { id: strin
 
   const [restaurante, setRestaurante] = useState<RestauranteResumo | null>(null);
   const [assinatura, setAssinatura] = useState<AssinaturaInfo | null>(null);
-  const [planos, setPlanos] = useState<PlanoResumo[]>([]);
+  const [planos, setPlanos] = useState<Plano[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Form dados gerais

@@ -15,7 +15,7 @@ import { useToast } from '@/contexts/ToastContext';
 
 const NAV = [
   { href: '/superadmin', label: 'Restaurantes', exact: true },
-  { href: '/superadmin/planos', label: 'Planos', exact: false, embreve: true },
+  { href: '/superadmin/planos', label: 'Planos', exact: false },
 ];
 
 function Wordmark({ className = '' }: { className?: string }) {
@@ -127,20 +127,6 @@ export default function SuperadminLayout({ children }: { children: ReactNode }) 
         <nav className="flex flex-col gap-1">
           {NAV.map((item) => {
             const active = item.exact ? pathname === item.href : pathname.startsWith(item.href);
-            if (item.embreve) {
-              return (
-                <span
-                  key={item.href}
-                  className="flex items-center justify-between rounded-lg px-3 py-2 text-sm"
-                  style={{ color: 'var(--color-text-tertiary)' }}
-                >
-                  {item.label}
-                  <span className="text-[10px] uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>
-                    em breve
-                  </span>
-                </span>
-              );
-            }
             return (
               <Link
                 key={item.href}

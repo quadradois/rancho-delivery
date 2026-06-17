@@ -63,10 +63,35 @@ export interface RestauranteResumo {
   assinatura: { estado: EstadoConta; plano: string | null; proximaCobranca: string | null } | null;
 }
 
-export interface PlanoResumo {
+export interface ModuloPlano {
+  chave: string;
+  nome: string;
+  core: boolean;
+}
+
+export interface ModuloItem extends ModuloPlano {
+  descricao: string | null;
+  ativo: boolean;
+  precoAvulso: number | null;
+}
+
+export interface Plano {
   id: string;
   nome: string;
+  descricao: string | null;
   preco: number;
+  publico: boolean;
+  ativo: boolean;
+  modulos: ModuloPlano[];
+}
+
+export interface PlanoInput {
+  nome: string;
+  descricao?: string | null;
+  preco: number;
+  publico?: boolean;
+  ativo?: boolean;
+  modulos: string[];
 }
 
 export interface AssinaturaInfo {
@@ -114,8 +139,17 @@ export const superadminApi = {
     return request<RestauranteResumo>(`/superadmin/restaurantes/${id}`, { method: 'PATCH', body: JSON.stringify(dados) });
   },
 
-  listarPlanos(): Promise<PlanoResumo[]> {
-    return request<PlanoResumo[]>('/superadmin/planos');
+  listarModulos(): Promise<ModuloItem[]> {
+    return request<ModuloItem[]>('/superadmin/modulos');
+  },
+  listarPlanos(): Promise<Plano[]> {
+    return request<Plano[]>('/superadmin/planos');
+  },
+  criarPlano(dados: PlanoInput): Promise<Plano> {
+    return request<Plano>('/superadmin/planos', { method: 'POST', body: JSON.stringify(dados) });
+  },
+  atualizarPlano(id: string, dados: Partial<PlanoInput>): Promise<Plano> {
+    return request<Plano>(`/superadmin/planos/${id}`, { method: 'PATCH', body: JSON.stringify(dados) });
   },
 
   obterAssinatura(restauranteId: string): Promise<AssinaturaInfo | null> {
