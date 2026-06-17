@@ -1,0 +1,9 @@
+@import '../../../../packages/shared/styles/tokens.foodflow.css';
+
+.foodflow {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}

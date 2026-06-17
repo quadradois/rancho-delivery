@@ -1,0 +1,64 @@
+/*
+ * FoodFlow — tema do control plane (admin.foodflow).
+ * Base "Spotify-dark" (#121212 / #181818 / #1f1f1f) + acento Indigo #6366F1 + Inter.
+ * Distinto do "dark smokehouse" quente do Rancho (tokens.crm.css). Tema único
+ * (dark); escopado em `.foodflow` para não vazar para o app do restaurante.
+ */
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800&display=swap');
+
+.foodflow {
+  --indigo-300: #a5b4fc;
+  --indigo-400: #818cf8;
+  --indigo-500: #6366f1;
+  --indigo-600: #4f46e5;
+  --indigo-700: #4338ca;
+
+  --font-display: 'Inter', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-brand: 'Inter', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'JetBrains Mono', monospace;
+
+  --sidebar-width: 240px;
+  --topbar-height: 64px;
+
+  --color-bg: #121212;
+  --color-surface: #181818;
+  --color-surface-raised: #1f1f1f;
+  --color-surface-overlay: #242424;
+  --color-surface-input: #1a1a1a;
+  --color-surface-hover: #242424;
+  --color-surface-active: #2a2a2a;
+  --color-border: #2a2a2a;
+  --color-border-strong: #3a3a3a;
+  --color-border-focus: #6366f1;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #b3b3b3;
+  --color-text-tertiary: #6b6b6b;
+  --color-text-disabled: #4a4a4a;
+  --color-text-inverse: #0b0b0b;
+  --color-text-on-accent: #ffffff;
+  --color-accent: #6366f1;
+  --color-accent-hover: #818cf8;
+  --color-accent-muted: rgba(99, 102, 241, 0.15);
+  --color-accent-subtle: rgba(99, 102, 241, 0.08);
+  --color-success: #10b981;
+  --color-success-hover: #34d399;
+  --color-success-muted: rgba(16, 185, 129, 0.15);
+  --color-success-subtle: rgba(16, 185, 129, 0.08);
+  --color-success-text: #34d399;
+  --color-warning: #f59e0b;
+  --color-warning-hover: #fbbf24;
+  --color-warning-muted: rgba(245, 158, 11, 0.15);
+  --color-warning-subtle: rgba(245, 158, 11, 0.08);
+  --color-warning-text: #fbbf24;
+  --color-danger: #ef4444;
+  --color-danger-hover: #f87171;
+  --color-danger-muted: rgba(239, 68, 68, 0.15);
+  --color-danger-subtle: rgba(239, 68, 68, 0.08);
+  --color-danger-text: #f87171;
+  --color-info: #3b82f6;
+  --color-info-hover: #60a5fa;
+  --color-info-muted: rgba(59, 130, 246, 0.15);
+  --color-info-subtle: rgba(59, 130, 246, 0.08);
+  --color-info-text: #60a5fa;
+}
