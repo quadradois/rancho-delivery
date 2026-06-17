@@ -6,8 +6,23 @@ import { logger } from '../config/logger';
 import realtimeService from '../services/realtime.service';
 import clienteService from '../services/cliente.service';
 import { processarRespostaWhatsApp } from '../services/conversacao.service';
+import { processarWebhookAssinatura } from '../services/cobranca.service';
 
 export class WebhookController {
+  /**
+   * POST /webhook/assinatura
+   * Notificações do Mercado Pago da assinatura do FoodFlow (control plane).
+   * Sempre responde 200 (processa em background) pra não reenfileirar.
+   */
+  async assinatura(req: Request, res: Response) {
+    try {
+      void processarWebhookAssinatura(req.body ?? {});
+    } catch (error) {
+      logger.error('Erro ao receber webhook de assinatura:', error);
+    }
+    return res.status(200).json({ success: true });
+  }
+
   /**
    * POST /webhook/mercadopago
    * Recebe notificações de pagamento do Mercado Pago

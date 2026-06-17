@@ -19,6 +19,7 @@ router.patch('/restaurantes/:id', superAdminController.atualizarRestaurante.bind
 // Estado da conta do restaurante (atribuir plano + EstadoConta).
 router.get('/restaurantes/:id/assinatura', assinaturaController.obter.bind(assinaturaController));
 router.put('/restaurantes/:id/assinatura', assinaturaController.definir.bind(assinaturaController));
+router.post('/restaurantes/:id/assinatura/cobranca', assinaturaController.gerarCobranca.bind(assinaturaController));
 
 // Catálogo de módulos + construtor de planos (combos de módulos).
 router.get('/modulos', planoController.listarModulos.bind(planoController));
