@@ -63,6 +63,20 @@ export interface RestauranteResumo {
   assinatura: { estado: EstadoConta; plano: string | null; proximaCobranca: string | null } | null;
 }
 
+export interface PlanoResumo {
+  id: string;
+  nome: string;
+  preco: number;
+}
+
+export interface AssinaturaInfo {
+  estado: EstadoConta;
+  plano: { id: string; nome: string } | null;
+  proximaCobranca: string | null;
+  trialAte: string | null;
+  atualizadoEm: string;
+}
+
 interface LoginResposta {
   token: string;
   role: string;
@@ -86,5 +100,34 @@ export const superadminApi = {
 
   listarRestaurantes(): Promise<RestauranteResumo[]> {
     return request<RestauranteResumo[]>('/superadmin/restaurantes');
+  },
+  obterRestaurante(id: string): Promise<RestauranteResumo> {
+    return request<RestauranteResumo>(`/superadmin/restaurantes/${id}`);
+  },
+  criarRestaurante(dados: { slug: string; nome: string; dominio?: string | null }): Promise<RestauranteResumo> {
+    return request<RestauranteResumo>('/superadmin/restaurantes', { method: 'POST', body: JSON.stringify(dados) });
+  },
+  atualizarRestaurante(
+    id: string,
+    dados: { nome?: string; slug?: string; dominio?: string | null; ativo?: boolean },
+  ): Promise<RestauranteResumo> {
+    return request<RestauranteResumo>(`/superadmin/restaurantes/${id}`, { method: 'PATCH', body: JSON.stringify(dados) });
+  },
+
+  listarPlanos(): Promise<PlanoResumo[]> {
+    return request<PlanoResumo[]>('/superadmin/planos');
+  },
+
+  obterAssinatura(restauranteId: string): Promise<AssinaturaInfo | null> {
+    return request<AssinaturaInfo | null>(`/superadmin/restaurantes/${restauranteId}/assinatura`);
+  },
+  definirAssinatura(
+    restauranteId: string,
+    dados: { estado: EstadoConta; planoId: string | null },
+  ): Promise<AssinaturaInfo> {
+    return request<AssinaturaInfo>(`/superadmin/restaurantes/${restauranteId}/assinatura`, {
+      method: 'PUT',
+      body: JSON.stringify(dados),
+    });
   },
 };
