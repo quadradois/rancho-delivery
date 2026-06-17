@@ -88,10 +88,12 @@ export default function MarketingPage() {
         </div>
       </header>
 
-      {/* HERO — texto à esquerda, visual autoral da AURA à direita */}
-      <section className="relative overflow-hidden">
-        <div className="ff-glow absolute -right-20 -top-24 h-[420px] w-[420px] opacity-70" aria-hidden />
-        <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-8 px-5 pb-12 pt-12 lg:min-h-[84vh] lg:grid-cols-2 lg:gap-10 lg:pt-16">
+      {/* HERO — texto à esquerda, visual autoral da AURA à direita
+          (sem overflow-hidden: o wrapper .foodflow-site já corta o scroll lateral;
+          assim o núcleo e os cartões "respiram" sem cortar os cantos) */}
+      <section className="relative">
+        <div className="ff-glow pointer-events-none absolute -right-20 -top-24 h-[420px] w-[420px] opacity-70" aria-hidden />
+        <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-8 px-5 pb-16 pt-12 lg:min-h-[84vh] lg:grid-cols-2 lg:gap-10 lg:pt-16">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -121,7 +123,7 @@ export default function MarketingPage() {
           </motion.div>
 
           {/* Visual autoral (núcleo AURA + cartões flutuantes) */}
-          <div className="relative h-[360px] sm:h-[460px]">
+          <div className="relative h-[420px] sm:h-[520px]">
             <HeroVisual />
           </div>
         </div>

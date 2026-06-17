@@ -48,13 +48,13 @@ export default function HeroVisual() {
   });
 
   return (
-    <div className="absolute inset-0 overflow-hidden" aria-hidden>
+    <div className="absolute inset-0" aria-hidden>
       {/* brilho ambiente */}
       <div className="ff-glow absolute left-1/2 top-1/2 h-[460px] w-[460px] -translate-x-1/2 -translate-y-1/2" />
 
       {/* núcleo + órbitas */}
       <motion.div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ x: coreX, y: coreY }}>
-        <div className="relative h-64 w-64 sm:h-72 sm:w-72">
+        <div className="relative h-56 w-56 sm:h-64 sm:w-64">
           {/* anel cônico girando */}
           {!reduce && (
             <motion.div
