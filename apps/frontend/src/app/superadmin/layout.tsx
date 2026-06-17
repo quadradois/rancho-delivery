@@ -16,6 +16,7 @@ import { useToast } from '@/contexts/ToastContext';
 const NAV = [
   { href: '/superadmin', label: 'Restaurantes', exact: true },
   { href: '/superadmin/planos', label: 'Planos', exact: false },
+  { href: '/superadmin/leads', label: 'Leads', exact: false },
 ];
 
 function Wordmark({ className = '' }: { className?: string }) {

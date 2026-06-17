@@ -102,6 +102,17 @@ export interface AssinaturaInfo {
   atualizadoEm: string;
 }
 
+export interface Lead {
+  id: string;
+  nome: string;
+  restaurante: string;
+  contato: string;
+  email: string | null;
+  mensagem: string | null;
+  origem: string;
+  criadoEm: string;
+}
+
 interface LoginResposta {
   token: string;
   role: string;
@@ -169,5 +180,9 @@ export const superadminApi = {
       `/superadmin/restaurantes/${restauranteId}/assinatura/cobranca`,
       { method: 'POST', body: JSON.stringify(dados) },
     );
+  },
+
+  listarLeads(): Promise<Lead[]> {
+    return request<Lead[]>('/superadmin/leads');
   },
 };

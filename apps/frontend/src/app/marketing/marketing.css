@@ -1,0 +1,33 @@
+@import '../../../../../packages/shared/styles/tokens.foodflow.css';
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap');
+
+.foodflow-site {
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text-primary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* Título "display" do site (mais tech que o painel, que usa Inter). */
+.ff-display {
+  font-family: 'Space Grotesk', var(--font-body);
+  letter-spacing: -0.02em;
+}
+
+/* Brilho/aura Indigo de fundo (hero e seções). */
+.ff-glow {
+  background: radial-gradient(closest-side, rgba(99, 102, 241, 0.28), rgba(99, 102, 241, 0));
+  filter: blur(8px);
+}
+
+@keyframes ff-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.ff-float { animation: ff-float 6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ff-float { animation: none; }
+}
