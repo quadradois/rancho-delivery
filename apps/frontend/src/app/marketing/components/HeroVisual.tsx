@@ -4,22 +4,17 @@ import { motion, useReducedMotion } from 'framer-motion';
 
 /**
  * Visual autoral do hero (sem Spline / sem dependência externa / sem marca d'água).
- * Um "núcleo da AURA" pulsante com anel girando + cartões flutuantes que contam
- * o produto. Tudo com transform/opacity (performático), desligado em
- * prefers-reduced-motion. Leve o bastante pra rodar no mobile.
+ * "Núcleo da AURA" pulsante com anel girando + cartões que contam o produto.
+ * Sem parallax e sem flutuar (os cartões ficam estáticos — só entram com fade);
+ * o único movimento contínuo é o do núcleo, sutil. Respeita prefers-reduced-motion.
  */
 export default function HeroVisual() {
   const reduce = useReducedMotion();
 
-  const float = (delay: number) =>
-    reduce
-      ? {}
-      : { animate: { y: [0, -10, 0] }, transition: { duration: 6, repeat: Infinity, ease: 'easeInOut' as const, delay } };
-
   const aparece = (delay: number) => ({
-    initial: reduce ? false : { opacity: 0, scale: 0.9 },
+    initial: reduce ? false : { opacity: 0, scale: 0.96 },
     animate: { opacity: 1, scale: 1 },
-    transition: { duration: 0.6, delay, ease: [0.16, 1, 0.3, 1] as const },
+    transition: { duration: 0.5, delay, ease: [0.16, 1, 0.3, 1] as const },
   });
 
   return (
@@ -73,56 +68,50 @@ export default function HeroVisual() {
 
       {/* Cartão: WhatsApp / AURA atendendo */}
       <motion.div
-        className="absolute left-[6%] top-[16%] w-56 rounded-2xl border p-3 shadow-xl backdrop-blur sm:left-[2%]"
-        style={{ background: 'color-mix(in srgb, var(--color-surface) 88%, transparent)', borderColor: 'var(--color-border)' }}
-        {...aparece(0.15)}
+        className="absolute left-[6%] top-[16%] w-56 rounded-2xl border p-3 shadow-xl sm:left-[2%]"
+        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+        {...aparece(0.1)}
       >
-        <motion.div {...float(0)}>
-          <div className="mb-2 flex items-center gap-2">
-            <span className="h-6 w-6 rounded-full" style={{ background: 'var(--color-success)' }} />
-            <span className="text-xs font-semibold">Cliente</span>
-          </div>
-          <p className="rounded-lg rounded-tl-none px-2.5 py-1.5 text-xs" style={{ background: 'var(--color-surface-active)' }}>
-            Oi! Vocês entregam agora?
-          </p>
-          <p className="mt-1.5 rounded-lg rounded-tr-none px-2.5 py-1.5 text-xs" style={{ background: 'var(--color-accent-muted)', color: 'var(--color-text-primary)' }}>
-            Entregamos sim 🚀 Quer ver o cardápio?
-          </p>
-          <span className="mt-1 block text-[10px] font-semibold" style={{ color: 'var(--color-accent)' }}>AURA respondeu</span>
-        </motion.div>
+        <div className="mb-2 flex items-center gap-2">
+          <span className="h-6 w-6 rounded-full" style={{ background: 'var(--color-success)' }} />
+          <span className="text-xs font-semibold">Cliente</span>
+        </div>
+        <p className="rounded-lg rounded-tl-none px-2.5 py-1.5 text-xs" style={{ background: 'var(--color-surface-active)' }}>
+          Oi! Vocês entregam agora?
+        </p>
+        <p className="mt-1.5 rounded-lg rounded-tr-none px-2.5 py-1.5 text-xs" style={{ background: 'var(--color-accent-muted)', color: 'var(--color-text-primary)' }}>
+          Entregamos sim 🚀 Quer ver o cardápio?
+        </p>
+        <span className="mt-1 block text-[10px] font-semibold" style={{ color: 'var(--color-accent)' }}>AURA respondeu</span>
       </motion.div>
 
       {/* Cartão: pedido confirmado */}
       <motion.div
-        className="absolute bottom-[18%] left-[10%] w-52 rounded-2xl border p-3 shadow-xl backdrop-blur"
-        style={{ background: 'color-mix(in srgb, var(--color-surface) 88%, transparent)', borderColor: 'var(--color-border)' }}
-        {...aparece(0.3)}
+        className="absolute bottom-[18%] left-[10%] w-52 rounded-2xl border p-3 shadow-xl"
+        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+        {...aparece(0.22)}
       >
-        <motion.div {...float(1.2)}>
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold">Pedido #1287</span>
-            <span className="rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: 'var(--color-success-muted)', color: 'var(--color-success-text)' }}>Confirmado</span>
-          </div>
-          <p className="ff-display mt-1.5 text-lg font-bold">R$ 48,90</p>
-        </motion.div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold">Pedido #1287</span>
+          <span className="rounded-full px-2 py-0.5 text-[10px] font-bold" style={{ background: 'var(--color-success-muted)', color: 'var(--color-success-text)' }}>Confirmado</span>
+        </div>
+        <p className="ff-display mt-1.5 text-lg font-bold">R$ 48,90</p>
       </motion.div>
 
       {/* Cartão: alta de vendas */}
       <motion.div
-        className="absolute right-[6%] top-[24%] w-44 rounded-2xl border p-3 shadow-xl backdrop-blur"
-        style={{ background: 'color-mix(in srgb, var(--color-surface) 88%, transparent)', borderColor: 'var(--color-border)' }}
-        {...aparece(0.45)}
+        className="absolute right-[6%] top-[24%] w-44 rounded-2xl border p-3 shadow-xl"
+        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
+        {...aparece(0.34)}
       >
-        <motion.div {...float(0.6)}>
-          <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>Vendas no mês</span>
-          <div className="mt-1 flex items-end gap-2">
-            <span className="ff-display text-xl font-bold" style={{ color: 'var(--color-accent)' }}>+32%</span>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M3 17l6-6 4 4 8-8" />
-              <path d="M21 7v6h-6" />
-            </svg>
-          </div>
-        </motion.div>
+        <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: 'var(--color-text-tertiary)' }}>Vendas no mês</span>
+        <div className="mt-1 flex items-end gap-2">
+          <span className="ff-display text-xl font-bold" style={{ color: 'var(--color-accent)' }}>+32%</span>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 17l6-6 4 4 8-8" />
+            <path d="M21 7v6h-6" />
+          </svg>
+        </div>
       </motion.div>
     </div>
   );
