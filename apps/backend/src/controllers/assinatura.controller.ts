@@ -3,7 +3,18 @@ import { z } from 'zod';
 import { EstadoConta } from '@prisma/client';
 import * as assinaturaService from '../services/assinatura.service';
 import { AssinaturaError } from '../services/assinatura.service';
+import * as cobrancaService from '../services/cobranca.service';
+import { CobrancaError } from '../services/cobranca.service';
 import { logger } from '../config/logger';
+
+const schemaCobranca = z.object({ email: z.string().email().optional() });
+
+const HTTP_POR_CODIGO_COBRANCA: Record<CobrancaError['code'], number> = {
+  SEM_TOKEN: 503,
+  RESTAURANTE_NAO_ENCONTRADO: 404,
+  SEM_PLANO: 422,
+  MP_ERRO: 502,
+};
 
 const schemaDefinir = z.object({
   estado: z.nativeEnum(EstadoConta),
@@ -42,6 +53,25 @@ export class AssinaturaController {
       return res.json({ success: true, data: await assinaturaService.definirAssinatura(req.params.id, parsed.data) });
     } catch (error) {
       return tratarErro(error, res, 'Erro ao definir assinatura (super-admin):');
+    }
+  }
+
+  /** Gera o link de assinatura (Mercado Pago) pro dono autorizar a cobrança. */
+  async gerarCobranca(req: Request, res: Response) {
+    const parsed = schemaCobranca.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      const msg = parsed.error.errors.map((e) => e.message).join('; ');
+      return res.status(400).json({ success: false, error: { message: msg } });
+    }
+    try {
+      const data = await cobrancaService.gerarLinkAssinatura(req.params.id, parsed.data);
+      return res.json({ success: true, data });
+    } catch (error) {
+      if (error instanceof CobrancaError) {
+        return res.status(HTTP_POR_CODIGO_COBRANCA[error.code]).json({ success: false, error: { message: error.message, code: error.code } });
+      }
+      logger.error('Erro ao gerar cobrança (super-admin):', error);
+      return res.status(500).json({ success: false, error: { message: 'Erro ao gerar cobrança' } });
     }
   }
 }
