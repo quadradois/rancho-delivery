@@ -58,6 +58,7 @@ export async function gerarLinkAssinatura(
     external_reference: tenantId,
     payer_email: opts.email,
     back_url: `${cfg.adminUrl}/superadmin/restaurantes/${tenantId}`,
+    notification_url: `${cfg.adminUrl}/webhook/assinatura`,
     status: 'pending',
     auto_recurring: {
       frequency: 1,
