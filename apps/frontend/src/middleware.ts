@@ -10,6 +10,12 @@ export function middleware(req: NextRequest) {
   if (HOSTS_MARKETING.has(host) && req.nextUrl.pathname === '/') {
     const url = req.nextUrl.clone();
     url.pathname = '/marketing';
+    // Atrás do proxy (Cloudflare/nginx), o nextUrl vem com host interno
+    // localhost:3000 mas protocolo https (X-Forwarded-Proto) → "https://localhost:3000"
+    // quebra a reescrita (TLS num servidor http) e dá 500. Casa o proto com o host interno.
+    if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+      url.protocol = 'http:';
+    }
     return NextResponse.rewrite(url);
   }
   return NextResponse.next();
