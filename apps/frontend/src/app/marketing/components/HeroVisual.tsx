@@ -1,40 +1,15 @@
 'use client';
 
-import { useEffect } from 'react';
-import { motion, useMotionValue, useReducedMotion, useSpring, useTransform } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
 
 /**
  * Visual autoral do hero (sem Spline / sem dependência externa / sem marca d'água).
  * Um "núcleo da AURA" pulsante com anel girando + cartões flutuantes que contam
- * o produto. Tudo com transform/opacity (performático) e parallax no cursor —
- * desligado em prefers-reduced-motion. Leve o bastante pra rodar no mobile.
+ * o produto. Tudo com transform/opacity (performático), desligado em
+ * prefers-reduced-motion. Leve o bastante pra rodar no mobile.
  */
 export default function HeroVisual() {
   const reduce = useReducedMotion();
-  const mx = useMotionValue(0); // -1..1
-  const my = useMotionValue(0);
-  const sx = useSpring(mx, { stiffness: 50, damping: 18 });
-  const sy = useSpring(my, { stiffness: 50, damping: 18 });
-
-  useEffect(() => {
-    if (reduce) return;
-    const onMove = (e: PointerEvent) => {
-      mx.set((e.clientX / window.innerWidth) * 2 - 1);
-      my.set((e.clientY / window.innerHeight) * 2 - 1);
-    };
-    window.addEventListener('pointermove', onMove, { passive: true });
-    return () => window.removeEventListener('pointermove', onMove);
-  }, [reduce, mx, my]);
-
-  // Parallax por profundidade (px). Cartões "mais à frente" = mais deslocamento.
-  const coreX = useTransform(sx, (v) => v * 10);
-  const coreY = useTransform(sy, (v) => v * 10);
-  const c1x = useTransform(sx, (v) => v * 34);
-  const c1y = useTransform(sy, (v) => v * 34);
-  const c2x = useTransform(sx, (v) => v * 26);
-  const c2y = useTransform(sy, (v) => v * 26);
-  const c3x = useTransform(sx, (v) => v * 42);
-  const c3y = useTransform(sy, (v) => v * 42);
 
   const float = (delay: number) =>
     reduce
@@ -53,7 +28,7 @@ export default function HeroVisual() {
       <div className="ff-glow absolute left-1/2 top-1/2 h-[460px] w-[460px] -translate-x-1/2 -translate-y-1/2" />
 
       {/* núcleo + órbitas */}
-      <motion.div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ x: coreX, y: coreY }}>
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
         <div className="relative h-56 w-56 sm:h-64 sm:w-64">
           {/* anel cônico girando */}
           {!reduce && (
@@ -94,12 +69,12 @@ export default function HeroVisual() {
               </motion.div>
             ))}
         </div>
-      </motion.div>
+      </div>
 
       {/* Cartão: WhatsApp / AURA atendendo */}
       <motion.div
         className="absolute left-[6%] top-[16%] w-56 rounded-2xl border p-3 shadow-xl backdrop-blur sm:left-[2%]"
-        style={{ x: c1x, y: c1y, background: 'color-mix(in srgb, var(--color-surface) 88%, transparent)', borderColor: 'var(--color-border)' }}
+        style={{ background: 'color-mix(in srgb, var(--color-surface) 88%, transparent)', borderColor: 'var(--color-border)' }}
         {...aparece(0.15)}
       >
         <motion.div {...float(0)}>
@@ -120,7 +95,7 @@ export default function HeroVisual() {
       {/* Cartão: pedido confirmado */}
       <motion.div
         className="absolute bottom-[18%] left-[10%] w-52 rounded-2xl border p-3 shadow-xl backdrop-blur"
-        style={{ x: c2x, y: c2y, background: 'color-mix(in srgb, var(--color-surface) 88%, transparent)', borderColor: 'var(--color-border)' }}
+        style={{ background: 'color-mix(in srgb, var(--color-surface) 88%, transparent)', borderColor: 'var(--color-border)' }}
         {...aparece(0.3)}
       >
         <motion.div {...float(1.2)}>
@@ -135,7 +110,7 @@ export default function HeroVisual() {
       {/* Cartão: alta de vendas */}
       <motion.div
         className="absolute right-[6%] top-[24%] w-44 rounded-2xl border p-3 shadow-xl backdrop-blur"
-        style={{ x: c3x, y: c3y, background: 'color-mix(in srgb, var(--color-surface) 88%, transparent)', borderColor: 'var(--color-border)' }}
+        style={{ background: 'color-mix(in srgb, var(--color-surface) 88%, transparent)', borderColor: 'var(--color-border)' }}
         {...aparece(0.45)}
       >
         <motion.div {...float(0.6)}>
