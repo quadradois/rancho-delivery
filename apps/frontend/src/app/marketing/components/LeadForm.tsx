@@ -121,7 +121,7 @@ export default function LeadForm({ id = 'lead' }: { id?: string }) {
         className="mt-5 w-full rounded-full px-5 py-3 text-sm font-bold transition disabled:opacity-60"
         style={{ background: 'var(--color-accent)', color: 'var(--color-text-on-accent)' }}
       >
-        {estado === 'enviando' ? 'Enviando…' : 'Quero testar grátis'}
+        {estado === 'enviando' ? 'Enviando…' : 'Quero a AURA vendendo por mim'}
       </button>
       <p className="mt-3 text-center text-xs" style={{ color: 'var(--color-text-tertiary)' }}>
         Sem cartão. Sem compromisso.
