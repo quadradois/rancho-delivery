@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { superadminApi, type RestauranteResumo } from '@/lib/superadmin-client';
 import { useToast } from '@/contexts/ToastContext';
-import { Badge, Button, Field, TextInput, ESTADO_COR } from './components/ui';
+import { Badge, Button, Drawer, Field, TextInput, ESTADO_COR } from './components/ui';
 
 function slugify(s: string) {
   return s
@@ -44,40 +44,36 @@ function NovoRestauranteModal({ onClose, onCriado }: { onClose: () => void; onCr
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
-      <div
-        className="w-full max-w-md rounded-2xl border p-6"
-        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
-      >
-        <h2 className="mb-4 text-lg font-bold">Novo restaurante</h2>
-        <div className="space-y-3">
-          <Field label="Nome">
-            <TextInput value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Cantina da Praça" />
-          </Field>
-          <Field label="Slug (identificador único)">
-            <TextInput
-              value={slugEfetivo}
-              onChange={(e) => {
-                setSlugTouched(true);
-                setSlug(e.target.value);
-              }}
-              placeholder="cantina-da-praca"
-            />
-          </Field>
-          <Field label="Domínio próprio (opcional)">
-            <TextInput value={dominio} onChange={(e) => setDominio(e.target.value)} placeholder="app.cantina.com.br" />
-          </Field>
-        </div>
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose} disabled={salvando}>
-            Cancelar
-          </Button>
-          <Button onClick={salvar} disabled={salvando || !nome.trim() || !slugEfetivo}>
-            {salvando ? 'Salvando…' : 'Cadastrar'}
-          </Button>
-        </div>
+    <Drawer
+      open
+      onClose={onClose}
+      title="Novo restaurante"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={salvando}>Cancelar</Button>
+          <Button onClick={salvar} disabled={salvando || !nome.trim() || !slugEfetivo}>{salvando ? 'Salvando…' : 'Cadastrar'}</Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <Field label="Nome">
+          <TextInput value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Cantina da Praça" />
+        </Field>
+        <Field label="Slug (identificador único)">
+          <TextInput
+            value={slugEfetivo}
+            onChange={(e) => {
+              setSlugTouched(true);
+              setSlug(e.target.value);
+            }}
+            placeholder="cantina-da-praca"
+          />
+        </Field>
+        <Field label="Domínio próprio (opcional)">
+          <TextInput value={dominio} onChange={(e) => setDominio(e.target.value)} placeholder="app.cantina.com.br" />
+        </Field>
       </div>
-    </div>
+    </Drawer>
   );
 }
 

@@ -70,6 +70,7 @@ Critérios fortes permitem iterar sozinho. Critérios fracos ("faça funcionar")
 - **Fonte externa de cadastro:** isolada em `apps/backend/src/config/fonteCadastro.ts` — único lugar que referencia o domínio/credenciais do fornecedor. Não espalhar. **Não usar** o gateway PostgREST do portal (expõe dados pessoais de terceiros — proibido); usar só a interface pública pretendida.
 - **WhatsApp (Evolution Go):** `.env` guarda só `EVOLUTION_API_URL` + chave global + webhook. O **nome da instância é dado de conexão** (tabela `conexoes_whatsapp`, uma `principal`), nunca hardcoded. Servidor é multi-tenant: sempre selecionar a instância por nome.
 - **LGPD:** tratar apenas dado imobiliário + nome/CPF do proprietário (base legal: legítimo interesse, com opt-out). Ignorar qualquer dado pessoal sensível.
+- **UI — padrão fixo:** usar **Drawer na lateral direita** (componente `Drawer` em `apps/frontend/src/app/superadmin/components/ui.tsx`) no lugar de modal central para formulários/edição. Fecha no scrim e no Esc; ações no rodapé fixo.
 
 ---
 

@@ -9,7 +9,7 @@ import {
   type CicloCobranca,
 } from '@/lib/superadmin-client';
 import { useToast } from '@/contexts/ToastContext';
-import { Badge, Button, Card, Field, Select, TextInput } from '../components/ui';
+import { Badge, Button, Card, Drawer, Field, Select, TextInput } from '../components/ui';
 
 const moeda = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
@@ -76,12 +76,17 @@ function PlanoFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)' }}>
-      <div
-        className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-2xl border p-6"
-        style={{ background: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
-      >
-        <h2 className="mb-4 text-lg font-bold">{plano ? 'Editar plano' : 'Novo plano'}</h2>
+    <Drawer
+      open
+      onClose={onClose}
+      title={plano ? 'Editar plano' : 'Novo plano'}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose} disabled={salvando}>Cancelar</Button>
+          <Button onClick={salvar} disabled={salvando || !nome.trim()}>{salvando ? 'Salvando…' : 'Salvar'}</Button>
+        </>
+      }
+    >
         <div className="space-y-3">
           <Field label="Nome">
             <TextInput value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Ex.: Premium" />
@@ -133,17 +138,7 @@ function PlanoFormModal({
             </label>
           </div>
         </div>
-
-        <div className="mt-6 flex justify-end gap-2">
-          <Button variant="ghost" onClick={onClose} disabled={salvando}>
-            Cancelar
-          </Button>
-          <Button onClick={salvar} disabled={salvando || !nome.trim()}>
-            {salvando ? 'Salvando…' : 'Salvar'}
-          </Button>
-        </div>
-      </div>
-    </div>
+    </Drawer>
   );
 }
 
