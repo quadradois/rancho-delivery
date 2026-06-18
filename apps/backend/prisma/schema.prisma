@@ -885,6 +885,7 @@ model Plano {
   ciclo        CicloCobranca @default(MENSAL)
   diasTeste    Int           @default(0) @map("dias_teste")
   beneficios   String[]      @default([])
+  destaque     Boolean       @default(false)
   publico      Boolean       @default(true)
   ativo        Boolean       @default(true)
   criadoEm     DateTime      @default(now()) @map("criado_em")

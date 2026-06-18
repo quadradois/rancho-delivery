@@ -293,7 +293,7 @@ export default function MarketingPage() {
 
       {/* HERO 7 — planos */}
       <section className="border-t py-20" style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface)' }}>
-        <div className="mx-auto max-w-5xl px-5">
+        <div className="mx-auto max-w-6xl px-5">
           <Reveal>
             <h2 className="ff-display text-center text-3xl font-bold sm:text-4xl">Comece grátis. Ligue a máquina de vendas quando quiser.</h2>
           </Reveal>

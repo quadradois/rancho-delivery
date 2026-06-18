@@ -31,6 +31,7 @@ function PlanoFormModal({
   const [ciclo, setCiclo] = useState<CicloCobranca>(plano?.ciclo ?? 'MENSAL');
   const [diasTeste, setDiasTeste] = useState(String(plano?.diasTeste ?? '0'));
   const [beneficios, setBeneficios] = useState((plano?.beneficios ?? []).join('\n'));
+  const [destaque, setDestaque] = useState(plano?.destaque ?? false);
   const [publico, setPublico] = useState(plano?.publico ?? true);
   const [ativo, setAtivo] = useState(plano?.ativo ?? true);
   const [selecionados, setSelecionados] = useState<Set<string>>(
@@ -59,6 +60,7 @@ function PlanoFormModal({
       ciclo,
       diasTeste: Math.max(0, Math.floor(Number(diasTeste) || 0)),
       beneficios: beneficios.split('\n').map((s) => s.trim()).filter(Boolean),
+      destaque,
       publico,
       ativo,
       modulos: [...selecionados],
@@ -149,6 +151,9 @@ function PlanoFormModal({
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={ativo} onChange={(e) => setAtivo(e.target.checked)} /> Ativo
             </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={destaque} onChange={(e) => setDestaque(e.target.checked)} /> Mais popular
+            </label>
           </div>
         </div>
     </Drawer>
@@ -217,6 +222,7 @@ export default function PlanosPage() {
                       {p.ciclo === 'ANUAL' ? '/ano' : p.ciclo === 'TRIMESTRAL' ? '/trimestre' : '/mês'}
                     </span>
                   </span>
+                  {p.destaque && <Badge texto="Mais popular" cor="var(--color-accent)" />}
                   {p.diasTeste > 0 && <Badge texto={`${p.diasTeste}d grátis`} cor="var(--color-success-text)" />}
                   {!p.ativo && <Badge texto="inativo" cor="var(--color-danger)" />}
                   {!p.publico && <Badge texto="oculto" cor="var(--color-text-secondary)" />}

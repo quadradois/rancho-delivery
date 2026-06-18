@@ -16,6 +16,7 @@ interface PlanoPublico {
   ciclo?: CicloCobranca;
   diasTeste?: number;
   beneficios?: string[];
+  destaque?: boolean;
   modulos: ModuloPlano[];
 }
 
@@ -37,6 +38,7 @@ function Check() {
 
 function Card({ plano }: { plano: PlanoPublico }) {
   const pago = plano.preco > 0;
+  const destaque = !!plano.destaque; // "Mais popular" é escolhido no admin, não pelo preço
   // Benefícios (texto livre) têm prioridade no card; senão cai nos módulos.
   const itens =
     plano.beneficios && plano.beneficios.length > 0
@@ -46,10 +48,10 @@ function Card({ plano }: { plano: PlanoPublico }) {
         : ['Acesso à plataforma'];
   return (
     <div
-      className={`relative flex w-full flex-col rounded-2xl p-7 sm:w-[330px] ${pago ? 'border-2' : 'border'}`}
-      style={{ background: 'var(--color-surface-raised)', borderColor: pago ? 'var(--color-accent)' : 'var(--color-border)' }}
+      className={`relative flex w-full flex-col rounded-2xl p-7 sm:w-[330px] ${destaque ? 'border-2' : 'border'}`}
+      style={{ background: 'var(--color-surface-raised)', borderColor: destaque ? 'var(--color-accent)' : 'var(--color-border)' }}
     >
-      {pago && (
+      {destaque && (
         <span className="absolute -top-3 left-7 rounded-full px-3 py-1 text-xs font-bold" style={{ background: 'var(--color-accent)', color: 'var(--color-text-on-accent)' }}>
           Mais popular
         </span>
