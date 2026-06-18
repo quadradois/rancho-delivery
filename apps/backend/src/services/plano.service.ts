@@ -18,7 +18,7 @@ export class PlanoError extends Error {
 
 type PlanoComModulos = {
   id: string; nome: string; descricao: string | null;
-  preco: { toString(): string }; ciclo: CicloCobranca; diasTeste: number; beneficios: string[]; destaque: boolean; publico: boolean; ativo: boolean;
+  preco: { toString(): string }; ciclo: CicloCobranca; diasTeste: number; beneficios: string[]; destaque: boolean; ordem: number; publico: boolean; ativo: boolean;
   modulos: { modulo: { chave: string; nome: string; core: boolean } }[];
 };
 
@@ -32,6 +32,7 @@ function serializar(p: PlanoComModulos) {
     diasTeste: p.diasTeste,
     beneficios: p.beneficios,
     destaque: p.destaque,
+    ordem: p.ordem,
     publico: p.publico,
     ativo: p.ativo,
     modulos: p.modulos.map((pm) => ({ chave: pm.modulo.chave, nome: pm.modulo.nome, core: pm.modulo.core })),
@@ -66,7 +67,7 @@ async function resolverModuloIds(chaves: string[]): Promise<string[]> {
 }
 
 export async function listarPlanos() {
-  const planos = await prisma.plano.findMany({ orderBy: { criadoEm: 'asc' }, include: includeModulos });
+  const planos = await prisma.plano.findMany({ orderBy: [{ ordem: 'asc' }, { criadoEm: 'asc' }], include: includeModulos });
   return planos.map(serializar);
 }
 
@@ -74,7 +75,7 @@ export async function listarPlanos() {
 export async function listarPlanosPublicos() {
   const planos = await prisma.plano.findMany({
     where: { publico: true, ativo: true },
-    orderBy: { preco: 'asc' },
+    orderBy: [{ ordem: 'asc' }, { preco: 'asc' }],
     include: includeModulos,
   });
   return planos.map(serializar);
@@ -90,6 +91,7 @@ export async function criarPlano(dados: {
   nome: string; descricao?: string | null; preco: number; ciclo?: CicloCobranca; diasTeste?: number; beneficios?: string[]; destaque?: boolean; publico?: boolean; ativo?: boolean; modulos?: string[];
 }) {
   const moduloIds = await resolverModuloIds(dados.modulos ?? []);
+  const agg = await prisma.plano.aggregate({ _max: { ordem: true } });
   const plano = await prisma.plano.create({
     data: {
       nome: dados.nome,
@@ -99,6 +101,7 @@ export async function criarPlano(dados: {
       diasTeste: dados.diasTeste,
       beneficios: dados.beneficios ?? [],
       destaque: dados.destaque,
+      ordem: (agg._max.ordem ?? -1) + 1,
       publico: dados.publico,
       ativo: dados.ativo,
       modulos: { create: moduloIds.map((moduloId) => ({ moduloId })) },
@@ -137,4 +140,9 @@ export async function atualizarPlano(
     include: includeModulos,
   });
   return serializar(plano);
+}
+
+/** Salva a nova ordem dos planos (drag-and-drop): ordem = posição na lista. */
+export async function reordenarPlanos(ids: string[]) {
+  await prisma.$transaction(ids.map((id, i) => prisma.plano.update({ where: { id }, data: { ordem: i } })));
 }

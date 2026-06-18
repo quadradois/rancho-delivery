@@ -85,6 +85,20 @@ export class PlanoController {
     }
   }
 
+  /** Salva a nova ordem dos planos (drag-and-drop). Body: { ids: string[] }. */
+  async reordenar(req: Request, res: Response) {
+    const parsed = z.object({ ids: z.array(z.string().min(1)).min(1) }).safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ success: false, error: { message: 'ids inválidos' } });
+    }
+    try {
+      await planoService.reordenarPlanos(parsed.data.ids);
+      return res.json({ success: true });
+    } catch (error) {
+      return tratarErro(error, res, 'Erro ao reordenar planos:');
+    }
+  }
+
   async obterPlano(req: Request, res: Response) {
     try {
       return res.json({ success: true, data: await planoService.obterPlano(req.params.id) });

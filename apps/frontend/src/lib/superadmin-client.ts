@@ -86,6 +86,7 @@ export interface Plano {
   diasTeste: number;
   beneficios: string[];
   destaque: boolean;
+  ordem: number;
   publico: boolean;
   ativo: boolean;
   modulos: ModuloPlano[];
@@ -171,6 +172,9 @@ export const superadminApi = {
   },
   atualizarPlano(id: string, dados: Partial<PlanoInput>): Promise<Plano> {
     return request<Plano>(`/superadmin/planos/${id}`, { method: 'PATCH', body: JSON.stringify(dados) });
+  },
+  reordenarPlanos(ids: string[]): Promise<void> {
+    return request<void>('/superadmin/planos/ordem', { method: 'PUT', body: JSON.stringify({ ids }) });
   },
 
   obterAssinatura(restauranteId: string): Promise<AssinaturaInfo | null> {

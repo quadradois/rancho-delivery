@@ -161,12 +161,29 @@ function PlanoFormModal({
 }
 
 export default function PlanosPage() {
-  const { showError } = useToast();
+  const { showError, showSuccess } = useToast();
   const [planos, setPlanos] = useState<Plano[]>([]);
   const [modulos, setModulos] = useState<ModuloItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [editando, setEditando] = useState<Plano | null>(null);
   const [criando, setCriando] = useState(false);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+
+  // Reordena localmente e persiste a nova ordem; em erro, recarrega do servidor.
+  const mover = async (de: number, para: number) => {
+    if (de === para) return;
+    const novo = [...planos];
+    const [item] = novo.splice(de, 1);
+    novo.splice(para, 0, item);
+    setPlanos(novo);
+    try {
+      await superadminApi.reordenarPlanos(novo.map((p) => p.id));
+      showSuccess('Ordem salva');
+    } catch (err) {
+      showError('Falha ao salvar a ordem', err instanceof Error ? err.message : undefined);
+      void carregar();
+    }
+  };
 
   const carregar = useCallback(async () => {
     setLoading(true);
@@ -193,7 +210,7 @@ export default function PlanosPage() {
         <div>
           <h1 className="text-2xl font-bold">Planos</h1>
           <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
-            {loading ? 'Carregando…' : `${planos.length} plano(s) · ${modulos.length} módulo(s)`}
+            {loading ? 'Carregando…' : `${planos.length} plano(s) · ${modulos.length} módulo(s) · arraste para reordenar`}
           </p>
         </div>
         <Button onClick={() => setCriando(true)}>Novo plano</Button>
@@ -209,10 +226,26 @@ export default function PlanosPage() {
       )}
 
       <div className="grid gap-3">
-        {planos.map((p) => (
-          <Card key={p.id}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
+        {planos.map((p, i) => (
+          <div
+            key={p.id}
+            draggable
+            onDragStart={() => setDragIndex(i)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (dragIndex !== null) void mover(dragIndex, i);
+              setDragIndex(null);
+            }}
+            onDragEnd={() => setDragIndex(null)}
+            className={`transition-opacity ${dragIndex === i ? 'opacity-40' : ''}`}
+          >
+          <Card>
+            <div className="flex items-start gap-3">
+              <span className="mt-1 cursor-grab select-none active:cursor-grabbing" style={{ color: 'var(--color-text-tertiary)' }} title="Arraste para ordenar" aria-hidden>
+                <svg width="14" height="16" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="5" r="1.6" /><circle cx="15" cy="5" r="1.6" /><circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" /><circle cx="9" cy="19" r="1.6" /><circle cx="15" cy="19" r="1.6" /></svg>
+              </span>
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold">{p.nome}</span>
                   <span className="text-sm font-bold" style={{ color: 'var(--color-accent)' }}>
@@ -247,6 +280,7 @@ export default function PlanosPage() {
               </Button>
             </div>
           </Card>
+          </div>
         ))}
       </div>
 

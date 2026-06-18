@@ -25,6 +25,7 @@ router.post('/restaurantes/:id/assinatura/cobranca', assinaturaController.gerarC
 // Catálogo de módulos + construtor de planos (combos de módulos).
 router.get('/modulos', planoController.listarModulos.bind(planoController));
 router.get('/planos', planoController.listarPlanos.bind(planoController));
+router.put('/planos/ordem', planoController.reordenar.bind(planoController));
 router.post('/planos', planoController.criarPlano.bind(planoController));
 router.get('/planos/:id', planoController.obterPlano.bind(planoController));
 router.patch('/planos/:id', planoController.atualizarPlano.bind(planoController));

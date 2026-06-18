@@ -1,24 +1,29 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { modulo, plano } = vi.hoisted(() => ({
+const { modulo, plano, $transaction } = vi.hoisted(() => ({
   modulo: { findMany: vi.fn() },
-  plano: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+  plano: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn(), update: vi.fn(), aggregate: vi.fn() },
+  $transaction: vi.fn(),
 }));
-vi.mock('../../config/database', () => ({ default: { modulo, plano } }));
+vi.mock('../../config/database', () => ({ default: { modulo, plano, $transaction } }));
 
 import * as service from '../../services/plano.service';
 import { PlanoError } from '../../services/plano.service';
 
 function planoRow(over: Record<string, unknown> = {}) {
   return {
-    id: 'p1', nome: 'Premium', descricao: null, preco: '99.90', ciclo: 'MENSAL', diasTeste: 0, beneficios: [], destaque: false, publico: true, ativo: true,
+    id: 'p1', nome: 'Premium', descricao: null, preco: '99.90', ciclo: 'MENSAL', diasTeste: 0, beneficios: [], destaque: false, ordem: 0, publico: true, ativo: true,
     modulos: [{ modulo: { chave: 'aura-prospeccao', nome: 'Prospecção', core: false } }],
     ...over,
   };
 }
 
 describe('plano.service — construtor de planos', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    plano.aggregate.mockResolvedValue({ _max: { ordem: 0 } });
+    ($transaction as unknown as ReturnType<typeof vi.fn>).mockImplementation((ops: unknown[]) => Promise.all(ops));
+  });
 
   it('listarModulos serializa precoAvulso e flags', async () => {
     modulo.findMany.mockResolvedValue([
@@ -44,7 +49,7 @@ describe('plano.service — construtor de planos', () => {
     await service.listarPlanosPublicos();
     expect(plano.findMany).toHaveBeenCalledWith(expect.objectContaining({
       where: { publico: true, ativo: true },
-      orderBy: { preco: 'asc' },
+      orderBy: [{ ordem: 'asc' }, { preco: 'asc' }],
     }));
   });
 
@@ -82,5 +87,13 @@ describe('plano.service — construtor de planos', () => {
   it('atualizarPlano lança NAO_ENCONTRADO quando id inexistente', async () => {
     plano.findUnique.mockResolvedValue(null);
     await expect(service.atualizarPlano('x', { nome: 'Y' })).rejects.toMatchObject({ code: 'NAO_ENCONTRADO' });
+  });
+
+  it('reordenarPlanos atualiza ordem = posição de cada id', async () => {
+    plano.update.mockResolvedValue(planoRow());
+    await service.reordenarPlanos(['a', 'b', 'c']);
+    expect(plano.update).toHaveBeenCalledWith({ where: { id: 'a' }, data: { ordem: 0 } });
+    expect(plano.update).toHaveBeenCalledWith({ where: { id: 'b' }, data: { ordem: 1 } });
+    expect(plano.update).toHaveBeenCalledWith({ where: { id: 'c' }, data: { ordem: 2 } });
   });
 });
