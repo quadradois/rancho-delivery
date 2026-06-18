@@ -11,7 +11,7 @@ import { PlanoError } from '../../services/plano.service';
 
 function planoRow(over: Record<string, unknown> = {}) {
   return {
-    id: 'p1', nome: 'Premium', descricao: null, preco: '99.90', ciclo: 'MENSAL', diasTeste: 0, publico: true, ativo: true,
+    id: 'p1', nome: 'Premium', descricao: null, preco: '99.90', ciclo: 'MENSAL', diasTeste: 0, beneficios: [], publico: true, ativo: true,
     modulos: [{ modulo: { chave: 'aura-prospeccao', nome: 'Prospecção', core: false } }],
     ...over,
   };

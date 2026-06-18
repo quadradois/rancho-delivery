@@ -30,6 +30,7 @@ function PlanoFormModal({
   const [preco, setPreco] = useState(String(plano?.preco ?? '0'));
   const [ciclo, setCiclo] = useState<CicloCobranca>(plano?.ciclo ?? 'MENSAL');
   const [diasTeste, setDiasTeste] = useState(String(plano?.diasTeste ?? '0'));
+  const [beneficios, setBeneficios] = useState((plano?.beneficios ?? []).join('\n'));
   const [publico, setPublico] = useState(plano?.publico ?? true);
   const [ativo, setAtivo] = useState(plano?.ativo ?? true);
   const [selecionados, setSelecionados] = useState<Set<string>>(
@@ -57,6 +58,7 @@ function PlanoFormModal({
       preco: precoNum,
       ciclo,
       diasTeste: Math.max(0, Math.floor(Number(diasTeste) || 0)),
+      beneficios: beneficios.split('\n').map((s) => s.trim()).filter(Boolean),
       publico,
       ativo,
       modulos: [...selecionados],
@@ -110,9 +112,20 @@ function PlanoFormModal({
             </Field>
           </div>
 
+          <Field label="Benefícios (um por linha — aparecem no card do site)">
+            <textarea
+              value={beneficios}
+              onChange={(e) => setBeneficios(e.target.value)}
+              rows={5}
+              placeholder={'Preço de fundador congelado\nSuporte direto com o criador\nNovas ferramentas inclusas\nAcesso antecipado a novidades'}
+              className="w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:border-[var(--color-border-focus)]"
+              style={{ background: 'var(--color-surface-input)', borderColor: 'var(--color-border)', color: 'var(--color-text-primary)' }}
+            />
+          </Field>
+
           <div>
             <span className="mb-2 block text-xs font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-              Módulos do plano
+              Módulos liberados (acesso)
             </span>
             <div className="grid gap-1.5">
               {modulos.map((m) => (

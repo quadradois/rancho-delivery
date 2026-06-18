@@ -8,6 +8,7 @@ import { logger } from '../config/logger';
 const chaveModulo = z.string().trim().min(1);
 const ciclo = z.nativeEnum(CicloCobranca);
 const diasTeste = z.number().int().min(0).max(365);
+const beneficios = z.array(z.string().trim().min(1).max(200)).max(20);
 
 const schemaCriar = z.object({
   nome: z.string().trim().min(1).max(100),
@@ -15,6 +16,7 @@ const schemaCriar = z.object({
   preco: z.number().min(0),
   ciclo: ciclo.optional(),
   diasTeste: diasTeste.optional(),
+  beneficios: beneficios.optional(),
   publico: z.boolean().optional(),
   ativo: z.boolean().optional(),
   modulos: z.array(chaveModulo).optional(),
@@ -26,6 +28,7 @@ const schemaAtualizar = z.object({
   preco: z.number().min(0).optional(),
   ciclo: ciclo.optional(),
   diasTeste: diasTeste.optional(),
+  beneficios: beneficios.optional(),
   publico: z.boolean().optional(),
   ativo: z.boolean().optional(),
   modulos: z.array(chaveModulo).optional(),

@@ -18,7 +18,7 @@ export class PlanoError extends Error {
 
 type PlanoComModulos = {
   id: string; nome: string; descricao: string | null;
-  preco: { toString(): string }; ciclo: CicloCobranca; diasTeste: number; publico: boolean; ativo: boolean;
+  preco: { toString(): string }; ciclo: CicloCobranca; diasTeste: number; beneficios: string[]; publico: boolean; ativo: boolean;
   modulos: { modulo: { chave: string; nome: string; core: boolean } }[];
 };
 
@@ -30,6 +30,7 @@ function serializar(p: PlanoComModulos) {
     preco: Number(p.preco),
     ciclo: p.ciclo,
     diasTeste: p.diasTeste,
+    beneficios: p.beneficios,
     publico: p.publico,
     ativo: p.ativo,
     modulos: p.modulos.map((pm) => ({ chave: pm.modulo.chave, nome: pm.modulo.nome, core: pm.modulo.core })),
@@ -85,7 +86,7 @@ export async function obterPlano(id: string) {
 }
 
 export async function criarPlano(dados: {
-  nome: string; descricao?: string | null; preco: number; ciclo?: CicloCobranca; diasTeste?: number; publico?: boolean; ativo?: boolean; modulos?: string[];
+  nome: string; descricao?: string | null; preco: number; ciclo?: CicloCobranca; diasTeste?: number; beneficios?: string[]; publico?: boolean; ativo?: boolean; modulos?: string[];
 }) {
   const moduloIds = await resolverModuloIds(dados.modulos ?? []);
   const plano = await prisma.plano.create({
@@ -95,6 +96,7 @@ export async function criarPlano(dados: {
       preco: dados.preco,
       ciclo: dados.ciclo,
       diasTeste: dados.diasTeste,
+      beneficios: dados.beneficios ?? [],
       publico: dados.publico,
       ativo: dados.ativo,
       modulos: { create: moduloIds.map((moduloId) => ({ moduloId })) },
@@ -106,7 +108,7 @@ export async function criarPlano(dados: {
 
 export async function atualizarPlano(
   id: string,
-  dados: { nome?: string; descricao?: string | null; preco?: number; ciclo?: CicloCobranca; diasTeste?: number; publico?: boolean; ativo?: boolean; modulos?: string[] },
+  dados: { nome?: string; descricao?: string | null; preco?: number; ciclo?: CicloCobranca; diasTeste?: number; beneficios?: string[]; publico?: boolean; ativo?: boolean; modulos?: string[] },
 ) {
   const existe = await prisma.plano.findUnique({ where: { id }, select: { id: true } });
   if (!existe) throw new PlanoError('NAO_ENCONTRADO', 'Plano não encontrado');
@@ -122,6 +124,7 @@ export async function atualizarPlano(
       preco: dados.preco,
       ciclo: dados.ciclo,
       diasTeste: dados.diasTeste,
+      beneficios: dados.beneficios,
       publico: dados.publico,
       ativo: dados.ativo,
       ...(moduloIds !== undefined

@@ -84,6 +84,7 @@ export interface Plano {
   preco: number;
   ciclo: CicloCobranca;
   diasTeste: number;
+  beneficios: string[];
   publico: boolean;
   ativo: boolean;
   modulos: ModuloPlano[];
@@ -95,6 +96,7 @@ export interface PlanoInput {
   preco: number;
   ciclo?: CicloCobranca;
   diasTeste?: number;
+  beneficios?: string[];
   publico?: boolean;
   ativo?: boolean;
   modulos: string[];

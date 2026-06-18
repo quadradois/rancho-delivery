@@ -15,6 +15,7 @@ interface PlanoPublico {
   preco: number;
   ciclo?: CicloCobranca;
   diasTeste?: number;
+  beneficios?: string[];
   modulos: ModuloPlano[];
 }
 
@@ -36,7 +37,13 @@ function Check() {
 
 function Card({ plano }: { plano: PlanoPublico }) {
   const pago = plano.preco > 0;
-  const itens = plano.modulos.length > 0 ? plano.modulos.slice(0, 6).map((m) => m.nome) : ['Acesso à plataforma'];
+  // Benefícios (texto livre) têm prioridade no card; senão cai nos módulos.
+  const itens =
+    plano.beneficios && plano.beneficios.length > 0
+      ? plano.beneficios.slice(0, 8)
+      : plano.modulos.length > 0
+        ? plano.modulos.slice(0, 6).map((m) => m.nome)
+        : ['Acesso à plataforma'];
   return (
     <div
       className={`relative flex w-full flex-col rounded-2xl p-7 sm:w-[330px] ${pago ? 'border-2' : 'border'}`}
