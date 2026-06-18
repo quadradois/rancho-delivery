@@ -7,16 +7,23 @@ interface ModuloPlano {
   nome: string;
   core: boolean;
 }
+type CicloCobranca = 'MENSAL' | 'TRIMESTRAL' | 'ANUAL';
 interface PlanoPublico {
   id: string;
   nome: string;
   descricao: string | null;
   preco: number;
+  ciclo?: CicloCobranca;
+  diasTeste?: number;
   modulos: ModuloPlano[];
 }
 
 function preco(v: number) {
   return v <= 0 ? 'Grátis' : v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+function sufixoCiclo(c?: CicloCobranca) {
+  return c === 'ANUAL' ? '/ano' : c === 'TRIMESTRAL' ? '/trimestre' : '/mês';
 }
 
 function Check() {
@@ -46,8 +53,13 @@ function Card({ plano }: { plano: PlanoPublico }) {
       )}
       <p className="ff-display mt-4 text-4xl font-bold">
         {preco(plano.preco)}
-        {pago && <span className="text-base font-medium" style={{ color: 'var(--color-text-tertiary)' }}> /mês</span>}
+        {pago && <span className="text-base font-medium" style={{ color: 'var(--color-text-tertiary)' }}> {sufixoCiclo(plano.ciclo)}</span>}
       </p>
+      {pago && (plano.diasTeste ?? 0) > 0 && (
+        <span className="mt-1 inline-block w-fit rounded-full px-2 py-0.5 text-[11px] font-bold" style={{ background: 'var(--color-success-muted)', color: 'var(--color-success-text)' }}>
+          {plano.diasTeste} dias grátis
+        </span>
+      )}
       <ul className="mt-5 space-y-2 text-sm" style={{ color: 'var(--color-text-secondary)' }}>
         {itens.map((x) => (
           <li key={x} className="flex items-center gap-2">

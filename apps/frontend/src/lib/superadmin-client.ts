@@ -75,11 +75,15 @@ export interface ModuloItem extends ModuloPlano {
   precoAvulso: number | null;
 }
 
+export type CicloCobranca = 'MENSAL' | 'TRIMESTRAL' | 'ANUAL';
+
 export interface Plano {
   id: string;
   nome: string;
   descricao: string | null;
   preco: number;
+  ciclo: CicloCobranca;
+  diasTeste: number;
   publico: boolean;
   ativo: boolean;
   modulos: ModuloPlano[];
@@ -89,6 +93,8 @@ export interface PlanoInput {
   nome: string;
   descricao?: string | null;
   preco: number;
+  ciclo?: CicloCobranca;
+  diasTeste?: number;
   publico?: boolean;
   ativo?: boolean;
   modulos: string[];

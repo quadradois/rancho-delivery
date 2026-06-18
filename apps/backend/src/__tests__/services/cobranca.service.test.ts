@@ -21,7 +21,7 @@ describe('cobranca.service — assinatura Mercado Pago', () => {
 
   it('gerarLinkAssinatura cria preapproval com o preço do plano e guarda o provedorRef', async () => {
     tenant.findUnique.mockResolvedValue({
-      id: 'rancho', nome: 'Rancho', assinatura: { plano: { nome: 'Premium', preco: '99.90' } },
+      id: 'rancho', nome: 'Rancho', assinatura: { plano: { nome: 'Premium', preco: '99.90', ciclo: 'MENSAL', diasTeste: 0 } },
     });
     mpPost.mockResolvedValue({ data: { id: 'PRE-1', init_point: 'https://mp/checkout/PRE-1' } });
 
@@ -35,6 +35,21 @@ describe('cobranca.service — assinatura Mercado Pago', () => {
     }));
     expect(assinatura.update).toHaveBeenCalledWith({ where: { tenantId: 'rancho' }, data: { provedorRef: 'PRE-1' } });
     expect(r).toEqual({ url: 'https://mp/checkout/PRE-1', preapprovalId: 'PRE-1' });
+  });
+
+  it('ciclo ANUAL vira frequency 12 e diasTeste vira free_trial em dias', async () => {
+    tenant.findUnique.mockResolvedValue({
+      id: 'r', nome: 'R', assinatura: { plano: { nome: 'Anual', preco: '990', ciclo: 'ANUAL', diasTeste: 15 } },
+    });
+    mpPost.mockResolvedValue({ data: { id: 'PRE-A', init_point: 'https://mp/A' } });
+    await service.gerarLinkAssinatura('r');
+    expect(mpPost).toHaveBeenCalledWith('/preapproval', expect.objectContaining({
+      auto_recurring: expect.objectContaining({
+        frequency: 12,
+        frequency_type: 'months',
+        free_trial: { frequency: 15, frequency_type: 'days' },
+      }),
+    }));
   });
 
   it('gerarLinkAssinatura usa sandbox_init_point quando init_point ausente', async () => {

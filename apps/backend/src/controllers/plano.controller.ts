@@ -1,15 +1,20 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
+import { CicloCobranca } from '@prisma/client';
 import * as planoService from '../services/plano.service';
 import { PlanoError } from '../services/plano.service';
 import { logger } from '../config/logger';
 
 const chaveModulo = z.string().trim().min(1);
+const ciclo = z.nativeEnum(CicloCobranca);
+const diasTeste = z.number().int().min(0).max(365);
 
 const schemaCriar = z.object({
   nome: z.string().trim().min(1).max(100),
   descricao: z.string().trim().max(2000).nullish(),
   preco: z.number().min(0),
+  ciclo: ciclo.optional(),
+  diasTeste: diasTeste.optional(),
   publico: z.boolean().optional(),
   ativo: z.boolean().optional(),
   modulos: z.array(chaveModulo).optional(),
@@ -19,6 +24,8 @@ const schemaAtualizar = z.object({
   nome: z.string().trim().min(1).max(100).optional(),
   descricao: z.string().trim().max(2000).nullish(),
   preco: z.number().min(0).optional(),
+  ciclo: ciclo.optional(),
+  diasTeste: diasTeste.optional(),
   publico: z.boolean().optional(),
   ativo: z.boolean().optional(),
   modulos: z.array(chaveModulo).optional(),

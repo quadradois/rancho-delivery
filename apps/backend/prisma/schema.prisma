@@ -871,15 +871,23 @@ model Modulo {
 }
 
 /// Plano = combo de módulos + mensalidade. Criado dinamicamente no painel.
+enum CicloCobranca {
+  MENSAL
+  TRIMESTRAL
+  ANUAL
+}
+
 model Plano {
-  id           String   @id @default(cuid())
-  nome         String   @db.VarChar(100)
-  descricao    String?  @db.Text
-  preco        Decimal  @default(0) @db.Decimal(10, 2)
-  publico      Boolean  @default(true)
-  ativo        Boolean  @default(true)
-  criadoEm     DateTime @default(now()) @map("criado_em")
-  atualizadoEm DateTime @updatedAt @map("atualizado_em")
+  id           String        @id @default(cuid())
+  nome         String        @db.VarChar(100)
+  descricao    String?       @db.Text
+  preco        Decimal       @default(0) @db.Decimal(10, 2)
+  ciclo        CicloCobranca @default(MENSAL)
+  diasTeste    Int           @default(0) @map("dias_teste")
+  publico      Boolean       @default(true)
+  ativo        Boolean       @default(true)
+  criadoEm     DateTime      @default(now()) @map("criado_em")
+  atualizadoEm DateTime      @updatedAt @map("atualizado_em")
 
   modulos      PlanoModulo[]
   assinaturas  Assinatura[]

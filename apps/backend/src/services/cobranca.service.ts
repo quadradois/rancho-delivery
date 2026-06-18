@@ -53,6 +53,10 @@ export async function gerarLinkAssinatura(
   const plano = tenant.assinatura?.plano;
   if (!plano) throw new CobrancaError('SEM_PLANO', 'Atribua um plano ao restaurante antes de gerar a cobrança');
 
+  // Ciclo do plano → frequência da assinatura no Mercado Pago (sempre em meses).
+  const FREQ_POR_CICLO: Record<string, number> = { MENSAL: 1, TRIMESTRAL: 3, ANUAL: 12 };
+  const frequency = FREQ_POR_CICLO[plano.ciclo] ?? 1;
+
   const body = {
     reason: `FoodFlow — ${plano.nome} (${tenant.nome})`,
     external_reference: tenantId,
@@ -61,10 +65,14 @@ export async function gerarLinkAssinatura(
     notification_url: `${cfg.adminUrl}/webhook/assinatura`,
     status: 'pending',
     auto_recurring: {
-      frequency: 1,
+      frequency,
       frequency_type: 'months',
       transaction_amount: Number(Number(plano.preco).toFixed(2)),
       currency_id: 'BRL',
+      // Período de teste grátis (dias) antes da 1ª cobrança, quando configurado no plano.
+      ...(plano.diasTeste > 0
+        ? { free_trial: { frequency: plano.diasTeste, frequency_type: 'days' } }
+        : {}),
     },
   };
 
