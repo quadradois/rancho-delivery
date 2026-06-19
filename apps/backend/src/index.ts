@@ -15,6 +15,7 @@ import { iniciarWorkerCampanhasAgendadas } from './jobs/campanhasAgendadas.job';
 import { enfileirar } from './services/mineracao.queue';
 import cron from 'node-cron';
 import { expirarSessoesInativas } from './agentes/tools/sessao';
+import { paraCadaTenantAtivo } from './jobs/forEachTenant';
 
 // Carregar variáveis de ambiente
 dotenv.config();
@@ -137,7 +138,7 @@ function iniciarRotinaAbandonoCheckout() {
 
   const executar = async () => {
     try {
-      await pedidoService.processarExpiracoesEAbandonos();
+      await paraCadaTenantAtivo(async () => { await pedidoService.processarExpiracoesEAbandonos(); });
     } catch (error) {
       logger.error('Falha na rotina de abandono de checkout:', error);
     }
@@ -185,8 +186,10 @@ app.listen(Number(PORT), HOST, () => {
   iniciarEnriquecimentoImoveis();
   iniciarWorkerCampanhasAgendadas();
 
-  // Expira sessões de pedido WhatsApp inativas a cada 5 min
-  const jobSessoes = setInterval(() => { void expirarSessoesInativas(); }, 5 * 60 * 1000);
+  // Expira sessões de pedido WhatsApp inativas a cada 5 min (por tenant ativo)
+  const jobSessoes = setInterval(() => {
+    void paraCadaTenantAtivo(() => expirarSessoesInativas());
+  }, 5 * 60 * 1000);
   jobSessoes.unref();
 });
 

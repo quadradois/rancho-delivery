@@ -11,6 +11,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import prisma from '../../config/database';
 import { responderLead, processarRespostaWhatsApp } from '../../services/conversacao.service';
 import evolutionService from '../../services/evolution.service';
+import { runWithTenant } from '../../config/tenantContext';
 
 vi.mock('../../services/evolution.service', () => ({
   default: { enviarMensagem: vi.fn().mockResolvedValue(undefined) },
@@ -95,7 +96,7 @@ describe('conversacao.service — eLojaAberta (regressão)', () => {
     mockLojaStatus('ABERTO');
     mockLeadExistente(tel);
 
-    const resultado = await responderLead(tel, 'Olá!', rawJid(tel));
+    const resultado = await runWithTenant('rancho', () => responderLead(tel, 'Olá!', rawJid(tel)));
 
     expect(resultado).not.toBeNull();
     expect(resultado?.humanRequired).toBe(false);
@@ -107,7 +108,7 @@ describe('conversacao.service — eLojaAberta (regressão)', () => {
     mockLojaStatus('FECHADO');
     mockLeadExistente(tel);
 
-    const resultado = await responderLead(tel, 'Olá!', rawJid(tel));
+    const resultado = await runWithTenant('rancho', () => responderLead(tel, 'Olá!', rawJid(tel)));
 
     expect(resultado).not.toBeNull();
     expect(resultado?.mensagem).toMatch(/fechad|breve/i);
@@ -120,7 +121,7 @@ describe('conversacao.service — eLojaAberta (regressão)', () => {
     mockLojaStatus('PAUSADO', mensagemCustom);
     mockLeadExistente(tel);
 
-    const resultado = await responderLead(tel, 'Olá!', rawJid(tel));
+    const resultado = await runWithTenant('rancho', () => responderLead(tel, 'Olá!', rawJid(tel)));
 
     expect(resultado?.mensagem).toBe(mensagemCustom);
   });
@@ -130,7 +131,7 @@ describe('conversacao.service — eLojaAberta (regressão)', () => {
     mockLojaStatus('PAUSADO', undefined);
     mockLeadExistente(tel);
 
-    const resultado = await responderLead(tel, 'Olá!', rawJid(tel));
+    const resultado = await runWithTenant('rancho', () => responderLead(tel, 'Olá!', rawJid(tel)));
 
     expect(resultado?.mensagem).toBe('Estamos fechados no momento. Voltamos em breve! 😊');
   });
@@ -139,7 +140,7 @@ describe('conversacao.service — eLojaAberta (regressão)', () => {
     const tel = novoTelefone();
     mockLojaStatus('ABERTO');
 
-    const resultado = await responderLead(tel, 'Olá!', '120363123456789@g.us');
+    const resultado = await runWithTenant('rancho', () => responderLead(tel, 'Olá!', '120363123456789@g.us'));
 
     expect(resultado).toBeNull();
     expect(prisma.lojaConfiguracao.findFirst).not.toHaveBeenCalled();
@@ -151,7 +152,7 @@ describe('conversacao.service — eLojaAberta (regressão)', () => {
     vi.mocked(prisma.cliente.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.leadMarketing.findFirst).mockResolvedValue(null);
 
-    const resultado = await responderLead(tel, 'Olá!', rawJid(tel));
+    const resultado = await runWithTenant('rancho', () => responderLead(tel, 'Olá!', rawJid(tel)));
 
     expect(resultado).toBeNull();
   });
@@ -168,7 +169,7 @@ describe('conversacao.service — eLojaAberta (regressão)', () => {
       telefone: tel,
     } as any);
 
-    const resultado = await responderLead(tel, 'Olá!', rawJid(tel));
+    const resultado = await runWithTenant('rancho', () => responderLead(tel, 'Olá!', rawJid(tel)));
 
     expect(resultado).toBeNull();
   });
@@ -178,7 +179,7 @@ describe('conversacao.service — eLojaAberta (regressão)', () => {
     mockLojaStatus('FECHADO');
     mockLeadExistente(tel);
 
-    await responderLead(tel, 'Qualquer mensagem', rawJid(tel));
+    await runWithTenant('rancho', () => responderLead(tel, 'Qualquer mensagem', rawJid(tel)));
 
     // Prisma de mensagemLead.findMany (histórico para IA) não deve ser chamado
     expect(prisma.mensagemLead.findMany).not.toHaveBeenCalled();
@@ -197,7 +198,7 @@ describe('processarRespostaWhatsApp — sempre envia a resposta da IA (regressã
     mockLeadExistente(tel);
 
     // Mock da IA retorna texto sem "atendente humano" (humanRequired=false)
-    await processarRespostaWhatsApp(tel, 'Olá, tem delivery?', rawJid(tel));
+    await runWithTenant('rancho', () => processarRespostaWhatsApp(tel, 'Olá, tem delivery?', rawJid(tel)));
 
     expect(evolutionService.enviarMensagem).toHaveBeenCalledWith({
       numero: tel,
@@ -211,7 +212,7 @@ describe('processarRespostaWhatsApp — sempre envia a resposta da IA (regressã
     vi.mocked(prisma.cliente.findFirst).mockResolvedValue(null);
     vi.mocked(prisma.leadMarketing.findFirst).mockResolvedValue(null);
 
-    await processarRespostaWhatsApp(tel, 'Olá!', rawJid(tel));
+    await runWithTenant('rancho', () => processarRespostaWhatsApp(tel, 'Olá!', rawJid(tel)));
 
     expect(evolutionService.enviarMensagem).not.toHaveBeenCalled();
   });

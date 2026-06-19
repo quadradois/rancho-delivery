@@ -7,6 +7,41 @@ import realtimeService from '../services/realtime.service';
 import clienteService from '../services/cliente.service';
 import { processarRespostaWhatsApp } from '../services/conversacao.service';
 import { processarWebhookAssinatura } from '../services/cobranca.service';
+import prisma from '../config/database';
+import { runWithTenant, runSemEscopo } from '../config/tenantContext';
+
+/**
+ * Resolve o tenant de um webhook do WhatsApp pelo nome da instância Evolution.
+ * Webhooks não passam pelo tenantMiddleware (não têm Host de tenant), então a
+ * resolução é explícita: instância (payload) → ConexaoWhatsApp.nome → tenantId.
+ *
+ * Fallback seguro: se a instância não casar mas existir UMA única conexão, a
+ * mensagem só pode ser dela. Esse fallback some sozinho quando entra a 2ª
+ * conexão (tenant #2) — aí a instância passa a ser obrigatória. Não privilegia
+ * o Rancho: resolve para quem de fato tem a conexão.
+ */
+export async function resolverTenantWhatsApp(
+  body: any,
+): Promise<{ tenantId: string | null; instancia: string | null; viaFallback: boolean }> {
+  const instancia =
+    body?.instance ?? body?.instanceName ?? body?.instance_name ?? body?.data?.instance ?? null;
+
+  // Consulta sem escopo: ainda não há tenant no contexto.
+  return runSemEscopo(async () => {
+    if (instancia) {
+      const conexao = await prisma.conexaoWhatsApp.findFirst({
+        where: { nome: String(instancia) },
+        select: { tenantId: true },
+      });
+      if (conexao?.tenantId) return { tenantId: conexao.tenantId, instancia, viaFallback: false };
+    }
+    const todas = await prisma.conexaoWhatsApp.findMany({ take: 2, select: { tenantId: true } });
+    if (todas.length === 1 && todas[0].tenantId) {
+      return { tenantId: todas[0].tenantId, instancia, viaFallback: true };
+    }
+    return { tenantId: null, instancia, viaFallback: false };
+  });
+}
 
 export class WebhookController {
   /**
@@ -68,6 +103,8 @@ export class WebhookController {
       }
 
       if (aprovado && order_nsu) {
+        // buscarPedidoPorId é findUnique por id (não escopado pelo tenantGuard),
+        // então roda sem contexto de tenant. Daí extraímos o tenant do pedido.
         const pedidoAtual = await pedidoService.buscarPedidoPorId(order_nsu);
 
         // Idempotência: não reprocesse pedidos já confirmados
@@ -83,25 +120,33 @@ export class WebhookController {
           });
         }
 
-        // order_nsu é o ID do pedido no nosso sistema
-        await pedidoService.atualizarStatus(order_nsu, 'CONFIRMADO', order_nsu);
-        realtimeService.emit('pedido:novo', { id: order_nsu, status: 'CONFIRMADO' });
-        realtimeService.emit('pedido:atualizado', { id: order_nsu, status: 'CONFIRMADO' });
-        realtimeService.emit('metricas:atualizadas', await pedidoService.obterMetricasAdmin());
-
-        logger.info('Pedido confirmado via webhook Mercado Pago', {
-          pedidoId: order_nsu,
-          evento,
-        });
-
-        // Notificação para dono é opcional e desabilitada por padrão.
-        // O cliente já é notificado no fluxo de mudança de status (CONFIRMADO e demais etapas).
-        if (process.env.WHATSAPP_NOTIFICAR_DONO_NOVO_PEDIDO === 'true') {
-          const pedidoCompleto = await pedidoService.buscarPedidoPorId(order_nsu);
-          if (pedidoCompleto) {
-            await evolutionService.notificarNovoPedido(pedidoCompleto);
-          }
+        const tenantId = (pedidoAtual as { tenantId?: string } | null)?.tenantId;
+        if (!tenantId) {
+          logger.warn('Webhook Mercado Pago: pedido sem tenant — ignorado', { pedidoId: order_nsu, evento });
+          return res.status(200).json({ success: true });
         }
+
+        await runWithTenant(tenantId, async () => {
+          // order_nsu é o ID do pedido no nosso sistema
+          await pedidoService.atualizarStatus(order_nsu, 'CONFIRMADO', order_nsu);
+          realtimeService.emit('pedido:novo', { id: order_nsu, status: 'CONFIRMADO' });
+          realtimeService.emit('pedido:atualizado', { id: order_nsu, status: 'CONFIRMADO' });
+          realtimeService.emit('metricas:atualizadas', await pedidoService.obterMetricasAdmin());
+
+          logger.info('Pedido confirmado via webhook Mercado Pago', {
+            pedidoId: order_nsu,
+            evento,
+          });
+
+          // Notificação para dono é opcional e desabilitada por padrão.
+          // O cliente já é notificado no fluxo de mudança de status (CONFIRMADO e demais etapas).
+          if (process.env.WHATSAPP_NOTIFICAR_DONO_NOVO_PEDIDO === 'true') {
+            const pedidoCompleto = await pedidoService.buscarPedidoPorId(order_nsu);
+            if (pedidoCompleto) {
+              await evolutionService.notificarNovoPedido(pedidoCompleto);
+            }
+          }
+        });
       } else {
         logger.info(`Evento Mercado Pago ignorado: ${evento} — não é aprovação`);
       }
@@ -201,20 +246,38 @@ export class WebhookController {
         return;
       }
 
+      // Resolve o tenant pela instância Evolution antes de tocar o banco.
+      const { tenantId, instancia, viaFallback } = await resolverTenantWhatsApp(body);
+      if (!tenantId) {
+        logger.warn('Webhook WhatsApp: tenant não resolvido — mensagem descartada', {
+          instancia,
+          bodyKeys: Object.keys(body || {}),
+        });
+        return;
+      }
+      if (viaFallback) {
+        logger.warn('Webhook WhatsApp: tenant via fallback de conexão única (confirmar campo de instância no payload)', {
+          instancia,
+          tenantId,
+        });
+      }
+
       const textoRegistro = texto || (localizacao ? `[Localização: ${localizacao.lat},${localizacao.lng}]` : '');
-      await clienteService.registrarMensagemRecebida(telefoneNormalizado, textoRegistro);
+      await runWithTenant(tenantId, async () => {
+        await clienteService.registrarMensagemRecebida(telefoneNormalizado, textoRegistro);
 
-      realtimeService.emit('mensagem:nova', {
-        telefone: telefoneNormalizado,
-        texto,
-        origem: 'WHATSAPP',
-      });
-      realtimeService.emit('metricas:atualizadas', await pedidoService.obterMetricasAdmin());
+        realtimeService.emit('mensagem:nova', {
+          telefone: telefoneNormalizado,
+          texto,
+          origem: 'WHATSAPP',
+        });
+        realtimeService.emit('metricas:atualizadas', await pedidoService.obterMetricasAdmin());
 
-      // IA responde em background — não bloqueia o webhook
-      // Passa jidEfetivo como rawJid para que o filtro @g.us funcione corretamente
-      setImmediate(() => {
-        void processarRespostaWhatsApp(telefoneNormalizado, texto, String(jidEfetivo || senderPhonePart), localizacao);
+        // IA responde em background — não bloqueia o webhook
+        // Passa jidEfetivo como rawJid para que o filtro @g.us funcione corretamente
+        setImmediate(() => {
+          void processarRespostaWhatsApp(telefoneNormalizado, texto, String(jidEfetivo || senderPhonePart), localizacao);
+        });
       });
     } catch (error) {
       logger.error('Erro ao processar webhook WhatsApp:', error);

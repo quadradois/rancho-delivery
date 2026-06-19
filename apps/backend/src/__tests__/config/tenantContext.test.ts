@@ -12,6 +12,10 @@ describe('tenantContext — bypass do super-admin', () => {
     expect(semEscopoAtivo()).toBe(false);
   });
 
+  it('getTenantId lança fora de qualquer contexto (sem fallback pro Rancho)', () => {
+    expect(() => getTenantId()).toThrow();
+  });
+
   it('runWithTenant NÃO ativa o bypass', () => {
     runWithTenant('outro-tenant', () => {
       expect(getTenantId()).toBe('outro-tenant');

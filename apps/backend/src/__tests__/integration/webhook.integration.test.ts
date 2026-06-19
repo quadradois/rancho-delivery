@@ -84,7 +84,7 @@ describe('Webhook Mercado Pago — integração', () => {
   describe('Fluxo de aprovação de pagamento', () => {
     it('confirma pedido e emite eventos quando pagamento é aprovado', async () => {
       const pedidoId = 'pedido-xyz-123';
-      const mockPedido = { id: pedidoId, status: 'AGUARDANDO_PAGAMENTO', cliente: { telefone: '5562999990000' } };
+      const mockPedido = { id: pedidoId, status: 'AGUARDANDO_PAGAMENTO', tenantId: 'rancho', cliente: { telefone: '5562999990000' } };
 
       vi.mocked(mercadoPagoService.validarWebhook).mockReturnValue(true);
       vi.mocked(mercadoPagoService.processarEvento).mockReturnValue({ aprovado: true, order_nsu: pedidoId, evento: 'payment.approved' });

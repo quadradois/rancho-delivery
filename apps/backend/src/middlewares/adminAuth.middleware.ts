@@ -258,14 +258,15 @@ export async function loginAdmin(req: Request, res: Response) {
       });
     }
 
-    // 2. Fallback: credenciais do .env (tenant padrão — Rancho). username comparado SEM lowercase.
+    // 2. Credenciais do .env do Rancho. username comparado SEM lowercase.
+    //    Emite token com tenantId='rancho' EXPLÍCITO (não depende mais de fallback).
     const expectedUser = process.env.ADMIN_USERNAME || 'admin';
     const expectedPassword = process.env.ADMIN_PASSWORD || (process.env.NODE_ENV === 'production' ? '' : 'admin');
     const role = (process.env.ADMIN_ROLE ?? 'admin') as AdminRole;
     if (expectedPassword && usernameBruto === expectedUser && senha === expectedPassword) {
       return res.json({
         success: true,
-        data: { token: criarAdminToken(expectedUser, role), role, expiresIn: TOKEN_TTL_MS / 1000 },
+        data: { token: criarAdminToken(expectedUser, role, TENANT_PADRAO), role, expiresIn: TOKEN_TTL_MS / 1000 },
       });
     }
 

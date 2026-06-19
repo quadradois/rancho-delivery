@@ -6,6 +6,7 @@ vi.mock('../config/database', () => ({
     tenant: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
+      findMany: vi.fn().mockResolvedValue([]),
     },
     modulo: {
       findMany: vi.fn().mockResolvedValue([]),
@@ -110,6 +111,12 @@ vi.mock('../config/database', () => ({
       create: vi.fn().mockResolvedValue({}),
       update: vi.fn().mockResolvedValue({}),
       updateMany: vi.fn().mockResolvedValue({ count: 0 }),
+    },
+    conexaoWhatsApp: {
+      // Default: nenhuma instância casa por nome, mas há uma única conexão
+      // (Rancho) — o webhook resolve via fallback de conexão única.
+      findFirst: vi.fn().mockResolvedValue(null),
+      findMany: vi.fn().mockResolvedValue([{ tenantId: 'rancho' }]),
     },
     $queryRaw: vi.fn().mockResolvedValue([]),
     $transaction: vi.fn((callback) => callback({

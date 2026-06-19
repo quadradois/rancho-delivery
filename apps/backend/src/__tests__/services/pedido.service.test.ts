@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import pedidoService from '../../services/pedido.service';
 import prisma from '../../config/database';
+import { runWithTenant } from '../../config/tenantContext';
 import clienteService from '../../services/cliente.service';
 import bairroService from '../../services/bairro.service';
 import mercadoPagoService from '../../services/mercadopago.service';
@@ -76,7 +77,7 @@ describe('PedidoService', () => {
 
     vi.mocked(prisma.pedido.update).mockResolvedValue({} as any);
 
-    const resultado = await pedidoService.criarPedido(dadosPedidoValido as any);
+    const resultado = await runWithTenant('rancho', () => pedidoService.criarPedido(dadosPedidoValido as any));
 
     expect(resultado.id).toBe('pedido-123');
     expect((resultado as any).linkPagamento).toContain('mercadopago');
@@ -93,7 +94,7 @@ describe('PedidoService', () => {
   it('rejeita pedido com bairro não atendido', async () => {
     vi.mocked(bairroService.validarBairro).mockResolvedValue({ valido: false });
 
-    await expect(pedidoService.criarPedido(dadosPedidoValido as any)).rejects.toThrow('AREA_NAO_ATENDIDA');
+    await expect(runWithTenant('rancho', () => pedidoService.criarPedido(dadosPedidoValido as any))).rejects.toThrow('AREA_NAO_ATENDIDA');
     expect(prisma.produto.findMany).not.toHaveBeenCalled();
   });
 
@@ -117,7 +118,7 @@ describe('PedidoService', () => {
       pagamento: { forma: FormaPagamentoPedido.DINHEIRO },
     };
 
-    const resultado = await pedidoService.criarPedido(dadosRetirada as any);
+    const resultado = await runWithTenant('rancho', () => pedidoService.criarPedido(dadosRetirada as any));
 
     expect(resultado.id).toBe('pedido-retirada');
     expect(bairroService.validarBairro).not.toHaveBeenCalled();
@@ -149,7 +150,7 @@ describe('PedidoService', () => {
       pagamento: { forma: FormaPagamentoPedido.DINHEIRO },
     };
 
-    const resultado = await pedidoService.criarPedido(dadosLocal as any);
+    const resultado = await runWithTenant('rancho', () => pedidoService.criarPedido(dadosLocal as any));
 
     expect(resultado.id).toBe('pedido-local');
     expect(bairroService.validarBairro).not.toHaveBeenCalled();
@@ -167,7 +168,7 @@ describe('PedidoService', () => {
       tipoAtendimento: TipoAtendimentoPedido.ENTREGA,
     };
 
-    await expect(pedidoService.criarPedido(dadosSemEndereco as any)).rejects.toThrow('ENDERECO_OBRIGATORIO_ENTREGA');
+    await expect(runWithTenant('rancho', () => pedidoService.criarPedido(dadosSemEndereco as any))).rejects.toThrow('ENDERECO_OBRIGATORIO_ENTREGA');
     expect(bairroService.validarBairro).not.toHaveBeenCalled();
   });
 
@@ -176,7 +177,7 @@ describe('PedidoService', () => {
     // findMany retorna lista vazia — nenhum produto encontrado
     vi.mocked(prisma.produto.findMany).mockResolvedValue([]);
 
-    await expect(pedidoService.criarPedido(dadosPedidoValido as any)).rejects.toThrow('Produto não encontrado: prod-1');
+    await expect(runWithTenant('rancho', () => pedidoService.criarPedido(dadosPedidoValido as any))).rejects.toThrow('Produto não encontrado: prod-1');
   });
 
   it('rejeita quando produto está indisponível', async () => {
@@ -186,7 +187,7 @@ describe('PedidoService', () => {
       { id: 'prod-2', nome: 'Refrigerante', preco: 5, disponivel: true },
     ] as any);
 
-    await expect(pedidoService.criarPedido(dadosPedidoValido as any)).rejects.toThrow('Produto indisponível: Marmita');
+    await expect(runWithTenant('rancho', () => pedidoService.criarPedido(dadosPedidoValido as any))).rejects.toThrow('Produto indisponível: Marmita');
   });
 
   it('evita N+1 ao deduplicar produtoId e consultar em lote uma única vez', async () => {
@@ -217,7 +218,7 @@ describe('PedidoService', () => {
     vi.mocked(prisma.pedido.create).mockResolvedValue(mockPedidoCriado as any);
     vi.mocked(mercadoPagoService.criarLinkPagamento).mockRejectedValue(new Error('gateway indisponível'));
 
-    await pedidoService.criarPedido(pedidoComProdutoRepetido as any);
+    await runWithTenant('rancho', () => pedidoService.criarPedido(pedidoComProdutoRepetido as any));
 
     expect(prisma.produto.findMany).toHaveBeenCalledTimes(1);
     expect(prisma.produto.findMany).toHaveBeenCalledWith(expect.objectContaining({
@@ -244,7 +245,7 @@ describe('PedidoService', () => {
     vi.mocked(prisma.pedido.create).mockResolvedValue(mockPedidoCriado as any);
     vi.mocked(mercadoPagoService.criarLinkPagamento).mockRejectedValue(new Error('gateway indisponível'));
 
-    const resultado = await pedidoService.criarPedido(dadosPedidoValido as any);
+    const resultado = await runWithTenant('rancho', () => pedidoService.criarPedido(dadosPedidoValido as any));
     expect(resultado.id).toBe('pedido-123');
     expect((resultado as any).linkPagamento).toBeUndefined();
   });
@@ -276,7 +277,7 @@ describe('PedidoService', () => {
     } as any);
     vi.mocked(prisma.pedidoTimeline.create).mockResolvedValue({} as any);
 
-    const resultado = await pedidoService.reprocessarPedidosSemLink();
+    const resultado = await runWithTenant('rancho', () => pedidoService.reprocessarPedidosSemLink());
 
     expect(resultado).toEqual({ total: 1, reprocessados: 1, falhas: 0 });
     expect(updateManyMock).toHaveBeenCalledWith({
@@ -307,7 +308,7 @@ describe('PedidoService', () => {
     vi.mocked(mercadoPagoService.reaisParaCentavos).mockImplementation((v: number) => Math.round(v * 100));
     vi.mocked(mercadoPagoService.criarLinkPagamento).mockRejectedValue(new Error('gateway off'));
 
-    const resultado = await pedidoService.reprocessarPedidosSemLink();
+    const resultado = await runWithTenant('rancho', () => pedidoService.reprocessarPedidosSemLink());
 
     expect(resultado).toEqual({ total: 1, reprocessados: 0, falhas: 1 });
     expect(updateManyMock).not.toHaveBeenCalled();
@@ -536,7 +537,7 @@ describe('PedidoService', () => {
     } as any);
     vi.mocked(mercadoPagoService.criarLinkPagamento).mockRejectedValue(new Error('gateway indisponível'));
 
-    const novo = await pedidoService.criarReorder('pedido-original');
+    const novo = await runWithTenant('rancho', () => pedidoService.criarReorder('pedido-original'));
     expect(novo.id).toBe('pedido-reorder');
   });
 
@@ -733,12 +734,12 @@ describe('criarPedidoManual com tipoAtendimento', () => {
     vi.mocked(prisma.pedido.findUnique).mockResolvedValue({ ...pedidoCriado, enderecoEntrega: null } as any);
     vi.mocked(prisma.pedidoTimeline.create).mockResolvedValue({} as any);
 
-    const resultado = await pedidoService.criarPedidoManual({
+    const resultado = await runWithTenant('rancho', () => pedidoService.criarPedidoManual({
       cliente: { nome: 'Cliente Teste', telefone: '62999990001', endereco: '', bairro: '' },
       itens: [{ produtoId: 'prod-1', quantidade: 1 }],
       pagamentoMetodo: 'PIX',
       tipoAtendimento: TipoAtendimentoPedido.RETIRADA,
-    });
+    }));
 
     expect(resultado.tipoAtendimento).toBe(TipoAtendimentoPedido.RETIRADA);
     expect(vi.mocked(bairroService.validarBairro)).not.toHaveBeenCalled();
@@ -754,12 +755,12 @@ describe('criarPedidoManual com tipoAtendimento', () => {
     vi.mocked(prisma.pedido.findUnique).mockResolvedValue({ ...pedidoLocal, enderecoEntrega: null } as any);
     vi.mocked(prisma.pedidoTimeline.create).mockResolvedValue({} as any);
 
-    const resultado = await pedidoService.criarPedidoManual({
+    const resultado = await runWithTenant('rancho', () => pedidoService.criarPedidoManual({
       cliente: { nome: 'Cliente Teste', telefone: '62999990001', endereco: '', bairro: '' },
       itens: [{ produtoId: 'prod-1', quantidade: 1 }],
       pagamentoMetodo: 'DINHEIRO',
       tipoAtendimento: TipoAtendimentoPedido.CONSUMO_LOCAL,
-    });
+    }));
 
     expect(resultado.tipoAtendimento).toBe(TipoAtendimentoPedido.CONSUMO_LOCAL);
     expect(vi.mocked(bairroService.validarBairro)).not.toHaveBeenCalled();

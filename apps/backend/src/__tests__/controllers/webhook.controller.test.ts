@@ -38,8 +38,8 @@ describe('WebhookController.mercadopago', () => {
     });
 
     vi.mocked(pedidoService.buscarPedidoPorId)
-      .mockResolvedValueOnce({ id: 'pedido-123', status: 'PENDENTE' } as any)
-      .mockResolvedValueOnce({ id: 'pedido-123', status: 'CONFIRMADO' } as any);
+      .mockResolvedValueOnce({ id: 'pedido-123', status: 'PENDENTE', tenantId: 'rancho' } as any)
+      .mockResolvedValueOnce({ id: 'pedido-123', status: 'CONFIRMADO', tenantId: 'rancho' } as any);
 
     vi.mocked(pedidoService.atualizarStatus).mockResolvedValue({} as any);
     vi.mocked(evolutionService.notificarNovoPedido).mockResolvedValue(true);

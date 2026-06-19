@@ -138,7 +138,7 @@ model Produto {
 model Bairro {
   tenantId String? @map("tenant_id")
   id              String   @id @default(cuid())
-  nome            String   @unique @db.VarChar(100)
+  nome            String   @db.VarChar(100)
   cep             String?  @db.VarChar(9)
   taxa            Decimal  @db.Decimal(10, 2)
   tempoEntrega    Int      @default(30) @map("tempo_entrega") // Minutos
@@ -149,6 +149,7 @@ model Bairro {
   nomeOutro       String?  @map("nome_outro") @db.VarChar(100)
 
   @@map("bairros")
+  @@unique([tenantId, nome])
   @@index([tenantId])
   @@index([ativo])
   @@index([cep])

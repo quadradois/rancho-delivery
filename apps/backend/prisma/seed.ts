@@ -1,9 +1,12 @@
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+// Usa o client ESTENDIDO (tenantGuard) dentro de runWithTenant('rancho'): os
+// dados nascem com tenantId='rancho' e o deleteMany fica escopado ao Rancho.
+import prisma from '../src/config/database';
+import { runWithTenant, TENANT_PADRAO } from '../src/config/tenantContext';
 
 async function main() {
   console.log('🌱 Iniciando seed do banco de dados...');
+
+  await runWithTenant(TENANT_PADRAO, async () => {
 
   // Limpar dados existentes (opcional)
   await prisma.itemPedido.deleteMany();
@@ -187,6 +190,7 @@ async function main() {
   console.log(`✅ ${produtos.length} produtos criados`);
 
   console.log('🎉 Seed concluído com sucesso!');
+  });
 }
 
 main()

@@ -1,12 +1,13 @@
 import { NextFunction, Request, Response } from 'express';
 import prisma from '../config/database';
-import { runWithTenant, TENANT_PADRAO } from '../config/tenantContext';
+import { runWithTenant } from '../config/tenantContext';
 
 // Cache host -> tenantId (TTL curto; evita uma query por request).
-const cache = new Map<string, { tenantId: string; exp: number }>();
+// tenantId null = host conhecidamente sem tenant (também cacheado).
+const cache = new Map<string, { tenantId: string | null; exp: number }>();
 const TTL_MS = 5 * 60 * 1000;
 
-async function resolverTenant(host: string): Promise<string> {
+async function resolverTenant(host: string): Promise<string | null> {
   const agora = Date.now();
   const hit = cache.get(host);
   if (hit && hit.exp > agora) return hit.tenantId;
@@ -21,22 +22,27 @@ async function resolverTenant(host: string): Promise<string> {
     select: { id: true },
   });
 
-  const tenantId = tenant?.id ?? TENANT_PADRAO;
+  const tenantId = tenant?.id ?? null;
   cache.set(host, { tenantId, exp: agora + TTL_MS });
   return tenantId;
 }
 
 /**
- * Resolve o tenant pelo Host e o fixa no contexto (AsyncLocalStorage) para
- * o restante do request. Em erro de resolução, segue no tenant padrão —
- * nunca derruba o request.
+ * Resolve o tenant pelo Host e o fixa no contexto (AsyncLocalStorage) para o
+ * restante do request. **Sem fallback pro Rancho**: se o host não resolve,
+ * segue SEM contexto de tenant — rotas de tenant falham em `getTenantId()`,
+ * enquanto super-admin (`runSemEscopo`) e login (query raw) seguem normalmente.
  */
 export async function tenantMiddleware(req: Request, _res: Response, next: NextFunction) {
   try {
     const host = (req.hostname || '').toLowerCase();
     const tenantId = await resolverTenant(host);
-    runWithTenant(tenantId, () => next());
+    if (tenantId) {
+      runWithTenant(tenantId, () => next());
+    } else {
+      next();
+    }
   } catch {
-    runWithTenant(TENANT_PADRAO, () => next());
+    next();
   }
 }

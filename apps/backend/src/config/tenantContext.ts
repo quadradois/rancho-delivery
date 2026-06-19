@@ -9,9 +9,9 @@ interface TenantStore {
 const storage = new AsyncLocalStorage<TenantStore>();
 
 /**
- * Tenant padrão — fallback quando a resolução por host não casa
- * (jobs, scripts, CLI, ou host desconhecido). Hoje a plataforma nasceu
- * single-tenant; este é o tenant do Rancho.
+ * Tenant placeholder usado APENAS pelo modo super-admin (`runSemEscopo`), onde
+ * o tenantGuard é ignorado e o valor não escopa nada. Não é mais um fallback
+ * implícito: fora de um contexto explícito, `getTenantId()` lança.
  */
 export const TENANT_PADRAO = 'rancho';
 
@@ -20,9 +20,19 @@ export function runWithTenant<T>(tenantId: string, fn: () => T): T {
   return storage.run({ tenantId }, fn);
 }
 
-/** tenantId do contexto atual; cai no padrão se não houver (jobs/scripts). */
+/**
+ * tenantId do contexto atual. **Sem fallback pro Rancho**: se não há tenant
+ * fixado (request com host não resolvido, job/script fora de `runWithTenant`,
+ * webhook sem tenant resolvido), lança — para nenhuma operação assumir o Rancho
+ * silenciosamente. Jobs usam `paraCadaTenantAtivo`; webhooks resolvem pelo
+ * payload; super-admin usa `runSemEscopo`.
+ */
 export function getTenantId(): string {
-  return storage.getStore()?.tenantId ?? TENANT_PADRAO;
+  const tenantId = storage.getStore()?.tenantId;
+  if (!tenantId) {
+    throw new Error('Tenant não resolvido no contexto (sem fallback pro tenant padrão).');
+  }
+  return tenantId;
 }
 
 /**
