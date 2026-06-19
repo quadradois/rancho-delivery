@@ -10,9 +10,11 @@ import { logger } from '../config/logger';
  * A falha de um tenant é logada e não interrompe os demais.
  */
 export async function paraCadaTenantAtivo(fn: () => Promise<void>): Promise<void> {
-  const tenants = await runSemEscopo(() =>
-    prisma.tenant.findMany({ where: { ativo: true }, select: { id: true } }),
-  );
+  // Callback async com await DENTRO do runSemEscopo: a query Prisma é lazy e
+  // executaria o guard fora do contexto se só retornássemos a promise.
+  const tenants = await runSemEscopo(async () => {
+    return await prisma.tenant.findMany({ where: { ativo: true }, select: { id: true } });
+  });
   for (const t of tenants) {
     try {
       await runWithTenant(t.id, fn);

@@ -103,9 +103,10 @@ export class WebhookController {
       }
 
       if (aprovado && order_nsu) {
-        // buscarPedidoPorId é findUnique por id (não escopado pelo tenantGuard),
-        // então roda sem contexto de tenant. Daí extraímos o tenant do pedido.
-        const pedidoAtual = await pedidoService.buscarPedidoPorId(order_nsu);
+        // Resolve o pedido SEM escopo (não há tenant no contexto ainda; o
+        // tenantGuard chamaria getTenantId(), que agora lança). Daí extraímos o
+        // tenant do próprio pedido e seguimos no contexto dele.
+        const pedidoAtual = await runSemEscopo(async () => await pedidoService.buscarPedidoPorId(order_nsu));
 
         // Idempotência: não reprocesse pedidos já confirmados
         if (pedidoAtual?.status === 'CONFIRMADO') {

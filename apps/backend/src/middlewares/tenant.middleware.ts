@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from 'express';
 import prisma from '../config/database';
-import { runWithTenant } from '../config/tenantContext';
+import { runWithTenant, runSemEscopo } from '../config/tenantContext';
 
 // Cache host -> tenantId (TTL curto; evita uma query por request).
 // tenantId null = host conhecidamente sem tenant (também cacheado).
@@ -13,13 +13,20 @@ async function resolverTenant(host: string): Promise<string | null> {
   if (hit && hit.exp > agora) return hit.tenantId;
 
   // Resolve por domínio próprio (ex: frandelicia.com) ou subdomínio (slug.foodflow.ia.br).
+  // runSemEscopo: esta é a própria query que RESOLVE o tenant — ainda não há
+  // contexto, e o tenantGuard chamaria getTenantId() (que agora lança). O bypass
+  // deixa a consulta passar (Tenant não é tenant-scoped de qualquer forma).
   const sub = host.endsWith('.foodflow.ia.br') ? host.split('.')[0] : null;
-  const tenant = await prisma.tenant.findFirst({
-    where: {
-      ativo: true,
-      OR: [{ dominio: host }, ...(sub ? [{ slug: sub }] : [])],
-    },
-    select: { id: true },
+  // Callback async com await DENTRO do runSemEscopo: a query Prisma é lazy e
+  // executaria o guard fora do contexto se só retornássemos a promise.
+  const tenant = await runSemEscopo(async () => {
+    return await prisma.tenant.findFirst({
+      where: {
+        ativo: true,
+        OR: [{ dominio: host }, ...(sub ? [{ slug: sub }] : [])],
+      },
+      select: { id: true },
+    });
   });
 
   const tenantId = tenant?.id ?? null;
